@@ -85,8 +85,11 @@ export const NewsFeed: React.FC = () => {
               </div>
             )}
             {news.map((item, index) => (
-              <motion.div
+              <motion.a
                 key={item.id || index}
+                href={item.url || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
@@ -96,7 +99,7 @@ export const NewsFeed: React.FC = () => {
                 <div className="chat-meta">
                   {item.source || 'IT News'} · {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                 </div>
-              </motion.div>
+              </motion.a>
             ))}
           </AnimatePresence>
         </div>
