@@ -1,0 +1,8 @@
+node_modules
+venv
+.git
+frontend_legacy
+Plan
+__pycache__
+*.pyc
+.env

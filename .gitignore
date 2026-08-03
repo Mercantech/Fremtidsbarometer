@@ -1,0 +1,56 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+*.egg
+
+# ── Environment ──
+.env
+.env.local
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Node / Frontend ──
+node_modules/
+frontend/dist/
+frontend/build/
+
+# ── Go ──
+collector/collector
+collector/*.exe
+
+# ── Logs ──
+logs/*.log
+
+# ── Database ──
+*.db
+*.sqlite3
+jobs_db.json
+jobs_db_fallback.json
+
+# ── Screenshots (scraper debug) ──
+screenshots/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Docker ──
+pgdata/
+
+# ── Дополнительные секреты ──
+.env.production
+.env.staging
+
+# ── Gemini / AI agent configs ──
+.agents/
+.gemini/
+
+**/.env
