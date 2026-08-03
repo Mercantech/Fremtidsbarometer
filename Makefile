@@ -1,12 +1,8 @@
 .PHONY: dev stop db-up db-down frontend api agents
 
 # ── Запуск всего проекта ──
-db-up:
-	@docker-compose up -d
-	@echo "✅ PostgreSQL :5432"
-
-dev: db-up
-	@echo "🚀 Запуск Fremtidsbarometer..."
+dev:
+	@echo "🚀 Запуск Fremtidsbarometer (локальный режим)..."
 	@cd agents && python scheduler.py &
 	@uvicorn api.main:app --reload --port 8000 &
 	@cd frontend && npm run dev
@@ -16,7 +12,6 @@ stop:
 	@pkill -f "scheduler.py"  || true
 	@pkill -f "uvicorn"       || true
 	@pkill -f "vite"          || true
-	@docker-compose stop
 	@echo "✅ Все сервисы остановлены"
 
 # ── Отдельные компоненты ──
