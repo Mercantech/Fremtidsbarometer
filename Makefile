@@ -1,20 +1,20 @@
 .PHONY: dev stop db-up db-down frontend api agents
 
-# ── Запуск всего проекта ──
+# ── Run the entire project ──
 dev:
-	@echo "🚀 Запуск Fremtidsbarometer (локальный режим)..."
+	@echo "🚀 Starting Fremtidsbarometer (local mode)..."
 	@cd agents && python scheduler.py &
 	@uvicorn api.main:app --reload --port 8000 &
 	@cd frontend && npm run dev
 
-# ── Остановка ──
+# ── Stop ──
 stop:
 	@pkill -f "scheduler.py"  || true
 	@pkill -f "uvicorn"       || true
 	@pkill -f "vite"          || true
-	@echo "✅ Все сервисы остановлены"
+	@echo "✅ All services stopped"
 
-# ── Отдельные компоненты ──
+# ── Individual components ──
 db-down:
 	@docker-compose down
 
@@ -27,11 +27,11 @@ api:
 agents:
 	@cd agents && python scheduler.py
 
-# ── Инициализация БД ──
+# ── Database Initialization ──
 db-init:
 	@python database/init_db.py
-	@echo "✅ Таблицы созданы"
+	@echo "✅ Tables created"
 
 db-seed:
 	@python database/seed.py
-	@echo "✅ Seed-данные загружены"
+	@echo "✅ Seed data loaded"
