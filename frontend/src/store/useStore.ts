@@ -169,9 +169,9 @@ export const useStore = create<AppState>((set) => ({
     
     // Mix and match data
     let dataPool: any[] = [
-      ...jobsData.map(j => ({ type: 'job', topic: j.title, details: `${j.company} - ${j.location}\nSalary: ${j.salary_range || 'Negotiable'}` })),
+      ...jobsData.map(j => ({ type: 'job', topic: j.title, details: `${j.company} - ${j.city || 'Remote'}` })),
       ...hypeData.map(h => ({ type: 'hype', topic: h.topic, details: `${h.summary}\nTrend Score: ${h.score}%` })),
-      ...salaryData.map(s => ({ type: 'salary', topic: s.role, details: `${s.experience_level}\nMedian: ${s.median_salary} ${s.currency}` }))
+      ...salaryData.map(s => ({ type: 'salary', topic: s.role || s.technology, details: `${s.source}\nMedian: ${s.median} ${s.currency}` }))
     ];
     
     // Fallback if backend is empty

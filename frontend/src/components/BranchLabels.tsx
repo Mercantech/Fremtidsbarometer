@@ -92,7 +92,7 @@ export const BranchLabels: React.FC = () => {
     if (viewMode !== 'globe') return;
 
     const animate = () => {
-      const { W, H, CX, CY, GLOBE_R } = getScreenDimensions();
+      const { W, CX, CY, GLOBE_R } = getScreenDimensions();
 
       liveTopics.forEach((t, i) => {
         const label = labelEls.current[i];

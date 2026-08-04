@@ -1,5 +1,5 @@
 import asyncio
-from patchright.async_api import async_playwright, Browser, BrowserContext, Page
+from patchright.async_api import async_playwright, Browser, BrowserContext
 from playwright_stealth import Stealth
 import logging
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useStore, ERAS } from '../store/useStore';
 
 export const TimelineSlider: React.FC = () => {
@@ -12,7 +12,7 @@ export const TimelineSlider: React.FC = () => {
   const minYear = 1995;
   const maxYear = 2034;
   const step = 5;
-  const years = [];
+  const years: number[] = [];
   for (let y = minYear; y <= maxYear; y += step) {
     years.push(y);
   }

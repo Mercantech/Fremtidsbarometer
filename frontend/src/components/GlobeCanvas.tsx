@@ -103,7 +103,6 @@ const GlobeMesh: React.FC = () => {
     const W = size.width;
     const H = size.height;
     const GLOBE_R = Math.min(W, H) * 0.28;
-    const SCREEN_R = Math.min(W, H) * 0.16;
     const cam = camera as THREE.PerspectiveCamera;
     
     // Formula from original time.html to make the 3D globe exactly GLOBE_R pixels on screen
@@ -142,7 +141,7 @@ const GlobeMesh: React.FC = () => {
         <sphereGeometry args={[2.5, 32, 32]} />
         <meshPhongMaterial color="#88ccff" transparent opacity={0.07} />
       </mesh>
-      {liveTopics.map((t, idx) => (
+      {liveTopics.map((t) => (
         <HeatmapNode key={t.id} lat={t.lat} lng={t.lng} color={t.color} radius={2.52} />
       ))}
     </group>

@@ -6,7 +6,7 @@ Compatible with Neon (serverless PostgreSQL) and local Docker PostgreSQL.
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Float, Integer, DateTime, Text, Boolean,
+    Column, String, Float, Integer, DateTime, Text,
     UniqueConstraint, Index, create_engine
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -134,20 +134,6 @@ class HypeAnalysis(Base):
     def __repr__(self):
         return f"<HypeAnalysis {self.topic}: {self.score}>"
 
-
-# ── 6. Scrape Error Log ──────────────────────────────────
-class ScrapeError(Base):
-    __tablename__ = "scrape_errors"
-
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    source     = Column(String(50), nullable=False)
-    error_type = Column(String(100))   # "timeout", "blocked", "parse_error"
-    message    = Column(Text)
-    url        = Column(String(1000))
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
-    def __repr__(self):
-        return f"<ScrapeError {self.source}: {self.error_type}>"
 
 
 # ── 7. ATS Companies (Auto-Discovery) ────────────────────────
