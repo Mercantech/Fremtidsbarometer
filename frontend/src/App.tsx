@@ -1,55 +1,34 @@
-import { useEffect, useRef } from 'react';
-import { Header } from './components/Header';
-import { NewsFeed } from './components/NewsFeed';
-import { RightPanel } from './components/RightPanel';
-import { TimelineSlider } from './components/TimelineSlider';
-import { GlobeCanvas } from './components/GlobeCanvas';
-import { FlatMapView } from './components/FlatMapView';
-import { BranchLabels } from './components/BranchLabels';
-import { SpatialToggle } from './components/SpatialToggle';
-import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { TopicDetailsModal } from './components/TopicDetailsModal';
-import { useStore } from './store/useStore';
+
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import Admin from "./pages/Admin";
+import Auth from "./pages/Auth";
 
 export function App() {
-  const loadInitialData = useStore((s) => s.loadInitialData);
-  const initialized = useRef(false);
-
-  useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      loadInitialData();
-    }
-  }, [loadInitialData]);
-
   return (
-    <div className="root">
-      {/* Header with Globe/Map toggle */}
-      <Header />
+        <BrowserRouter>
 
-      {/* 3D Globe / 2D Map in center */}
-      <div id="canvas-wrap">
-        <GlobeCanvas />
-        <FlatMapView />
-      </div>
+            <Routes>
 
-      {/* Branch labels (dashed lines + flags from globe) */}
-      <BranchLabels />
+                <Route 
+                    path="/" 
+                    element={<Home />}
+                />
 
-      {/* Timeline */}
-      <TimelineSlider />
+                <Route
+                    path="/admin"
+                    element={<Admin />}
+                />
 
-      {/* Left Panel: News Feed */}
-      <NewsFeed />
+                <Route 
+                    path="/login" 
+                    element={<Auth />}
+                />
 
-      {/* Right Panel: Stats, Hype, Compare */}
-      <RightPanel />
+            </Routes>
 
-      <SpatialToggle />
-      <LanguageSwitcher />
-      <TopicDetailsModal />
-    </div>
-  );
+        </BrowserRouter>
+    );
 }
 
 export default App;
