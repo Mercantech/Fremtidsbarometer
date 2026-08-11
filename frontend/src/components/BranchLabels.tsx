@@ -56,7 +56,6 @@ export const BranchLabels: React.FC = () => {
       const div = document.createElement('div');
       div.className = 'branch-label';
       div.style.opacity = '0';
-      // Make it clickable
       div.style.pointerEvents = 'auto';
       div.style.cursor = 'pointer';
       
@@ -93,13 +92,59 @@ export const BranchLabels: React.FC = () => {
 
     const animate = () => {
       const { W, CX, CY, GLOBE_R } = getScreenDimensions();
+      const positions: { x: number, y: number, visible: boolean, dx: number, dy: number, dist: number, originalIdx: number }[] = [];
 
       liveTopics.forEach((t, i) => {
+        const pos = latLngToScreen(t.lat, t.lng, globeState.rotationY);
+        const dx = pos.x - CX;
+        const dy = pos.y - CY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        positions.push({ x: pos.x, y: pos.y, visible: pos.visible, dx, dy, dist, originalIdx: i });
+      });
+
+      // Calculate target label positions with collision avoidance (radial stacking)
+      const labelTargets = positions.map(p => {
+        if (!p.visible) return { x: 0, y: 0 };
+        return {
+          x: CX + (p.dx / p.dist) * (GLOBE_R * 1.05),
+          y: CY + (p.dy / p.dist) * (GLOBE_R * 1.05)
+        };
+      });
+
+      // Simple collision resolution
+      const PADDING = 40;
+      for (let iter = 0; iter < 3; iter++) {
+        for (let i = 0; i < labelTargets.length; i++) {
+          if (!positions[i].visible) continue;
+          for (let j = i + 1; j < labelTargets.length; j++) {
+            if (!positions[j].visible) continue;
+            
+            const dx = labelTargets[i].x - labelTargets[j].x;
+            const dy = labelTargets[i].y - labelTargets[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist < PADDING) {
+              // Push labels apart radially from center
+              const pushFactor = (PADDING - dist) / 2;
+              const angleI = Math.atan2(labelTargets[i].y - CY, labelTargets[i].x - CX);
+              const angleJ = Math.atan2(labelTargets[j].y - CY, labelTargets[j].x - CX);
+              
+              // Push outward along their radial angle
+              labelTargets[i].x += Math.cos(angleI) * pushFactor;
+              labelTargets[i].y += Math.sin(angleI) * pushFactor;
+              labelTargets[j].x += Math.cos(angleJ) * pushFactor;
+              labelTargets[j].y += Math.sin(angleJ) * pushFactor;
+            }
+          }
+        }
+      }
+
+      liveTopics.forEach((_, i) => {
         const label = labelEls.current[i];
         const line = lineEls.current[i];
         if (!label || !line) return;
 
-        const pos = latLngToScreen(t.lat, t.lng, globeState.rotationY);
+        const pos = positions[i];
 
         if (!pos.visible) {
           label.style.opacity = '0';
@@ -108,29 +153,14 @@ export const BranchLabels: React.FC = () => {
           return;
         }
 
-        const dx = pos.x - CX;
-        const dy = pos.y - CY;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        
-        // Controlled, uniform spread to avoid chaos. 
-        // We use 1.05x radius to keep them closer to the atmosphere
-        const spread = GLOBE_R * 1.05 + (i % 3) * (GLOBE_R * 0.04);
-        const lx = CX + (dx / dist) * spread;
-        const ly = CY + (dy / dist) * spread;
+        const lx = labelTargets[i].x;
+        const ly = labelTargets[i].y;
 
         label.style.left = lx + 'px';
         label.style.top = ly + 'px';
         
-        // Edge fade logic (fade out if too close to Left Panel, Right Panel, or Timeline)
-        // Left Panel edge ~ 420px, Right Panel edge ~ W - 420px, Top Timeline edge ~ 150px
-        const distFromLeft = lx;
-        const distFromRight = W - lx;
-        const distFromTop = ly;
-        const edgeFade = Math.min(1, Math.max(0, (distFromLeft - 380) / 100)) *
-                         Math.min(1, Math.max(0, (distFromRight - 380) / 100)) *
-                         Math.min(1, Math.max(0, (distFromTop - 150) / 80));
-
-        const fade = Math.min(1, (pos.visible ? 1 : 0) * 1.5) * edgeFade;
+        // Remove edge fade, labels should always be visible if they are on the front hemisphere
+        const fade = Math.min(1, (pos.visible ? 1 : 0) * 1.5);
         label.style.opacity = String(fade);
         label.style.pointerEvents = fade > 0.5 ? 'auto' : 'none';
 

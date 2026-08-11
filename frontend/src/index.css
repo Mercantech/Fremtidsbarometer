@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;700;800;900&display=swap');
+@import 'leaflet/dist/leaflet.css';
 @import "tailwindcss";
 
 body {
@@ -126,6 +127,7 @@ svg.branches {
 
 .time-slider {
     -webkit-appearance: none;
+    appearance: none;
     width: 100%;
     background: transparent;
     outline: none;
@@ -142,6 +144,7 @@ svg.branches {
 
 .time-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
+    appearance: none;
     height: 20px;
     width: 20px;
     background: #ffd000;
@@ -201,7 +204,7 @@ svg.branches {
 
 /* LEFT PANEL (IT FEED) */
 #news-chat {
-    position: absolute; bottom: 100px; width: clamp(280px, 26vw, 450px);
+    position: absolute; bottom: 100px; left: 40px; width: clamp(280px, 26vw, 450px);
     background: linear-gradient(160deg, rgba(28, 26, 34, 0.78) 0%, rgba(18, 16, 24, 0.88) 100%);
     backdrop-filter: blur(40px) saturate(220%); -webkit-backdrop-filter: blur(40px) saturate(220%);
     border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.11);
@@ -270,3 +273,24 @@ svg.branches {
 .vs-container { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 800; }
 .vs-select { appearance: none; background: transparent; border: none; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 800; color: #111; cursor: pointer; outline: none; text-transform: uppercase; border-bottom: 1px dashed rgba(0,0,0,0.3); padding-bottom: 2px; }
 .vs-divider { font-family: 'Bebas Neue', sans-serif; color: #ffd000; font-size: 18px; background: #111; padding: 2px 10px; border-radius: 8px; margin: 0 4px; }
+
+/* LEAFLET DARK THEME */
+.leaflet-dark .leaflet-tile {
+    filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+.leaflet-dark {
+    background: #111;
+}
+.leaflet-popup-content-wrapper {
+    background: #f8f6f1;
+    color: #111;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    border: 2px solid #111;
+}
+.leaflet-popup-tip {
+    background: #f8f6f1;
+    border: 2px solid #111;
+    border-top: none;
+    border-left: none;
+}

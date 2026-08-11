@@ -14,9 +14,58 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv()
 
-from database.models import TechTrend
+from database.models import TechTrend, Era
 from database.session import get_session
 from sqlalchemy.dialects.postgresql import insert
+
+
+# Eras seed data
+ERAS_SEED = [
+    {
+        "year": 1995,
+        "title": "Web 1.0 Dawn",
+        "subtitle": "Commercial web boom & basic CGI scripts",
+        "stats": {
+            "roles": [["Webmaster", "HIGH"], ["Sysadmin", "$50k/YR"], ["C++ Dev", "CORE"]],
+            "stack": [["HTML/CGI", "NEW"], ["Perl", "BACKEND"], ["C/C++", "SYSTEM"]],
+            "hypeTopic": "Dot-Com Boom",
+            "hypeDesc": "Creation of the first commercial websites. The internet becomes accessible to the masses. Everyone wants their own website."
+        }
+    },
+    {
+        "year": 2008,
+        "title": "Mobile & Cloud Era",
+        "subtitle": "App Store launch & AWS Cloud standardization",
+        "stats": {
+            "roles": [["iOS/Android Dev", "HOT"], ["Fullstack", "$90k/YR"], ["Scrum Master", "TREND"]],
+            "stack": [["Objective-C", "MOBILE"], ["Java", "ENTERPRISE"], ["Ruby on Rails", "STARTUPS"]],
+            "hypeTopic": "App Economy",
+            "hypeDesc": "Mobile applications change the market. The launch of AWS makes cloud infrastructure the standard."
+        }
+    },
+    {
+        "year": 2018,
+        "title": "Cloud Native & Crypto",
+        "subtitle": "Kubernetes orchestration & Microservices",
+        "stats": {
+            "roles": [["DevOps/SRE", "CRITICAL"], ["Data Scientist", "SEXY"], ["Web3 Dev", "NICHE"]],
+            "stack": [["Go/Docker", "INFRA"], ["Python", "DATA"], ["React/Vue", "FRONTEND"]],
+            "hypeTopic": "Blockchain & Microservices",
+            "hypeDesc": "Decentralization, smart contracts, and the enterprise transition to microservice architecture."
+        }
+    },
+    {
+        "year": 2026,
+        "title": "AI Agents Era",
+        "subtitle": "Autonomous LLMs, System Logic & Agentic Workflows",
+        "stats": {
+            "roles": [["Backend (Go/C#)", "HIGH DEMAND"], ["AI Integrator", "$130k/YR"], ["DevOps Arch.", "CORE"]],
+            "stack": [["Python", "AI CORE"], ["Go", "MICROSERVICES"], ["TypeScript", "WEB STD"]],
+            "hypeTopic": "AI Agents: System Logic",
+            "hypeDesc": "Autonomous architecture design. The transition from simple code string generation to systemic refactoring."
+        }
+    }
+]
 
 
 # Base historical data for simulation (if no real CSV exists)
@@ -105,5 +154,25 @@ def seed_historical_data():
         session.close()
 
 
+def seed_eras():
+    """Seeds the eras table with historical IT era definitions."""
+    session = get_session()
+    print("🕐 Seeding historical IT eras...")
+
+    try:
+        for era_data in ERAS_SEED:
+            stmt = insert(Era).values(**era_data)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["year"])
+            session.execute(stmt)
+        session.commit()
+        print(f"✅ Seeded {len(ERAS_SEED)} eras (duplicates ignored).")
+    except Exception as e:
+        session.rollback()
+        print(f"❌ Error seeding eras: {e}")
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     seed_historical_data()
+    seed_eras()

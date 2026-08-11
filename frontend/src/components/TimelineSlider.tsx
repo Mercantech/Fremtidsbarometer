@@ -1,12 +1,13 @@
 import React from 'react';
-import { useStore, ERAS } from '../store/useStore';
+import { useStore } from '../store/useStore';
 
 export const TimelineSlider: React.FC = () => {
   const currentYear = useStore((s) => s.currentYear);
   const currentEraIndex = useStore((s) => s.currentEraIndex);
   const setCurrentYear = useStore((s) => s.setCurrentYear);
+  const eras = useStore((s) => s.eras);
 
-  const era = ERAS[currentEraIndex];
+  const era = eras[currentEraIndex];
 
   // Logic to generate ticks similar to original
   const minYear = 1995;
@@ -19,7 +20,7 @@ export const TimelineSlider: React.FC = () => {
   if (!years.includes(currentYear)) {
     years.push(currentYear);
   }
-  ERAS.forEach(e => {
+  eras.forEach((e) => {
     if (!years.includes(e.year)) years.push(e.year);
   });
   years.sort((a, b) => a - b);
@@ -27,7 +28,7 @@ export const TimelineSlider: React.FC = () => {
   return (
     <>
       <div className="era-label" id="era-label" style={{ opacity: 1, transform: 'translateY(0)', top: '18px', right: '40px' }}>
-        {currentYear} — {era.title}
+        {currentYear} — {era?.title || 'Loading...'}
       </div>
 
       <div className="timeline-wrapper">
@@ -43,7 +44,7 @@ export const TimelineSlider: React.FC = () => {
           onChange={(e) => setCurrentYear(parseInt(e.target.value, 10))}
         />
         <div className="timeline-labels" id="timeline-labels">
-          {years.map(y => (
+          {years.map((y) => (
             <span 
               key={y} 
               className={`tick ${y === currentYear ? 'active' : ''}`} 

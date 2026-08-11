@@ -74,6 +74,16 @@ class HypeAnalysisSchema(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+# --- Eras ---
+class EraSchema(BaseModel):
+    id: int
+    year: int
+    title: str
+    subtitle: Optional[str]
+    stats: Optional[Dict[str, Any]]
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- System Logs ---
 class SystemLogSchema(BaseModel):
     id: int

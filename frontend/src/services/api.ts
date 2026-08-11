@@ -132,3 +132,37 @@ export const fetchSalary = async (country = 'DK'): Promise<SalaryData[]> => {
     return [];
   }
 };
+
+export interface EraInfo {
+  id: number;
+  year: number;
+  title: string;
+  subtitle?: string;
+  stats?: {
+    roles?: [string, string][];
+    stack?: [string, string][];
+    hypeTopic?: string;
+    hypeDesc?: string;
+    [key: string]: unknown; // Flexible for AI-generated fields
+  };
+}
+
+export const fetchEras = async (): Promise<EraInfo[]> => {
+  try {
+    const res = await api.get<EraInfo[]>('/api/eras');
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch eras', error);
+    return [];
+  }
+};
+
+export const fetchCountries = async (): Promise<string[]> => {
+  try {
+    const res = await api.get<string[]>('/api/countries');
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch countries', error);
+    return [];
+  }
+};

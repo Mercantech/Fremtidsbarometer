@@ -136,6 +136,24 @@ class HypeAnalysis(Base):
 
 
 
+# ── 6. Eras (Historical IT Periods) ──────────────────────────
+class Era(Base):
+    __tablename__ = "eras"
+    __table_args__ = (
+        UniqueConstraint("year", name="uq_era_year"),
+    )
+
+    id       = Column(Integer, primary_key=True, autoincrement=True)
+    year     = Column(Integer, nullable=False)
+    title    = Column(String(200), nullable=False)
+    subtitle = Column(String(500))
+    stats    = Column(JSONB)  # Flexible: roles, stack, hypeTopic, hypeDesc, etc.
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<Era {self.year}: {self.title}>"
+
+
 # ── 7. ATS Companies (Auto-Discovery) ────────────────────────
 class ATSCompany(Base):
     __tablename__ = "ats_companies"

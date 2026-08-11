@@ -25,7 +25,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-from api.routes import trends, news, history, countries, hype, jobs, salary, admin
+from api.routes import trends, news, history, countries, hype, jobs, salary, admin, eras
 
 # Configure CORS
 allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
@@ -71,6 +71,7 @@ app.include_router(hype.router)
 app.include_router(jobs.router)
 app.include_router(salary.router)
 app.include_router(admin.router)
+app.include_router(eras.router)
 
 @app.get("/")
 def read_root():

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useStore, ERAS } from '../store/useStore';
+import { useStore } from '../store/useStore';
 
 export const RightPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'rp-prof' | 'rp-lang'>('rp-prof');
   const currentEraIndex = useStore((s) => s.currentEraIndex);
+  const eras = useStore((s) => s.eras);
   const hypeList = useStore((s) => s.hype);
-  const era = ERAS[currentEraIndex];
+  const countries = useStore((s) => s.countries);
+  
+  const era = eras[currentEraIndex];
 
   const stripSvgRef = useRef<SVGSVGElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -23,16 +26,13 @@ export const RightPanel: React.FC = () => {
       
       if (!rightSvg || !rightPanel) return;
 
-      // Position shelf harmoniously: center the panel vertically.
-      // Panel is approx 420px tall, so start it roughly 210px above center, but no higher than 100px.
       const rightShelfY = Math.max(100, CY - 210); 
-      // Dot 3mm from planet (25px offset)
-      const pAngleR = -0.15; // less steep angle so it points naturally
+      const pAngleR = -0.15; 
       const rDotX = CX + Math.cos(pAngleR) * (GLOBE_R + 25); 
       const rDotY = CY + Math.sin(pAngleR) * (GLOBE_R + 25);
       
       const rightInset = 40;
-      const panelWidth = 289; // 340px scaled by 0.85
+      const panelWidth = 289; 
       const shelfStartX = W - rightInset - panelWidth;
       const shelfEndX = W - rightInset;
 
@@ -47,16 +47,21 @@ export const RightPanel: React.FC = () => {
         <circle cx="${rDotX}" cy="${rDotY}" r="3.5" fill="#00d4ff" />
       `;
       
-      // Panel sits strictly under the horizontal segment of the blue line
-      // The drip SVG extends 20px above the text, so adding 20px places the SVG exactly at the shelf line.
       rightPanel.style.right = rightInset + 'px'; 
       rightPanel.style.top = (rightShelfY + 20) + 'px';
     };
 
     window.addEventListener('resize', positionPanels);
-    setTimeout(positionPanels, 100);
-    return () => window.removeEventListener('resize', positionPanels);
-  }, []);
+    const tId = setTimeout(positionPanels, 100);
+    return () => {
+      window.removeEventListener('resize', positionPanels);
+      clearTimeout(tId);
+    };
+  }, [era]);
+
+  if (!era) return null;
+
+  const compareCountries = countries.filter(c => c !== 'GLOBAL');
 
   return (
     <>
@@ -85,14 +90,14 @@ export const RightPanel: React.FC = () => {
           </div>
           
           <div id="rp-prof" className={`rp-tab-content ${activeTab === 'rp-prof' ? 'active' : ''}`}>
-            {era.stats.roles.map((r, i) => (
+            {era.stats?.roles?.map((r: string[], i: number) => (
               <div key={i} className="rp-row">
                 <span>{r[0]}</span> <span>{r[1]}</span>
               </div>
             ))}
           </div>
           <div id="rp-lang" className={`rp-tab-content ${activeTab === 'rp-lang' ? 'active' : ''}`}>
-            {era.stats.stack.map((s, i) => (
+            {era.stats?.stack?.map((s: string[], i: number) => (
               <div key={i} className="rp-row">
                 <span>{s[0]}</span> <span>{s[1]}</span>
               </div>
@@ -107,8 +112,8 @@ export const RightPanel: React.FC = () => {
             <span className="rp-title">Hype Radar</span>
           </div>
           <div className="hype-content">
-            <div className="hype-topic" id="hype-topic">{era.stats.hypeTopic}</div>
-            <div className="hype-desc" id="hype-desc">{era.stats.hypeDesc}</div>
+            <div className="hype-topic" id="hype-topic">{era.stats?.hypeTopic}</div>
+            <div className="hype-desc" id="hype-desc">{era.stats?.hypeDesc}</div>
           </div>
           {hypeList.length > 0 && (
             <div className="hype-content mt-4" style={{borderLeftColor: '#ff2a85'}}>
@@ -132,9 +137,14 @@ export const RightPanel: React.FC = () => {
             <span className="rp-title">Compare</span>
           </div>
           <div className="vs-container">
-            <select className="vs-select"><option>Global</option><option>USA</option></select>
+            <select className="vs-select">
+              <option value="GLOBAL">Global</option>
+              {compareCountries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
             <span className="vs-divider">VS</span>
-            <select className="vs-select" defaultValue="Denmark"><option>Denmark</option><option>Sweden</option></select>
+            <select className="vs-select" defaultValue="Denmark">
+              {compareCountries.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
 
