@@ -1,8 +1,19 @@
-import React from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from 'react-leaflet';
 import { useStore } from '../store/useStore';
 import { motion } from 'framer-motion';
 import 'leaflet/dist/leaflet.css';
+
+const MapInvalidateSize: React.FC = () => {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+};
 
 export const FlatMapView: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
@@ -21,35 +32,45 @@ export const FlatMapView: React.FC = () => {
       style={{ top: '64px' }}
     >
       <MapContainer
-        center={[30, 10]}
-        zoom={2}
+        center={[48, 15]}
+        zoom={3}
         minZoom={2}
         maxZoom={12}
         style={{ width: '100%', height: '100%' }}
         zoomControl={true}
         className="leaflet-dark"
       >
+        <MapInvalidateSize />
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+          attribution='&copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
         />
 
         {liveTopics.map((t) => (
           <CircleMarker
             key={t.id}
             center={[t.lat, t.lng]}
-            radius={8}
+            radius={6}
             pathOptions={{
               fillColor: t.color,
-              fillOpacity: 0.7,
-              color: t.color,
-              weight: 2,
+              fillOpacity: 0.8,
+              color: '#fff',
+              weight: 1,
               opacity: 0.9,
             }}
             eventHandlers={{
               click: () => setSelectedTopic(t),
             }}
           >
+            <Tooltip
+              direction="top"
+              offset={[0, -10]}
+              opacity={1}
+              permanent={true}
+              className="custom-leaflet-tooltip"
+            >
+              {t.topic}
+            </Tooltip>
             <Popup>
               <div style={{ fontFamily: 'Inter, sans-serif', minWidth: '180px' }}>
                 <div style={{

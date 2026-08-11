@@ -103,13 +103,13 @@ svg.branches {
 /* TIMELINE SLIDER */
 .timeline-wrapper {
     position: absolute;
-    top: 60px;
+    top: 36px;
     right: 90px;
     width: clamp(520px, 48vw, 760px);
     z-index: 20;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
     pointer-events: auto;
 }
 
@@ -122,7 +122,7 @@ svg.branches {
     width: fit-content;
     text-transform: uppercase;
     letter-spacing: 1.6px;
-    margin-bottom: 6px;
+    margin-bottom: -2px;
 }
 
 .time-slider {
@@ -275,9 +275,6 @@ svg.branches {
 .vs-divider { font-family: 'Bebas Neue', sans-serif; color: #ffd000; font-size: 18px; background: #111; padding: 2px 10px; border-radius: 8px; margin: 0 4px; }
 
 /* LEAFLET DARK THEME */
-.leaflet-dark .leaflet-tile {
-    filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-}
 .leaflet-dark {
     background: #111;
 }
@@ -293,4 +290,21 @@ svg.branches {
     border: 2px solid #111;
     border-top: none;
     border-left: none;
+}
+
+/* Custom Tooltip for 2D Map Markers */
+.custom-leaflet-tooltip {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.6);
+    padding: 0;
+    margin-top: 4px;
+}
+.custom-leaflet-tooltip::before {
+    display: none;
 }

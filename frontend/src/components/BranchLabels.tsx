@@ -25,20 +25,23 @@ export const BranchLabels: React.FC = () => {
 
   const latLngToScreen = useCallback((lat: number, lng: number, rotY: number) => {
     const { CX, CY, GLOBE_R } = getScreenDimensions();
-    const phi = (90 - lat) * Math.PI / 180;
-    const theta = (lng + 180) * Math.PI / 180;
-    const x3 = -GLOBE_R * Math.sin(phi) * Math.cos(theta);
-    const z3 = GLOBE_R * Math.sin(phi) * Math.sin(theta);
-    const y3 = GLOBE_R * Math.cos(phi);
+    const radLat = lat * (Math.PI / 180);
+    const radLng = lng * (Math.PI / 180);
+
+    const x3 = GLOBE_R * Math.cos(radLat) * Math.sin(radLng);
+    const y3 = GLOBE_R * Math.sin(radLat);
+    const z3 = GLOBE_R * Math.cos(radLat) * Math.cos(radLng);
+
+    // Rotate point by camera azimuthal angle rotY
     const cosR = Math.cos(rotY);
     const sinR = Math.sin(rotY);
-    const rx = x3 * cosR + z3 * sinR;
-    const rz = -x3 * sinR + z3 * cosR;
+    const rx = x3 * cosR - z3 * sinR;
+    const rz = x3 * sinR + z3 * cosR;
     
     return {
       x: CX + rx,
       y: CY - y3,
-      visible: rz > -(GLOBE_R * 0.15)
+      visible: rz > -10 // Visible if on front hemisphere
     };
   }, [getScreenDimensions]);
 

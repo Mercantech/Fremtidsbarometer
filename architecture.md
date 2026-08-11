@@ -61,3 +61,28 @@ FastAPI automatically generates an OpenAPI schema.
 - **Raw Schema**: `http://localhost:8000/openapi.json`
 
 When creating new endpoints, always use Pydantic models in `api/schemas.py` for `response_model` to ensure the Swagger documentation remains accurate and helpful for frontend integration.
+
+---
+
+## 5. Known Gotchas & Bug History
+
+To prevent recurring issues, here is a record of deeply rooted bugs that were solved:
+
+1. **Missing 3D Globe Events (The "Negative Z" Bug)**:
+   - *Problem*: European events (like Denmark) were not appearing on the globe, and their HTML labels were invisible.
+   - *Root Cause*: The original math to convert Lat/Lng to 3D Cartesian coordinates used an inverted Z-axis formula (`z = R * sin(phi) * sin(theta)`). This caused points in Europe to generate with `Z < 0` (placing them on the back side of the sphere relative to the camera). The 3D dots rendered inside/behind the earth, and `BranchLabels` marked them as `visible: false`.
+   - *Solution*: Rewrote the projection logic in both `GlobeCanvas.tsx` and `BranchLabels.tsx` to strictly use standard Three.js spherical math:
+     `x = R * cos(lat) * sin(lng)`
+     `y = R * sin(lat)`
+     `z = R * cos(lat) * cos(lng)`
+   - *Lesson*: Always ensure 3D projections align with the front-facing camera axis (+Z) and use matching logic across 3D and 2D overlays.
+
+2. **2D Leaflet Map Gray Screen**:
+   - *Problem*: Leaflet map rendered as a completely flat gray blob instead of showing dark tiles.
+   - *Root Cause*: Two layered issues. First, `<MapContainer>` inside an animating `<motion.div>` calculates its bounds when opacity is 0 (size 0x0). Second, a custom CSS filter (`invert(1) brightness(0.6)`) was being applied to Esri Dark Gray tiles. Since they were already dark, the filter inverted them and crushed the contrast, turning the map completely gray.
+   - *Solution*: Added a `<MapInvalidateSize />` hook component inside `MapContainer` that calls `map.invalidateSize()` after a 150ms timeout. Removed the destructive `.leaflet-dark .leaflet-tile` CSS filter entirely, relying purely on the native Esri dark tiles.
+
+3. **Empty API Responses (Planet without events)**:
+   - *Problem*: Front-end showed zero events globally despite math fixes.
+   - *Root Cause*: The backend database was genuinely empty for `jobs`, `hype`, and `salary`, meaning the API returned `[]`.
+   - *Solution*: Added fallback mock data generation in `useStore.ts`. If `jobsData.length === 0`, it injects ~30 realistic geo-located events globally so the UI is never empty while scrapers are inactive.

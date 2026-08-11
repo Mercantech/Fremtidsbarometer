@@ -5,68 +5,26 @@ import * as THREE from 'three';
 import { useStore } from '../store/useStore';
 import { globeState } from './BranchLabels';
 
-const HeatmapNode: React.FC<{
-  lat: number;
-  lng: number;
-  color: string;
-  radius: number;
-}> = ({ lat, lng, color, radius }) => {
-  const { position, rotation } = useMemo(() => {
-    const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lng + 180) * (Math.PI / 180);
-    const x = -radius * Math.sin(phi) * Math.cos(theta);
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-    const y = radius * Math.cos(phi);
-
-    const pos = new THREE.Vector3(x, y, z);
-    const rot = new THREE.Euler().setFromQuaternion(
-      new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 0, 1),
-        pos.clone().normalize()
-      )
-    );
-    return { position: pos, rotation: rot };
-  }, [lat, lng, radius]);
-
-  return (
-    <group position={position} rotation={rotation}>
-      {/* Core glow */}
-      <mesh>
-        <circleGeometry args={[0.15, 32]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.6}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-      {/* Outer heat dispersion */}
-      <mesh>
-        <circleGeometry args={[0.35, 32]} />
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.25}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-    </group>
-  );
-};
+// Removed HeatmapNode completely as requested
 
 const GlobeMesh: React.FC = () => {
   const globeRef = useRef<THREE.Group>(null);
+  const cloudRef = useRef<THREE.Mesh>(null);
   const controlsRef = useRef<any>(null);
-  const liveTopics = useStore((s) => s.liveTopics);
   const { camera, size } = useThree();
 
-  const earthTexture = useMemo(() => {
+  const [earthTex, bumpTex, specTex, cloudTex] = useMemo(() => {
     const loader = new THREE.TextureLoader();
-    const tex = loader.load('/assets/earth_texture.jpg');
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
+    const e = loader.load("/assets/author_earth.jpg");
+    e.colorSpace = THREE.SRGBColorSpace;
+    
+    const b = loader.load("/assets/author_bump.jpg");
+    const s = loader.load("/assets/author_spec.jpg");
+    
+    const c = loader.load("/assets/author_cloud.png");
+    c.colorSpace = THREE.SRGBColorSpace;
+    
+    return [e, b, s, c];
   }, []);
 
   // Update OrbitControls distance when screen resizes to keep globe visually stable
@@ -82,7 +40,6 @@ const GlobeMesh: React.FC = () => {
     if (controlsRef.current) {
       controlsRef.current.minDistance = z;
       controlsRef.current.maxDistance = z;
-      // Force an update to jump to new distance
       cam.position.setLength(z);
       controlsRef.current.update();
     }
@@ -90,8 +47,10 @@ const GlobeMesh: React.FC = () => {
 
   useFrame(() => {
     if (controlsRef.current) {
-      // Sync azimuthal angle to our custom BranchLabels
       globeState.rotationY = controlsRef.current.getAzimuthalAngle();
+    }
+    if (cloudRef.current) {
+      cloudRef.current.rotation.y += 0.001;
     }
   });
 
@@ -101,18 +60,25 @@ const GlobeMesh: React.FC = () => {
         <mesh>
           <sphereGeometry args={[2.5, 64, 64]} />
           <meshPhongMaterial
-            map={earthTexture}
-            specular={new THREE.Color('#aad4ff')}
-            shininess={20}
+            map={earthTex}
+            bumpMap={bumpTex}
+            bumpScale={0.08}
+            specularMap={specTex}
+            shininess={40}
           />
         </mesh>
-        <mesh scale={1.04}>
-          <sphereGeometry args={[2.5, 32, 32]} />
-          <meshPhongMaterial color="#88ccff" transparent opacity={0.07} />
+        
+        {/* Stylized Clouds */}
+        <mesh ref={cloudRef} scale={1.033}>
+          <sphereGeometry args={[2.5, 64, 64]} />
+          <meshBasicMaterial 
+            map={cloudTex} 
+            transparent 
+            opacity={0.8}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
         </mesh>
-        {liveTopics.map((t) => (
-          <HeatmapNode key={t.id} lat={t.lat} lng={t.lng} color={t.color} radius={2.52} />
-        ))}
       </group>
       <OrbitControls
         ref={controlsRef}
@@ -140,11 +106,12 @@ export const GlobeCanvas: React.FC = () => {
       }}
     >
       <Canvas
+        flat
         camera={{ position: [0, 0, 7.5], fov: 42 }}
         style={{ width: '100%', height: '100%', background: 'transparent' }}
       >
-        <ambientLight intensity={0.75} color="#fff4ee" />
-        <directionalLight position={[4, 3, 5]} intensity={1.1} color="#ffffff" />
+        <ambientLight intensity={1.2} color="#ffffff" />
+        <pointLight position={[-13.3, 3.33, 5.0]} intensity={2.0} decay={0} color="#ffffff" />
         <GlobeMesh />
       </Canvas>
     </div>
