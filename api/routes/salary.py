@@ -22,13 +22,19 @@ def get_salary(
     subquery = db.query(
         SalaryData.technology,
         func.max(SalaryData.date).label("max_date")
-    ).filter(SalaryData.country == country).group_by(SalaryData.technology).subquery()
+    ).filter(
+        SalaryData.country == country,
+        SalaryData.status == 'published'
+    ).group_by(SalaryData.technology).subquery()
 
     query = db.query(SalaryData).join(
         subquery,
         (SalaryData.technology == subquery.c.technology) &
         (SalaryData.date == subquery.c.max_date)
-    ).filter(SalaryData.country == country)
+    ).filter(
+        SalaryData.country == country,
+        SalaryData.status == 'published'
+    )
 
     if technology:
         query = query.filter(SalaryData.technology.ilike(f"%{technology}%"))

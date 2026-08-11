@@ -14,10 +14,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv()
 
-from database.models import TechTrend, Era
+from database.models import TechTrend, Era, GeographyGrid, DataSource
 from database.session import get_session
 from sqlalchemy.dialects.postgresql import insert
-
 
 # Eras seed data
 ERAS_SEED = [
@@ -173,6 +172,72 @@ def seed_eras():
         session.close()
 
 
+def seed_geography():
+    session = get_session()
+    print("🌍 Seeding Geography Grid (Tier-1 and Tier-2)...")
+    
+    geo_seed = [
+        # Tier 1 (Deep Analysis)
+        {"country_code": "US", "region_name": "Silicon Valley", "tier": 1, "lat": 37.38, "lng": -122.08},
+        {"country_code": "DK", "region_name": "Denmark", "tier": 1, "lat": 55.67, "lng": 12.56},
+        {"country_code": "NO", "region_name": "Norway", "tier": 1, "lat": 59.91, "lng": 10.75},
+        {"country_code": "SE", "region_name": "Sweden", "tier": 1, "lat": 59.32, "lng": 18.06},
+        {"country_code": "DE", "region_name": "Germany", "tier": 1, "lat": 52.52, "lng": 13.40},
+        {"country_code": "PL", "region_name": "Poland", "tier": 1, "lat": 52.22, "lng": 21.01},
+        {"country_code": "BE", "region_name": "Belgium", "tier": 1, "lat": 50.85, "lng": 4.35},
+        {"country_code": "NL", "region_name": "Netherlands", "tier": 1, "lat": 52.36, "lng": 4.90},
+        
+        # Tier 2 (Batched by Continent)
+        {"country_code": "BR", "region_name": "South America (Brazil)", "tier": 2, "lat": -23.55, "lng": -46.63},
+        {"country_code": "JP", "region_name": "Asia (Japan)", "tier": 2, "lat": 35.67, "lng": 139.65},
+        {"country_code": "ZA", "region_name": "Africa (South Africa)", "tier": 2, "lat": -33.92, "lng": 18.42},
+        {"country_code": "AU", "region_name": "Oceania (Australia)", "tier": 2, "lat": -33.86, "lng": 151.20},
+        {"country_code": "GB", "region_name": "Rest of Europe (UK)", "tier": 2, "lat": 51.50, "lng": -0.12},
+    ]
+
+    try:
+        for geo_data in geo_seed:
+            stmt = insert(GeographyGrid).values(**geo_data)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["country_code", "region_name"])
+            session.execute(stmt)
+        session.commit()
+        print(f"✅ Seeded Geography Grid.")
+    except Exception as e:
+        session.rollback()
+        print(f"❌ Error seeding Geography Grid: {e}")
+    finally:
+        session.close()
+
+
+def seed_sources():
+    session = get_session()
+    print("📡 Seeding Data Sources...")
+    
+    sources_seed = [
+        {"name": "TeamTailor API", "url": "https://api.teamtailor.com", "source_type": "api", "category": "jobs", "is_active": 1},
+        {"name": "Glassdoor RSS", "url": "https://glassdoor.com/rss", "source_type": "rss", "category": "salary", "is_active": 1},
+        {"name": "HackerNews", "url": "https://news.ycombinator.com/rss", "source_type": "rss", "category": "hype", "is_active": 1},
+        {"name": "X/Twitter Dev", "url": "https://api.twitter.com/dev", "source_type": "api", "category": "hype", "is_active": 1},
+        {"name": "Threads API", "url": "https://api.threads.net", "source_type": "api", "category": "hype", "is_active": 1},
+        {"name": "LinkedIn Jobs", "url": "https://linkedin.com/jobs", "source_type": "html_scrape", "category": "jobs", "is_active": 1},
+    ]
+
+    try:
+        for source_data in sources_seed:
+            stmt = insert(DataSource).values(**source_data)
+            stmt = stmt.on_conflict_do_nothing(index_elements=["url"])
+            session.execute(stmt)
+        session.commit()
+        print(f"✅ Seeded Data Sources.")
+    except Exception as e:
+        session.rollback()
+        print(f"❌ Error seeding Data Sources: {e}")
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     seed_historical_data()
     seed_eras()
+    seed_geography()
+    seed_sources()

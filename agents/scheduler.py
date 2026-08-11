@@ -6,8 +6,8 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from dotenv import load_dotenv
 import pytz
 
-# Import agents
-from agents.news_agent import NewsAgent
+# Import orchestrator
+from agents.orchestrator import run_multipass_pipeline
 from database.models import SystemLog
 from database.session import get_session
 
@@ -46,35 +46,29 @@ def job_listener(event):
         logger.info(msg)
         log_to_db("INFO", "Scheduler", msg)
 
-# Agent instances
-news_agent = NewsAgent()
-# In the future we can add JobAgent, TrendAgent, etc.
-
-async def run_news_agent():
-    logger.info("Starting NewsAgent task")
-    await news_agent.fetch_news()
-
 async def main():
-    logger.info("Starting AP Scheduler...")
+    logger.info("Starting AP Scheduler (Mon/Thu Bi-Weekly Pipeline)...")
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
     # Add event listener for DB logging
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
-    # Register jobs
-    # NewsAgent: every 15 minutes
+    # Register the multi-pass pipeline job
+    # Runs every Monday and Thursday at 06:00 UTC
     scheduler.add_job(
-        run_news_agent,
-        'interval',
-        minutes=15,
-        id='news_agent_job',
+        run_multipass_pipeline,
+        'cron',
+        day_of_week='mon,thu',
+        hour=6,
+        minute=0,
+        id='multipass_pipeline_job',
         replace_existing=True
     )
     
     scheduler.start()
     
-    # Run once immediately
-    asyncio.create_task(run_news_agent())
+    # Run once immediately on startup for testing/seeding
+    asyncio.create_task(run_multipass_pipeline())
 
     logger.info("Scheduler started. Press Ctrl+C to exit.")
 

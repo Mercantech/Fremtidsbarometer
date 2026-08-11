@@ -40,6 +40,9 @@ interface AppState {
 
   isLoadingNews: boolean;
 
+  activeFilters: ('job' | 'salary' | 'hype')[];
+  toggleFilter: (filter: 'job' | 'salary' | 'hype') => void;
+
   setCurrentYear: (year: number) => void;
   setViewMode: (mode: 'globe' | 'map') => void;
   setLang: (lang: 'en' | 'da') => void;
@@ -75,8 +78,15 @@ export const useStore = create<AppState>()(
 
       liveTopics: [],
       selectedTopic: null,
+      activeFilters: ['job', 'salary', 'hype'],
 
       isLoadingNews: false,
+
+      toggleFilter: (f) => set((state) => ({
+        activeFilters: state.activeFilters.includes(f)
+          ? state.activeFilters.filter((x) => x !== f)
+          : [...state.activeFilters, f]
+      })),
 
       setCurrentYear: (year: number) => {
         const eras = get().eras;
@@ -128,7 +138,18 @@ export const useStore = create<AppState>()(
             { id: 'm12', title: 'React Native Expert', company: 'Grab', city: 'Singapore', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
             { id: 'm13', title: 'Game Engine Dev', company: 'Epic Games', city: 'Tokyo', source: 'teamtailor', url: '#', created_at: new Date().toISOString() },
             { id: 'm14', title: 'Data Scientist', company: 'Zalando', city: 'Berlin', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
-            { id: 'm15', title: 'Cloud Architect', company: 'Microsoft', city: 'Dublin', source: 'linkedin', url: '#', created_at: new Date().toISOString() }
+            { id: 'm15', title: 'Cloud Architect', company: 'Microsoft', city: 'Dublin', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            // Extra global items to make map look less sparse
+            { id: 'm16', title: 'Frontend Lead', company: 'Nubank', city: 'Sao Paulo', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm17', title: 'Mobile Engineer', company: 'Naspers', city: 'Cape Town', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm18', title: 'Backend Scala Dev', company: 'Atlassian', city: 'Sydney', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm19', title: 'Platform Engineer', company: 'Shopify', city: 'Toronto', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm20', title: 'UI/UX Designer', company: 'Careem', city: 'Dubai', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm21', title: 'Data Engineer', company: 'Flipkart', city: 'Mumbai', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm22', title: 'Embedded Systems C', company: 'Samsung', city: 'Seoul', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm23', title: 'Blockchain Engineer', company: 'Andela', city: 'Lagos', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm24', title: 'Security Analyst', company: 'MercadoLibre', city: 'Buenos Aires', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm25', title: 'Fullstack Go', company: 'Canva', city: 'Melbourne', source: 'linkedin', url: '#', created_at: new Date().toISOString() }
           );
         }
 

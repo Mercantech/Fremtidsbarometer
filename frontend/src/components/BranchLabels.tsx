@@ -6,7 +6,10 @@ export const globeState = { rotationY: 0 };
 export const BranchLabels: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
   const liveTopics = useStore((s) => s.liveTopics);
+  const activeFilters = useStore((s) => s.activeFilters);
   const setSelectedTopic = useStore((s) => s.setSelectedTopic);
+
+  const filteredTopics = liveTopics.filter(t => activeFilters.includes(t.type));
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -55,7 +58,7 @@ export const BranchLabels: React.FC = () => {
     labelEls.current = [];
     lineEls.current = [];
 
-    liveTopics.forEach((t, i) => {
+    filteredTopics.forEach((t, i) => {
       const div = document.createElement('div');
       div.className = 'branch-label';
       div.style.opacity = '0';
@@ -88,7 +91,7 @@ export const BranchLabels: React.FC = () => {
         line.setAttribute('opacity', '0.6');
       }, 60 + i * 40);
     });
-  }, [liveTopics, setSelectedTopic]);
+  }, [filteredTopics, setSelectedTopic]);
 
   useEffect(() => {
     if (viewMode !== 'globe') return;
@@ -97,7 +100,7 @@ export const BranchLabels: React.FC = () => {
       const { W, CX, CY, GLOBE_R } = getScreenDimensions();
       const positions: { x: number, y: number, visible: boolean, dx: number, dy: number, dist: number, originalIdx: number }[] = [];
 
-      liveTopics.forEach((t, i) => {
+      filteredTopics.forEach((t, i) => {
         const pos = latLngToScreen(t.lat, t.lng, globeState.rotationY);
         const dx = pos.x - CX;
         const dy = pos.y - CY;
@@ -142,7 +145,7 @@ export const BranchLabels: React.FC = () => {
         }
       }
 
-      liveTopics.forEach((_, i) => {
+      filteredTopics.forEach((_, i) => {
         const label = labelEls.current[i];
         const line = lineEls.current[i];
         if (!label || !line) return;
@@ -179,7 +182,7 @@ export const BranchLabels: React.FC = () => {
 
     animRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animRef.current);
-  }, [viewMode, liveTopics, getScreenDimensions, latLngToScreen]);
+  }, [viewMode, filteredTopics, getScreenDimensions, latLngToScreen]);
 
   if (viewMode !== 'globe') return null;
 

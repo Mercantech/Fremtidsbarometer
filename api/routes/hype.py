@@ -17,6 +17,7 @@ def get_hype(
     Returns AI-analyzed hype topics.
     """
     results = db.query(HypeAnalysis)\
+        .filter(HypeAnalysis.status == 'published')\
         .order_by(HypeAnalysis.created_at.desc())\
         .limit(limit)\
         .all()

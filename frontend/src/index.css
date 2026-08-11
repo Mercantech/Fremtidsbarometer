@@ -294,16 +294,26 @@ svg.branches {
 
 /* Custom Tooltip for 2D Map Markers */
 .custom-leaflet-tooltip {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    color: #fff;
+    background: #f8f6f1;
+    border: 2px solid #111;
+    border-radius: 20px;
+    color: #111;
     font-family: 'Inter', sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.6);
-    padding: 0;
-    margin-top: 4px;
+    padding: 4px 8px;
+    margin-top: -5px;
+    box-shadow: none;
+    opacity: 0.7 !important;
+    transition: all 0.2s ease;
+    pointer-events: auto !important; /* Allow hover */
+    z-index: 500;
+}
+.custom-leaflet-tooltip:hover {
+    opacity: 1 !important;
+    z-index: 1000 !important;
+    transform: scale(1.15) translateY(-2px);
+    background: #ffd000;
 }
 .custom-leaflet-tooltip::before {
     display: none;

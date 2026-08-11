@@ -55,6 +55,7 @@ class TechTrend(Base):
     date       = Column(DateTime(timezone=True), nullable=False)
     popularity = Column(Float)        # 0–100 popularity index
     mentions   = Column(Integer)      # Mention count
+    status     = Column(String(20), default="published", index=True)
     metadata_  = Column("metadata", JSONB)  # Additional data
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -84,6 +85,7 @@ class JobPosting(Base):
     date        = Column(DateTime(timezone=True))
     match_score = Column(Float)        # AI scoring (0–100)
     match_reason = Column(Text)        # Why it fits
+    status      = Column(String(20), default="published", index=True)
     created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
@@ -108,6 +110,7 @@ class SalaryData(Base):
     p75        = Column(Float)         # 75th percentile
     currency   = Column(String(10), default="USD")
     role       = Column(String(100))   # "Software Engineer", "DevOps"
+    status     = Column(String(20), default="published", index=True)
     metadata_  = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -129,6 +132,7 @@ class HypeAnalysis(Base):
     direction  = Column(String(10))    # "rising", "falling", "stable"
     summary    = Column(Text)          # AI-generated summary
     sources    = Column(JSONB)         # ["hackernews", "reddit", "techcrunch"]
+    status     = Column(String(20), default="published", index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
@@ -188,6 +192,88 @@ class SystemLog(Base):
 
     def __repr__(self):
         return f"<SystemLog {self.level} [{self.component}] {self.message[:40]}>"
+
+
+# ── 9. Dynamic Data Sources ────────────────────────────────
+class DataSource(Base):
+    __tablename__ = "data_sources"
+    __table_args__ = (
+        UniqueConstraint("url", name="uq_datasource_url"),
+    )
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    name        = Column(String(200), nullable=False)
+    url         = Column(String(1000), nullable=False)
+    source_type = Column(String(50))   # "rss", "api", "html_scrape"
+    category    = Column(String(50))   # "jobs", "hype", "salary", "news"
+    is_active   = Column(Integer, default=1) # 1=active, 0=inactive (disabled due to errors)
+    created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<DataSource {self.name} active={self.is_active}>"
+
+
+# ── 10. Source Logs (Scraping Errors) ──────────────────────
+class SourceLog(Base):
+    __tablename__ = "source_logs"
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    data_source_id  = Column(Integer, nullable=False)
+    error_message   = Column(Text, nullable=False)
+    http_status     = Column(Integer, nullable=True)
+    created_at      = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+# ── 11. Geography Grid (Tier-1 / Tier-2) ───────────────────
+class GeographyGrid(Base):
+    __tablename__ = "geography_grid"
+    __table_args__ = (
+        UniqueConstraint("country_code", "region_name", name="uq_geo_region"),
+    )
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    country_code  = Column(String(10), nullable=False) # "DK", "US", "GLOBAL"
+    region_name   = Column(String(100), nullable=False) # "Scandinavia", "Silicon Valley"
+    tier          = Column(Integer, nullable=False, default=2) # 1 = Deep Analysis, 2 = Batched
+    lat           = Column(Float, nullable=True)
+    lng           = Column(Float, nullable=True)
+    last_scraped  = Column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self):
+        return f"<GeographyGrid {self.region_name} Tier-{self.tier}>"
+
+
+# ── 12. Raw Scrape Data (Pass 1 Dump) ──────────────────────
+class RawScrapeData(Base):
+    __tablename__ = "raw_scrape_data"
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    source_id       = Column(Integer, nullable=True)
+    country_code    = Column(String(10), nullable=True)
+    raw_text        = Column(Text, nullable=False)
+    extracted_urls  = Column(JSONB, nullable=True)
+    processed       = Column(Integer, default=0) # 0=Raw, 1=Processed by AI
+    created_at      = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+# ── 13. AI Model Configurations (Admin Panel) ──────────────────
+class AIModelConfig(Base):
+    """
+    Configuration table for AI models used in the multi-pass pipeline.
+    Allows the Admin Panel to switch models on the fly.
+    """
+    __tablename__ = "ai_model_configs"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    task_type   = Column(String(50), nullable=False)   # "spam_filter", "synthesis", "translation"
+    model_name  = Column(String(100), nullable=False)  # "gpt-4o-mini", "claude-3-haiku-20240307"
+    provider    = Column(String(50), nullable=False)   # "openai", "anthropic"
+    is_active   = Column(Integer, default=1)           # 1=Primary, 0=Disabled
+    is_fallback = Column(Integer, default=0)           # 1=Fallback if primary fails
+    created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<AIModelConfig {self.task_type}: {self.model_name}>"
 
 
 # ── Engine & Session Factory ─────────────────────────────────

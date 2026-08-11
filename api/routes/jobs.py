@@ -18,7 +18,7 @@ def get_jobs(
     """
     Returns the latest jobs.
     """
-    query = db.query(JobPosting)
+    query = db.query(JobPosting).filter(JobPosting.status == 'published')
     
     if country:
         query = query.filter(JobPosting.country == country)
