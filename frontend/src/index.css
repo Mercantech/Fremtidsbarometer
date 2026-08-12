@@ -226,14 +226,14 @@ svg.branches {
 
 /* RIGHT PANEL */
 #right-panel {
-    position: absolute; width: 340px; display: flex; flex-direction: column; gap: 20px; pointer-events: auto; color: #111; z-index: 20;
+    position: absolute; width: 340px; display: flex; flex-direction: column; gap: 16px; pointer-events: auto; color: #111; z-index: 20;
     transform: scale(0.85); transform-origin: top right;
 }
-.rp-block { display: flex; flex-direction: column; gap: 12px; }
+.rp-block { display: flex; flex-direction: column; gap: 10px; }
 .rp-block--stats { margin-left: -12px; }
 .rp-title-wrap {
-    display: inline-flex; align-items: center; gap: 12px; padding: 14px 40px 14px 20px; margin-bottom: 20px;
-    width: fit-content; position: relative; filter: drop-shadow(0 16px 32px rgba(0,0,0,0.25));
+    display: inline-flex; align-items: center; gap: 12px; padding: 14px 40px 14px 20px; margin-bottom: 8px;
+    width: fit-content; position: relative;
     --bg-pad-x: 84px; --bg-pad-top: 38px; --bg-pad-bottom: 70px; align-self: center;
 }
 
@@ -254,6 +254,21 @@ svg.branches {
 .rp-number { font-family: 'Bebas Neue', sans-serif; font-size: 30px; color: #ffd000; line-height: 1; }
 .rp-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; text-transform: uppercase; letter-spacing: 1.6px; color: #fff; line-height: 1; margin-top: 2px; }
 
+/* Tab bar for switching between Stats / Hype / Compare */
+.rp-tab-bar {
+    display: flex; width: 100%; border-bottom: 2px solid rgba(0,0,0,0.1); margin-top: 4px;
+}
+.rp-tab-btn {
+    flex: 1; text-align: center; padding: 8px 0; font-size: 12px; font-weight: 800;
+    color: #999; text-transform: uppercase; letter-spacing: 0.5px;
+    cursor: pointer; position: relative; transition: color 0.3s ease;
+}
+.rp-tab-btn.active { color: #111; }
+.rp-tab-btn.active::after {
+    content: ''; position: absolute; bottom: -2px; left: 10%; width: 80%; height: 2px; background: #ffd000; border-radius: 2px;
+}
+.rp-tab-btn:hover:not(.active) { color: #666; }
+
 .spatial-toggle { display: flex; width: 100%; border-bottom: 2px solid rgba(0,0,0,0.1); margin-top: 6px; }
 .toggle-btn { flex: 1; text-align: center; padding-bottom: 10px; font-size: 14px; font-weight: 800; color: #999; text-transform: uppercase; cursor: pointer; position: relative; transition: color 0.3s; }
 .toggle-btn.active { color: #111; }
@@ -263,8 +278,11 @@ svg.branches {
 .rp-tab-content.active { display: block; animation: fadeUp 0.4s ease; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-.rp-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 13px; font-weight: 500; color: #555; border-bottom: 1px dashed rgba(0,0,0,0.1); }
-.rp-row span:last-child { font-weight: 700; color: #111; font-family: monospace; font-size: 12px; }
+.rp-item { display: flex; flex-direction: column; padding: 10px 0; border-bottom: 1px dashed rgba(0,0,0,0.1); gap: 4px; }
+.rp-item:last-child { border-bottom: none; }
+.rp-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: 0.5px; }
+.rp-row span:last-child { font-weight: 700; color: #ffd000; font-family: monospace; font-size: 12px; background: #222; padding: 2px 6px; border-radius: 4px; }
+.rp-desc { font-size: 11.5px; color: #777; line-height: 1.4; font-weight: 500; }
 
 .hype-content { border-left: 3px solid #00d4ff; padding-left: 14px; }
 .hype-topic { font-size: 16px; font-weight: 800; margin-bottom: 6px; color: #111; }
@@ -273,6 +291,20 @@ svg.branches {
 .vs-container { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 800; }
 .vs-select { appearance: none; background: transparent; border: none; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 800; color: #111; cursor: pointer; outline: none; text-transform: uppercase; border-bottom: 1px dashed rgba(0,0,0,0.3); padding-bottom: 2px; }
 .vs-divider { font-family: 'Bebas Neue', sans-serif; color: #ffd000; font-size: 18px; background: #111; padding: 2px 10px; border-radius: 8px; margin: 0 4px; }
+
+/* Compare Tab — Horizontal Bar Chart */
+.compare-row { margin-bottom: 10px; }
+.compare-row-header { margin-bottom: 4px; }
+.compare-tech { font-size: 12px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: 0.5px; }
+.compare-bars { display: flex; flex-direction: column; gap: 3px; }
+.compare-bar-wrap { display: flex; align-items: center; gap: 6px; height: 16px; }
+.compare-bar {
+    height: 100%; border-radius: 4px; min-width: 4px;
+    transition: width 0.5s ease;
+}
+.compare-bar--left { background: linear-gradient(90deg, #00d4ff, #00a8cc); }
+.compare-bar--right { background: linear-gradient(90deg, #ffd000, #e6b800); }
+.compare-val { font-size: 10px; font-weight: 700; color: #555; white-space: nowrap; font-family: monospace; }
 
 /* LEAFLET DARK THEME */
 .leaflet-dark {

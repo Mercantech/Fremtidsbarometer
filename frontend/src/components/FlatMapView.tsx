@@ -65,7 +65,7 @@ export const FlatMapView: React.FC = () => {
         {/* This handles the heavy lifting of clustering overlapping markers */}
         <MarkerClusterGroup 
           chunkedLoading 
-          maxClusterRadius={45} 
+          maxClusterRadius={20} 
           showCoverageOnHover={false}
         >
           {liveTopics.filter(t => activeFilters.includes(t.type)).map((t) => (

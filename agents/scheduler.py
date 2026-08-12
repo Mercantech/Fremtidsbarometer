@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import pytz
 
 # Import orchestrator
-from agents.orchestrator import run_multipass_pipeline
+from agents.orchestrator import run_social_sweep, run_tech_sweep, run_jobs_sweep, run_synthesis, run_full_cycle
 from database.models import SystemLog
 from database.session import get_session
 
@@ -47,28 +47,40 @@ def job_listener(event):
         log_to_db("INFO", "Scheduler", msg)
 
 async def main():
-    logger.info("Starting AP Scheduler (Mon/Thu Bi-Weekly Pipeline)...")
+    logger.info("Starting AP Scheduler (Mon/Thu Partitioned Pipeline)...")
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
     # Add event listener for DB logging
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
-    # Register the multi-pass pipeline job
-    # Runs every Monday and Thursday at 06:00 UTC
+    # 09:00 UTC - Partition 1: Social Sweep
     scheduler.add_job(
-        run_multipass_pipeline,
-        'cron',
-        day_of_week='mon,thu',
-        hour=6,
-        minute=0,
-        id='multipass_pipeline_job',
-        replace_existing=True
+        run_social_sweep, 'cron', day_of_week='mon,thu', hour=9, minute=0,
+        id='social_sweep_job', replace_existing=True
+    )
+    
+    # 10:00 UTC - Partition 2: Technical Sweep
+    scheduler.add_job(
+        run_tech_sweep, 'cron', day_of_week='mon,thu', hour=10, minute=0,
+        id='tech_sweep_job', replace_existing=True
+    )
+
+    # 11:00 UTC - Partition 3: Jobs Sweep
+    scheduler.add_job(
+        run_jobs_sweep, 'cron', day_of_week='mon,thu', hour=11, minute=0,
+        id='jobs_sweep_job', replace_existing=True
+    )
+
+    # 12:00 UTC - Partition 4: Final Synthesis
+    scheduler.add_job(
+        run_synthesis, 'cron', day_of_week='mon,thu', hour=12, minute=0,
+        id='synthesis_job', replace_existing=True
     )
     
     scheduler.start()
     
-    # Run once immediately on startup for testing/seeding
-    asyncio.create_task(run_multipass_pipeline())
+    # Run a full manual cycle immediately on startup for testing/seeding
+    asyncio.create_task(run_full_cycle())
 
     logger.info("Scheduler started. Press Ctrl+C to exit.")
 

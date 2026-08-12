@@ -149,7 +149,13 @@ export const useStore = create<AppState>()(
             { id: 'm22', title: 'Embedded Systems C', company: 'Samsung', city: 'Seoul', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
             { id: 'm23', title: 'Blockchain Engineer', company: 'Andela', city: 'Lagos', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
             { id: 'm24', title: 'Security Analyst', company: 'MercadoLibre', city: 'Buenos Aires', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
-            { id: 'm25', title: 'Fullstack Go', company: 'Canva', city: 'Melbourne', source: 'linkedin', url: '#', created_at: new Date().toISOString() }
+            { id: 'm25', title: 'Fullstack Go', company: 'Canva', city: 'Melbourne', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm26', title: 'Senior AI Engineer', company: 'Anthropic', city: 'Seattle', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm27', title: 'Rust Core Dev', company: 'Mozilla', city: 'Paris', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm28', title: 'Infrastructure SRE', company: 'Spotify', city: 'Gothenburg', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm29', title: 'Go Microservices', company: 'N26', city: 'Vienna', source: 'teamtailor', url: '#', created_at: new Date().toISOString() },
+            { id: 'm30', title: 'Data Engineer', company: 'Stripe', city: 'Dublin', source: 'linkedin', url: '#', created_at: new Date().toISOString() },
+            { id: 'm31', title: 'Frontend Vue Lead', company: 'GitLab', city: 'Amsterdam', source: 'linkedin', url: '#', created_at: new Date().toISOString() }
           );
         }
 

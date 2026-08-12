@@ -44,6 +44,7 @@ export const BranchLabels: React.FC = () => {
     return {
       x: CX + rx,
       y: CY - y3,
+      rz: rz,
       visible: rz > -10 // Visible if on front hemisphere
     };
   }, [getScreenDimensions]);
@@ -98,28 +99,28 @@ export const BranchLabels: React.FC = () => {
 
     const animate = () => {
       const { W, CX, CY, GLOBE_R } = getScreenDimensions();
-      const positions: { x: number, y: number, visible: boolean, dx: number, dy: number, dist: number, originalIdx: number }[] = [];
+      const positions: { x: number, y: number, visible: boolean, dx: number, dy: number, dist: number, rz: number, originalIdx: number }[] = [];
 
       filteredTopics.forEach((t, i) => {
         const pos = latLngToScreen(t.lat, t.lng, globeState.rotationY);
         const dx = pos.x - CX;
         const dy = pos.y - CY;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        positions.push({ x: pos.x, y: pos.y, visible: pos.visible, dx, dy, dist, originalIdx: i });
+        positions.push({ x: pos.x, y: pos.y, visible: pos.visible, dx, dy, dist, rz: pos.rz, originalIdx: i });
       });
 
       // Calculate target label positions with collision avoidance (radial stacking)
       const labelTargets = positions.map(p => {
         if (!p.visible) return { x: 0, y: 0 };
         return {
-          x: CX + (p.dx / p.dist) * (GLOBE_R * 1.05),
-          y: CY + (p.dy / p.dist) * (GLOBE_R * 1.05)
+          x: CX + (p.dx / p.dist) * (GLOBE_R * 1.02),
+          y: CY + (p.dy / p.dist) * (GLOBE_R * 1.02)
         };
       });
 
-      // Simple collision resolution
-      const PADDING = 40;
-      for (let iter = 0; iter < 3; iter++) {
+      // Repulsive collision resolution to spread them apart sideways
+      const PADDING = 45; // Increase padding to spread them out more
+      for (let iter = 0; iter < 4; iter++) {
         for (let i = 0; i < labelTargets.length; i++) {
           if (!positions[i].visible) continue;
           for (let j = i + 1; j < labelTargets.length; j++) {
@@ -129,17 +130,15 @@ export const BranchLabels: React.FC = () => {
             const dy = labelTargets[i].y - labelTargets[j].y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             
-            if (dist < PADDING) {
-              // Push labels apart radially from center
+            if (dist > 0 && dist < PADDING) {
+              // Push labels away from EACH OTHER, not just radially from the globe
               const pushFactor = (PADDING - dist) / 2;
-              const angleI = Math.atan2(labelTargets[i].y - CY, labelTargets[i].x - CX);
-              const angleJ = Math.atan2(labelTargets[j].y - CY, labelTargets[j].x - CX);
+              const angle = Math.atan2(dy, dx);
               
-              // Push outward along their radial angle
-              labelTargets[i].x += Math.cos(angleI) * pushFactor;
-              labelTargets[i].y += Math.sin(angleI) * pushFactor;
-              labelTargets[j].x += Math.cos(angleJ) * pushFactor;
-              labelTargets[j].y += Math.sin(angleJ) * pushFactor;
+              labelTargets[i].x += Math.cos(angle) * pushFactor;
+              labelTargets[i].y += Math.sin(angle) * pushFactor;
+              labelTargets[j].x -= Math.cos(angle) * pushFactor;
+              labelTargets[j].y -= Math.sin(angle) * pushFactor;
             }
           }
         }
@@ -165,8 +164,16 @@ export const BranchLabels: React.FC = () => {
         label.style.left = lx + 'px';
         label.style.top = ly + 'px';
         
-        // Remove edge fade, labels should always be visible if they are on the front hemisphere
-        const fade = Math.min(1, (pos.visible ? 1 : 0) * 1.5);
+        // Smooth opacity fade based on depth (rz)
+        // rz goes from roughly +GLOBE_R (front) to 0 (edge) to -GLOBE_R (back)
+        const edgeThreshold = GLOBE_R * 0.15;
+        let fade = 0;
+        if (pos.rz > edgeThreshold) {
+            fade = 1;
+        } else if (pos.rz > -10) {
+            fade = (pos.rz + 10) / (edgeThreshold + 10);
+        }
+        
         label.style.opacity = String(fade);
         label.style.pointerEvents = fade > 0.5 ? 'auto' : 'none';
 
@@ -174,7 +181,7 @@ export const BranchLabels: React.FC = () => {
         line.setAttribute('y1', String(pos.y));
         line.setAttribute('x2', String(lx));
         line.setAttribute('y2', String(ly));
-        line.setAttribute('opacity', String(fade * 0.5));
+        line.setAttribute('opacity', String(fade * 0.6));
       });
 
       animRef.current = requestAnimationFrame(animate);
