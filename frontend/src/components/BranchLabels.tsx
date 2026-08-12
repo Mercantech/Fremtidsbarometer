@@ -15,6 +15,7 @@ export const BranchLabels: React.FC = () => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const labelEls = useRef<HTMLDivElement[]>([]);
   const lineEls = useRef<SVGLineElement[]>([]);
+  const currentPosRef = useRef<{x: number, y: number}[]>([]);
   const animRef = useRef<number>(0);
 
   const getScreenDimensions = useCallback(() => {
@@ -131,8 +132,8 @@ export const BranchLabels: React.FC = () => {
             const dist = Math.sqrt(dx * dx + dy * dy);
             
             if (dist > 0 && dist < PADDING) {
-              // Push labels away from EACH OTHER, not just radially from the globe
-              const pushFactor = (PADDING - dist) / 2;
+              // Softened push force to prevent aggressive bouncing
+              const pushFactor = (PADDING - dist) * 0.15;
               const angle = Math.atan2(dy, dx);
               
               labelTargets[i].x += Math.cos(angle) * pushFactor;
@@ -158,8 +159,21 @@ export const BranchLabels: React.FC = () => {
           return;
         }
 
-        const lx = labelTargets[i].x;
-        const ly = labelTargets[i].y;
+        const target = labelTargets[i];
+        
+        // Smooth interpolation (lerp) to prevent jittering
+        let currentPos = currentPosRef.current[i];
+        if (!currentPos) {
+            currentPos = { x: target.x, y: target.y };
+            currentPosRef.current[i] = currentPos;
+        }
+        
+        const LERP_FACTOR = 0.04; // Extremely smooth factor to completely kill micro-jitter
+        currentPos.x += (target.x - currentPos.x) * LERP_FACTOR;
+        currentPos.y += (target.y - currentPos.y) * LERP_FACTOR;
+
+        const lx = currentPos.x;
+        const ly = currentPos.y;
 
         label.style.left = lx + 'px';
         label.style.top = ly + 'px';
