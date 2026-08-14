@@ -99,7 +99,7 @@ export const BranchLabels: React.FC = () => {
     if (viewMode !== 'globe') return;
 
     const animate = () => {
-      const { W, CX, CY, GLOBE_R } = getScreenDimensions();
+      const { CX, CY, GLOBE_R } = getScreenDimensions();
       const positions: { x: number, y: number, visible: boolean, dx: number, dy: number, dist: number, rz: number, originalIdx: number }[] = [];
 
       filteredTopics.forEach((t, i) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
+import { fetchSalary, type SalaryData } from '../services/api';
 
 type PanelTab = 'stats' | 'hype' | 'compare';
 
@@ -16,7 +17,6 @@ export const RightPanel: React.FC = () => {
   const currentEraIndex = useStore((s) => s.currentEraIndex);
   const eras = useStore((s) => s.eras);
   const hypeList = useStore((s) => s.hype);
-  const countries = useStore((s) => s.countries);
   
   const era = eras[currentEraIndex];
 
@@ -72,7 +72,6 @@ export const RightPanel: React.FC = () => {
 
   if (!era) return null;
 
-  const compareCountries = countries.filter(c => c !== 'GLOBAL');
   const activeDrip = DRIP_MAP[panelTab];
 
   return (
@@ -148,7 +147,7 @@ export const RightPanel: React.FC = () => {
 
         {/* ── Tab Content: Hype ── */}
         {panelTab === 'hype' && (
-          <div className="rp-block rp-tab-content active" key="tab-hype">
+          <div className="rp-block rp-block--stats rp-tab-content active" key="tab-hype">
             <div className="hype-content">
               <div className="hype-topic" id="hype-topic">{era.stats?.hypeTopic}</div>
               <div className="hype-desc" id="hype-desc">{era.stats?.hypeDesc}</div>
@@ -180,62 +179,50 @@ export const RightPanel: React.FC = () => {
 };
 
 
-/* ── Isolated Compare Tab Component ── */
-const COMPARE_FALLBACK: Record<string, { tech: string; median: number; currency: string }[]> = {
-  DK: [
-    { tech: 'Go', median: 65000, currency: 'DKK' },
-    { tech: 'Python', median: 62000, currency: 'DKK' },
-    { tech: 'React', median: 55000, currency: 'DKK' },
-    { tech: 'Kubernetes', median: 72000, currency: 'DKK' },
-    { tech: 'Rust', median: 68000, currency: 'DKK' },
-  ],
-  US: [
-    { tech: 'Go', median: 165000, currency: 'USD' },
-    { tech: 'Python', median: 155000, currency: 'USD' },
-    { tech: 'React', median: 140000, currency: 'USD' },
-    { tech: 'Kubernetes', median: 175000, currency: 'USD' },
-    { tech: 'Rust', median: 180000, currency: 'USD' },
-  ],
-  DE: [
-    { tech: 'Go', median: 75000, currency: 'EUR' },
-    { tech: 'Python', median: 70000, currency: 'EUR' },
-    { tech: 'React', median: 62000, currency: 'EUR' },
-    { tech: 'Kubernetes', median: 80000, currency: 'EUR' },
-    { tech: 'Rust', median: 78000, currency: 'EUR' },
-  ],
-  SE: [
-    { tech: 'Go', median: 60000, currency: 'SEK' },
-    { tech: 'Python', median: 58000, currency: 'SEK' },
-    { tech: 'React', median: 52000, currency: 'SEK' },
-    { tech: 'Kubernetes', median: 65000, currency: 'SEK' },
-    { tech: 'Rust', median: 63000, currency: 'SEK' },
-  ],
-  NO: [
-    { tech: 'Go', median: 70000, currency: 'NOK' },
-    { tech: 'Python', median: 67000, currency: 'NOK' },
-    { tech: 'React', median: 60000, currency: 'NOK' },
-    { tech: 'Kubernetes', median: 76000, currency: 'NOK' },
-    { tech: 'Rust', median: 72000, currency: 'NOK' },
-  ],
-};
-
-const COMPARE_COUNTRIES = [
-  { code: 'DK', label: 'Denmark' },
-  { code: 'US', label: 'USA' },
-  { code: 'DE', label: 'Germany' },
-  { code: 'SE', label: 'Sweden' },
-  { code: 'NO', label: 'Norway' },
-];
-
+/* ── Isolated Compare Tab Component with Real API Data ── */
 const CompareTab: React.FC = () => {
-  const [leftCountry, setLeftCountry] = useState('DK');
-  const [rightCountry, setRightCountry] = useState('US');
+  const storeCountries = useStore((s) => s.countries);
+  // Default country candidates if store is still loading
+  const availableCountries = storeCountries.length > 0 
+    ? storeCountries.filter(c => c !== 'GLOBAL') 
+    : ['DK', 'US', 'DE', 'SE', 'NO'];
 
-  const leftData = COMPARE_FALLBACK[leftCountry] || [];
-  const rightData = COMPARE_FALLBACK[rightCountry] || [];
+  const [leftCountry, setLeftCountry] = useState(availableCountries[0] || 'DK');
+  const [rightCountry, setRightCountry] = useState(availableCountries[1] || availableCountries[0] || 'US');
+  const [leftData, setLeftData] = useState<SalaryData[]>([]);
+  const [rightData, setRightData] = useState<SalaryData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Build comparison rows by tech name
-  const allTechs = [...new Set([...leftData.map(d => d.tech), ...rightData.map(d => d.tech)])];
+  useEffect(() => {
+    let isMounted = true;
+    const loadComparison = async () => {
+      setIsLoading(true);
+      try {
+        const [lData, rData] = await Promise.all([
+          fetchSalary(leftCountry).catch(() => []),
+          fetchSalary(rightCountry).catch(() => []),
+        ]);
+        if (isMounted) {
+          setLeftData(lData);
+          setRightData(rData);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+    loadComparison();
+    return () => {
+      isMounted = false;
+    };
+  }, [leftCountry, rightCountry]);
+
+  // Build comparison rows by unique technology name
+  const allTechs = Array.from(new Set([
+    ...leftData.map(d => d.technology),
+    ...rightData.map(d => d.technology)
+  ]));
 
   return (
     <div className="rp-block rp-tab-content active" key="tab-compare">
@@ -246,8 +233,8 @@ const CompareTab: React.FC = () => {
           value={leftCountry}
           onChange={(e) => setLeftCountry(e.target.value)}
         >
-          {COMPARE_COUNTRIES.map(c => (
-            <option key={c.code} value={c.code}>{c.label}</option>
+          {availableCountries.map(c => (
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
         <span className="vs-divider">VS</span>
@@ -256,46 +243,66 @@ const CompareTab: React.FC = () => {
           value={rightCountry}
           onChange={(e) => setRightCountry(e.target.value)}
         >
-          {COMPARE_COUNTRIES.map(c => (
-            <option key={c.code} value={c.code}>{c.label}</option>
+          {availableCountries.map(c => (
+            <option key={c} value={c}>{c}</option>
           ))}
         </select>
       </div>
 
-      {/* Comparison Rows */}
-      <div style={{ marginTop: '12px' }}>
-        {allTechs.map((tech) => {
-          const l = leftData.find(d => d.tech === tech);
-          const r = rightData.find(d => d.tech === tech);
-          const lVal = l?.median ?? 0;
-          const rVal = r?.median ?? 0;
-          const maxVal = Math.max(lVal, rVal, 1);
+      {/* Loading state */}
+      {isLoading && (
+        <div style={{ textAlign: 'center', padding: '16px', fontSize: '12px', color: '#666' }}>
+          Loading comparison data...
+        </div>
+      )}
 
-          return (
-            <div key={tech} className="compare-row">
-              <div className="compare-row-header">
-                <span className="compare-tech">{tech}</span>
-              </div>
-              <div className="compare-bars">
-                <div className="compare-bar-wrap">
-                  <div
-                    className="compare-bar compare-bar--left"
-                    style={{ width: `${(lVal / maxVal) * 100}%` }}
-                  />
-                  <span className="compare-val">{l ? `${(lVal / 1000).toFixed(0)}k ${l.currency}` : '—'}</span>
+      {/* Empty state */}
+      {!isLoading && allTechs.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '16px', fontSize: '12px', color: '#888' }}>
+          No salary records found for {leftCountry} and {rightCountry}.
+        </div>
+      )}
+
+      {/* Comparison Rows */}
+      {!isLoading && allTechs.length > 0 && (
+        <div style={{ marginTop: '12px' }}>
+          {allTechs.map((tech) => {
+            const l = leftData.find(d => d.technology === tech);
+            const r = rightData.find(d => d.technology === tech);
+            const lVal = l?.median ?? 0;
+            const rVal = r?.median ?? 0;
+            const maxVal = Math.max(lVal, rVal, 1);
+
+            return (
+              <div key={tech} className="compare-row">
+                <div className="compare-row-header">
+                  <span className="compare-tech">{tech}</span>
                 </div>
-                <div className="compare-bar-wrap">
-                  <div
-                    className="compare-bar compare-bar--right"
-                    style={{ width: `${(rVal / maxVal) * 100}%` }}
-                  />
-                  <span className="compare-val">{r ? `${(rVal / 1000).toFixed(0)}k ${r.currency}` : '—'}</span>
+                <div className="compare-bars">
+                  <div className="compare-bar-wrap">
+                    <div
+                      className="compare-bar compare-bar--left"
+                      style={{ width: `${(lVal / maxVal) * 100}%` }}
+                    />
+                    <span className="compare-val">
+                      {l && l.median ? `${(lVal / 1000).toFixed(0)}k ${l.currency || ''}` : '—'}
+                    </span>
+                  </div>
+                  <div className="compare-bar-wrap">
+                    <div
+                      className="compare-bar compare-bar--right"
+                      style={{ width: `${(rVal / maxVal) * 100}%` }}
+                    />
+                    <span className="compare-val">
+                      {r && r.median ? `${(rVal / 1000).toFixed(0)}k ${r.currency || ''}` : '—'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

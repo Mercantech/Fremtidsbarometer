@@ -121,6 +121,7 @@ class GitHubAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"GitHub agent failed: {e}")
             db.rollback()
+            raise e
         finally:
             await self.scraper.stop()
             db.close()

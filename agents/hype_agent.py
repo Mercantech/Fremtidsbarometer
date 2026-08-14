@@ -95,7 +95,11 @@ class HypeAgent(BaseAgent):
             self.logger.info(f"AI generated {len(hype_topics)} Hype topics.")
             
             for item in hype_topics:
-                topic = (item.get("topic") or "Unknown Topic")[:200]
+                raw_topic = item.get("topic")
+                if not raw_topic or not raw_topic.strip():
+                    continue
+                    
+                topic = raw_topic.strip()[:200]
                 
                 # Check uniqueness for today
                 existing = db.query(HypeAnalysis).filter(
@@ -130,6 +134,7 @@ class HypeAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Hype agent failed: {e}")
             db.rollback()
+            raise e
         finally:
             db.close()
 

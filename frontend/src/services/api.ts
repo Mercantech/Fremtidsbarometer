@@ -46,6 +46,7 @@ export interface JobPosting {
   company?: string;
   url?: string;
   source?: string;
+  country?: string;
   city?: string;
   technology?: string;
   tags?: string[];
@@ -65,6 +66,7 @@ export interface HypeTopic {
 
 export interface SalaryData {
   technology: string;
+  country?: string;
   median?: number;
   p25?: number;
   p75?: number;
@@ -89,7 +91,7 @@ export const fetchNews = async (limit = 15): Promise<NewsItem[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch news', error);
-    return [];
+    throw error;
   }
 };
 
@@ -99,7 +101,7 @@ export const fetchTrends = async (country = 'GLOBAL', limit = 10): Promise<TechT
     return res.data;
   } catch (error) {
     console.error('Failed to fetch trends', error);
-    return [];
+    throw error;
   }
 };
 
@@ -109,7 +111,7 @@ export const fetchJobs = async (limit = 10): Promise<JobPosting[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch jobs', error);
-    return [];
+    throw error;
   }
 };
 
@@ -119,7 +121,7 @@ export const fetchHype = async (limit = 5): Promise<HypeTopic[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch hype', error);
-    return [];
+    throw error;
   }
 };
 
@@ -129,7 +131,7 @@ export const fetchSalary = async (country = 'DK'): Promise<SalaryData[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch salary', error);
-    return [];
+    throw error;
   }
 };
 
@@ -153,7 +155,7 @@ export const fetchEras = async (): Promise<EraInfo[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch eras', error);
-    return [];
+    throw error;
   }
 };
 
@@ -163,6 +165,6 @@ export const fetchCountries = async (): Promise<string[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch countries', error);
-    return [];
+    throw error;
   }
 };

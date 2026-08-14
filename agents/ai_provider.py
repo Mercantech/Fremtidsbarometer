@@ -6,21 +6,26 @@ from typing import Dict, Any
 
 logger = logging.getLogger("AIProvider")
 
+class AIProviderError(Exception):
+    """Custom exception raised when an AI provider fails to generate or parse response."""
+    pass
+
 class GeminiProvider:
-    def __init__(self):
+    def __init__(self, model_name: str = 'gemini-3.6-flash'):
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            logger.warning("GEMINI_API_KEY not set. AI analysis will not work.")
+            logger.warning("GEMINI_API_KEY is not set in environment.")
         else:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-3.6-flash')
+            self.model = genai.GenerativeModel(model_name)
 
     async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
         """
-        Sends prompt to Gemini and expects a JSON response.
+        Sends prompt to Gemini and expects a validated JSON response.
+        Raises AIProviderError on missing keys or generation failures.
         """
         if not os.getenv("GEMINI_API_KEY"):
-            return {}
+            raise AIProviderError("GEMINI_API_KEY environment variable is not configured.")
             
         full_prompt = f"{prompt}\n\nMust return ONLY valid JSON. {schema}"
         
@@ -37,4 +42,4 @@ class GeminiProvider:
             return json.loads(text.strip())
         except Exception as e:
             logger.error(f"Gemini API error: {e}")
-            return {}
+            raise AIProviderError(f"Gemini JSON generation failed: {e}") from e

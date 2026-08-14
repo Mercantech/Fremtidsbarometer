@@ -47,7 +47,7 @@ class DBLogHandler(logging.Handler):
             if self.session:
                 try:
                     self.session.rollback()
-                except:
+                except Exception:
                     pass
 
 db_handler = DBLogHandler()
@@ -56,9 +56,19 @@ db_handler = DBLogHandler()
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 
+import atexit
+
 # Start QueueListener
 listener = QueueListener(log_queue, db_handler, console_handler)
 listener.start()
+
+def _cleanup_logger():
+    try:
+        listener.stop()
+    except Exception:
+        pass
+
+atexit.register(_cleanup_logger)
 
 def get_centralized_logger(name: str):
     logger = logging.getLogger(name)

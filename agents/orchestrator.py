@@ -2,8 +2,14 @@ import asyncio
 import logging
 from database.session import get_session
 from database.models import DataSource, SystemLog, SourceLog, AIModelConfig
+from utils.logger import get_centralized_logger
 
-logger = logging.getLogger("Orchestrator")
+from agents.scrapers.social_scraper import scrape_reddit_discussions
+from agents.scrapers.tech_scraper import scrape_hackernews, scrape_github_trending
+from agents.scrapers.jobs_scraper import scrape_teamtailor_jobs
+from agents.synthesizer import run_mathematical_synthesis
+
+logger = get_centralized_logger("Orchestrator")
 
 def get_active_model(db, task_type: str):
     """
@@ -16,128 +22,138 @@ def get_active_model(db, task_type: str):
     ).first()
     
     if not model_config:
-        logger.warning(f"No active model found for {task_type}. Falling back to default: gemini-3.5-flash")
-        return {"provider": "google", "model_name": "gemini-3.5-flash"}
+        logger.warning(f"No active model found for {task_type}. Falling back to default: gemini-3.6-flash")
+        return {"provider": "google", "model_name": "gemini-3.6-flash"}
         
     return {"provider": model_config.provider, "model_name": model_config.model_name}
 
-async def run_social_sweep(db):
+async def run_social_sweep(db=None):
     """
-    Run 1: Social Sweep. Parses Reddit, Threads, Twitter.
+    Run 1: Social Sweep. Parses deep discussions and comments from Reddit/Threads/Social.
     """
-    logger.info("=== Partition 1: Social Sweep ===")
-    
-    # 1. Get the dynamic model config for this specific task
-    model = get_active_model(db, "social_extraction")
-    logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
-    
-    social_sources = db.query(DataSource).filter(
-        DataSource.is_active == 1,
-        DataSource.category == 'hype'
-    ).all()
-    
-    for source in social_sources:
-        try:
-            logger.info(f"Fetching Social Data from {source.name}...")
-            # TODO: Add specific scrapers and pass raw text to LLM using `model` config
-            # TODO: Save structured JSON to DB
-        except Exception as e:
-            logger.error(f"Failed to scrape {source.name}: {e}")
-            db.add(SourceLog(data_source_id=source.id, error_message=str(e)))
-    db.commit()
+    should_close = False
+    if db is None:
+        db = get_session()
+        should_close = True
+        
+    try:
+        logger.info("=== Partition 1: Social Sweep ===")
+        model = get_active_model(db, "social_extraction")
+        logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
+        
+        count = await scrape_reddit_discussions(db, source_id=1, limit_per_sub=15)
+        logger.info(f"Partition 1 Complete: Scraped {count} social discussions.")
+    except Exception as e:
+        logger.error(f"Social sweep failed: {e}")
+        db.add(SystemLog(level="ERROR", component="Orchestrator-Social", message=str(e)))
+        db.commit()
+        raise e
+    finally:
+        if should_close:
+            db.close()
 
 
-async def run_tech_sweep(db):
+async def run_tech_sweep(db=None):
     """
     Run 2: Technical Sweep. Parses HackerNews, GitHub Trending.
     """
-    logger.info("=== Partition 2: Technical Sweep ===")
-    
-    # 1. Get model config
-    model = get_active_model(db, "tech_extraction")
-    logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
-    
-    tech_sources = db.query(DataSource).filter(
-        DataSource.is_active == 1,
-        DataSource.category == 'news'
-    ).all()
-    
-    for source in tech_sources:
-        try:
-            logger.info(f"Fetching Tech Data from {source.name}...")
-            # TODO: Add specific scrapers and pass raw text to LLM using `model` config
-        except Exception as e:
-            logger.error(f"Failed to scrape {source.name}: {e}")
-            db.add(SourceLog(data_source_id=source.id, error_message=str(e)))
-    db.commit()
+    should_close = False
+    if db is None:
+        db = get_session()
+        should_close = True
+
+    try:
+        logger.info("=== Partition 2: Technical Sweep ===")
+        model = get_active_model(db, "tech_extraction")
+        logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
+        
+        hn_count = await scrape_hackernews(db, source_id=2, max_stories=25)
+        gh_count = await scrape_github_trending(db, source_id=3)
+        logger.info(f"Partition 2 Complete: Scraped {hn_count} HN stories + {gh_count} GitHub dumps.")
+    except Exception as e:
+        logger.error(f"Tech sweep failed: {e}")
+        db.add(SystemLog(level="ERROR", component="Orchestrator-Tech", message=str(e)))
+        db.commit()
+        raise e
+    finally:
+        if should_close:
+            db.close()
 
 
-async def run_jobs_sweep(db):
+async def run_jobs_sweep(db=None):
     """
-    Run 3: Jobs & Salaries Sweep. Parses LinkedIn, Glassdoor, TeamTailor.
+    Run 3: Jobs & Salaries Sweep. Parses ATS and Aggregators.
     """
-    logger.info("=== Partition 3: Jobs & Salaries Sweep ===")
-    
-    # 1. Get model config
-    model = get_active_model(db, "jobs_extraction")
-    logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
-    
-    job_sources = db.query(DataSource).filter(
-        DataSource.is_active == 1,
-        DataSource.category.in_(['jobs', 'salary'])
-    ).all()
-    
-    for source in job_sources:
-        try:
-            logger.info(f"Fetching Job Data from {source.name}...")
-            # TODO: Add specific scrapers and pass raw text to LLM using `model` config
-        except Exception as e:
-            logger.error(f"Failed to scrape {source.name}: {e}")
-            db.add(SourceLog(data_source_id=source.id, error_message=str(e)))
-    db.commit()
+    should_close = False
+    if db is None:
+        db = get_session()
+        should_close = True
+
+    try:
+        logger.info("=== Partition 3: Jobs & Salaries Sweep ===")
+        model = get_active_model(db, "jobs_extraction")
+        logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
+        
+        jobs_count = await scrape_teamtailor_jobs(db, source_id=4)
+        logger.info(f"Partition 3 Complete: Scraped {jobs_count} ATS jobs.")
+    except Exception as e:
+        logger.error(f"Jobs sweep failed: {e}")
+        db.add(SystemLog(level="ERROR", component="Orchestrator-Jobs", message=str(e)))
+        db.commit()
+        raise e
+    finally:
+        if should_close:
+            db.close()
 
 
-async def run_synthesis(db):
+async def run_synthesis(db=None):
     """
     Run 4: Final Synthesis.
-    Collects cross-platform data, deduplicates semantically, 
-    calculates mathematical hype (share%), and commits to Eras.
+    Collects cross-platform data from raw_scrape_data, clusters topics via LLM,
+    calculates deterministic mathematical hype shares, and commits to HypeAnalysis & Eras.
     """
-    logger.info("=== Final Synthesis & Deduplication ===")
-    
-    # Synthesis usually requires a more powerful, reasoning-heavy model (e.g. gpt-4o or claude-3.5-sonnet)
-    model = get_active_model(db, "final_synthesis")
-    logger.info(f"Using Model for Synthesis: {model['model_name']} ({model['provider']})")
-    
+    should_close = False
+    if db is None:
+        db = get_session()
+        should_close = True
+
     try:
-        # TODO: 
-        # 1. Query the last 3-4 days of data across all tables.
-        # 2. Pass to Synthesizer LLM using `model` config for clustering and analysis.
-        # 3. Calculate mathematical hype trend (current share % vs previous).
-        # 4. Save results to Era / HypeAnalysis.
-        logger.info("Synthesizing data into actionable insights...")
+        logger.info("=== Partition 4: Final Synthesis & Deduplication ===")
+        model = get_active_model(db, "final_synthesis")
+        logger.info(f"Using Model for Synthesis: {model['model_name']} ({model['provider']})")
+        
+        results = await run_mathematical_synthesis(db, model_config=model)
+        logger.info(f"Partition 4 Complete: Synthesized {len(results)} mathematical hype topics.")
+        return results
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
         db.add(SystemLog(level="ERROR", component="Orchestrator-Synthesis", message=str(e)))
-    db.commit()
+        db.commit()
+        raise e
+    finally:
+        if should_close:
+            db.close()
 
 
 async def run_full_cycle():
     """
-    Helper function to manually run all sweeps and synthesis sequentially.
-    Normally, the scheduler runs these separately at specific times.
+    Runs all 4 sweeps sequentially for testing or manual pipeline execution.
     """
     db = get_session()
     try:
-        logger.info("Starting Full Manual Pipeline Cycle...")
+        logger.info("Starting Full Manual Pipeline Cycle (Partitions 1-4)...")
         await run_social_sweep(db)
         await run_tech_sweep(db)
         await run_jobs_sweep(db)
         await run_synthesis(db)
         logger.info("Full Pipeline Cycle Completed Successfully!")
     except Exception as e:
-        logger.error(f"Pipeline failed: {e}")
-        db.add(SystemLog(level="ERROR", component="Orchestrator", message="Pipeline failed", traceback=str(e)))
+        logger.error(f"Full pipeline cycle failed: {e}")
+        db.add(SystemLog(level="ERROR", component="Orchestrator-FullCycle", message=str(e)))
         db.commit()
+        raise e
     finally:
         db.close()
+
+if __name__ == "__main__":
+    asyncio.run(run_full_cycle())

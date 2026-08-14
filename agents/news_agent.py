@@ -54,7 +54,7 @@ class NewsAgent(BaseAgent):
             
             if not feed or not getattr(feed, 'entries', None):
                 self.logger.error("All RSS sources failed.")
-                return
+                raise RuntimeError("All primary and fallback RSS sources failed to return entries.")
 
             new_items = 0
             for entry in feed.entries[:100]:
@@ -95,9 +95,11 @@ class NewsAgent(BaseAgent):
             except IntegrityError as e:
                 db.rollback()
                 self.logger.error(f"Commit failed: {e}")
+                raise e
         except Exception as e:
             self.logger.error(f"News agent failed: {e}")
             db.rollback()
+            raise e
         finally:
             db.close()
 

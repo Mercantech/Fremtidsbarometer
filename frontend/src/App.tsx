@@ -15,6 +15,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 export function App() {
   const loadInitialData = useStore((s) => s.loadInitialData);
   const viewMode = useStore((s) => s.viewMode);
+  const apiError = useStore((s) => s.apiError);
+  const clearApiError = useStore((s) => s.clearApiError);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -26,6 +28,32 @@ export function App() {
 
   return (
     <div className="root">
+      {/* Backend API Error Banner */}
+      <AnimatePresence>
+        {apiError && (
+          <motion.div
+            initial={{ y: -80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-rose-900/90 text-white backdrop-blur-md border border-rose-500/30 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 text-xs"
+          >
+            <div className="flex flex-col">
+              <span className="font-bold text-rose-200">Backend Connection Error</span>
+              <span className="text-white/80">{apiError}</span>
+            </div>
+            <button
+              onClick={() => {
+                clearApiError();
+                loadInitialData();
+              }}
+              className="bg-white/20 hover:bg-white/30 text-white font-bold px-3 py-1.5 rounded-xl transition cursor-pointer"
+            >
+              Retry
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header with Globe/Map toggle */}
       <Header />
 

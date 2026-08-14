@@ -194,11 +194,10 @@ export function resolveCoordinates(country?: string, city?: string): GeoPoint {
     }
   }
 
-  // Last resort: random position near a tech hub
-  const allCities = Object.values(CITY_COORDS);
-  const randomCity = allCities[Math.floor(Math.random() * allCities.length)];
+  // Deterministic fallback: global coordinates with subtle jitter
+  const globalCentroid = COUNTRY_CENTROIDS['GLOBAL'] || { lat: 20.0, lng: 0.0 };
   return {
-    lat: randomCity.lat + jitter() * 2,
-    lng: randomCity.lng + jitter() * 2,
+    lat: globalCentroid.lat + jitter() * 2,
+    lng: globalCentroid.lng + jitter() * 2,
   };
 }

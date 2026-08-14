@@ -227,6 +227,7 @@ class JobsAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Jobs scraping failed: {e}")
             db.rollback()
+            raise e
         finally:
             db.close()
 

@@ -133,6 +133,7 @@ class RedditAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Reddit agent failed: {e}")
             db.rollback()
+            raise e
         finally:
             db.close()
 
