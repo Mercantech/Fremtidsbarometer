@@ -1,68 +1,81 @@
-# How to Run the Project (Fremtidsbarometer)
+# Fremtidsbarometer — Инструкция по запуску и деплою
 
-Hey! The project is fully configured so you don't even need Docker to run this locally (it works perfectly with your local Postgres or fallback data if connected to Neon).
+Проект полностью настроен для работы как в локальном режиме разработки, так и для продакшн-развертывания через Docker и Cloudflare Tunnel.
 
-## 🚀 Quick Start (Runs Everything)
+---
 
-Pop open a terminal in the root directory and just hit:
+## 🖥️ 1. Локальный запуск для разработки
+
+Для одновременного запуска всех компонентов (FastAPI, React, Планировщик фоновых агентов):
 
 ```bash
+# Запуск всего стека одной командой
 make dev
 ```
 
-This single command automatically spins up the entire stack:
-1. **Background Agents** (`scheduler.py`): The Python orchestrator that fetches GitHub trends, scrapes job postings, and generates AI hype analysis.
-2. **Backend API** (`uvicorn`): The FastAPI backend running on **port 8000** that serves data to the frontend.
-3. **Frontend** (`npm run dev`): The Vite-powered React UI running on **port 5173** (or 3000 depending on Vite config).
+- **Frontend**: http://localhost:5173
+- **Backend API & Swagger Docs**: http://localhost:8000/docs
+- **Остановка всех процессов**:
+  ```bash
+  make stop
+  ```
 
 ---
 
-## 🛑 How to Stop Everything
+## 🚀 2. Продакшн-развертывание на сервере (Docker)
 
-When you're done and want to cleanly kill all running background processes (React, FastAPI, and Python Agents), just run:
+На сервере используется контейнеризация через `docker-compose.prod.yml`.
 
+### Шаг 1: Подготовка конфигурации `.env`
+Создайте файл `.env` на сервере:
 ```bash
-make stop
+cp .env.example .env
+```
+Заполните обязательные переменные:
+- `GEMINI_API_KEY` — ключ API для Gemini (или другой выбранный провайдер).
+- `ADMIN_API_KEY` — секретный ключ для защиты административных эндпоинтов.
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — реквизиты базы данных.
+
+### Шаг 2: Запуск контейнеров
+```bash
+docker-compose -f docker-compose.prod.yml up --build -d
+```
+Стек запустит:
+1. **`db`** — PostgreSQL 15 с постоянным хранилищем.
+2. **`api`** — FastAPI бэкенд (порт 8000 внутри сети, автоматически накатывает миграции Alembic).
+3. **`scheduler`** — Планировщик сбора данных (каждые 15 мин — Live News, по Пн/Чт — глубокие парсеры и Синтезатор).
+4. **`frontend`** — Nginx сервер (порт 80), отдающий React SPA и проксирующий `/api` к бэкенду.
+
+### Шаг 3: Начальный сидинг базы данных (выполняется один раз)
+```bash
+docker-compose -f docker-compose.prod.yml exec api python database/seed.py
 ```
 
 ---
 
-## 🛠 Running Services Individually
+## ☁️ 3. Подключение через Cloudflare Tunnel (Рекомендуемый способ)
 
-If you prefer separate terminal tabs for each service so you can monitor the logs independently:
+Cloudflare Tunnel позволяет безопасно пробросить трафик к сайту без открытия портов наружу в файрволе сервера.
 
-**1. Backend API (port 8000)**
-Handles all data requests and serves the live IT news feed.
-```bash
-make api
-```
+1. Установите `cloudflared` на сервере:
+   ```bash
+   curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+   sudo dpkg -i cloudflared.deb
+   ```
+2. Авторизуйтесь в Cloudflare:
+   ```bash
+   cloudflared tunnel login
+   ```
+3. Создайте туннель:
+   ```bash
+   cloudflared tunnel create fremtidsbarometer
+   ```
+4. В панели Cloudflare Zero Trust (Tunnels) укажите маршрут:
+   - **Service Type**: `HTTP`
+   - **URL**: `localhost:80` (наш контейнер Nginx)
+5. Запустите туннель как системный сервис:
+   ```bash
+   sudo cloudflared service install <TOKEN>
+   ```
 
-**2. Background Agents**
-The data collection engine. Runs scheduled jobs to populate the database.
-```bash
-make agents
-```
-
-**3. Frontend (port 5173)**
-The 3D interactive Globe interface.
-```bash
-make frontend
-```
-
----
-
-## 💾 Database Setup (First time only)
-
-Before running the project for the first time, you need to set up the database tables and seed them with historical data. Make sure you have your `.env` configured with the `DATABASE_URL`.
-
-**1. Create the database tables:**
-```bash
-make db-init
-```
-
-**2. Load historical simulation data:**
-```bash
-make db-seed
-```
-
-You are good to go!
+Готово! Весь внешний HTTPS трафик будет безопасно идти на порт 80 контейнера Nginx.

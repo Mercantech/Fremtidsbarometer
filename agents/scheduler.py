@@ -6,8 +6,9 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from dotenv import load_dotenv
 import pytz
 
-# Import orchestrator
+# Import orchestrator & news agent
 from agents.orchestrator import run_social_sweep, run_tech_sweep, run_jobs_sweep, run_synthesis, run_full_cycle
+from agents.news_agent import NewsAgent
 from database.models import SystemLog
 from database.session import get_session
 
@@ -47,12 +48,20 @@ def job_listener(event):
         log_to_db("INFO", "Scheduler", msg)
 
 async def main():
-    logger.info("Starting AP Scheduler (Mon/Thu Partitioned Pipeline)...")
+    logger.info("Starting AP Scheduler (Mon/Thu Partitioned Pipeline + 15m Live News)...")
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
     # Add event listener for DB logging
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
+    # ── Live Real-Time IT News Feed (Every 15 minutes) ──
+    news_agent = NewsAgent()
+    scheduler.add_job(
+        news_agent.fetch_news, 'interval', minutes=15,
+        id='live_news_feed_job', replace_existing=True
+    )
+
+    # ── Mon/Thu Partitioned Sweeps ──
     # 09:00 UTC - Partition 1: Social Sweep
     scheduler.add_job(
         run_social_sweep, 'cron', day_of_week='mon,thu', hour=9, minute=0,
@@ -79,7 +88,8 @@ async def main():
     
     scheduler.start()
     
-    # Run a full manual cycle immediately on startup for testing/seeding
+    # Run initial news fetch and full cycle on startup for immediate data
+    asyncio.create_task(news_agent.fetch_news())
     asyncio.create_task(run_full_cycle())
 
     logger.info("Scheduler started. Press Ctrl+C to exit.")

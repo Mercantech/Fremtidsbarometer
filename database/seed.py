@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv()
 
-from database.models import TechTrend, Era, GeographyGrid, DataSource
+from database.models import TechTrend, Era, GeographyGrid, DataSource, AIModelConfig
 from database.session import get_session
 from sqlalchemy.dialects.postgresql import insert
 
@@ -292,8 +292,49 @@ def seed_sources():
         session.close()
 
 
+def seed_ai_models():
+    session = get_session()
+    print("🤖 Seeding AI Model Configurations...")
+    
+    models_seed = [
+        # Social Sweep
+        {"task_type": "social_extraction", "model_name": "gemini-3.6-flash", "provider": "google", "is_active": 1, "is_fallback": 0},
+        {"task_type": "social_extraction", "model_name": "gemini-3.5-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
+        
+        # Tech Sweep
+        {"task_type": "tech_extraction", "model_name": "gemini-3.6-flash", "provider": "google", "is_active": 1, "is_fallback": 0},
+        {"task_type": "tech_extraction", "model_name": "gemini-3.5-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
+        
+        # Jobs Sweep
+        {"task_type": "jobs_extraction", "model_name": "gemini-3.6-flash", "provider": "google", "is_active": 1, "is_fallback": 0},
+        {"task_type": "jobs_extraction", "model_name": "gemini-3.5-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
+        
+        # Final Synthesis
+        {"task_type": "final_synthesis", "model_name": "gemini-3.1-pro", "provider": "google", "is_active": 1, "is_fallback": 0},
+        {"task_type": "final_synthesis", "model_name": "gemini-3.6-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
+    ]
+
+    try:
+        for m in models_seed:
+            existing = session.query(AIModelConfig).filter(
+                AIModelConfig.task_type == m["task_type"],
+                AIModelConfig.model_name == m["model_name"]
+            ).first()
+            if not existing:
+                session.add(AIModelConfig(**m))
+        session.commit()
+        print("✅ Seeded AI Model Configurations.")
+    except Exception as e:
+        session.rollback()
+        print(f"❌ Error seeding AI Model Configurations: {e}")
+    finally:
+        session.close()
+
+
 if __name__ == "__main__":
     seed_historical_data()
     seed_eras()
     seed_geography()
     seed_sources()
+    seed_ai_models()
+

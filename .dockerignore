@@ -1,8 +1,36 @@
-node_modules
-venv
+# ── Version Control & IDEs ──
 .git
-frontend_legacy
-Plan
+.gitignore
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# ── Python & Virtual Envs ──
+venv
+.venv
+env
 __pycache__
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov
+
+# ── Node & Frontend Artifacts ──
+frontend/node_modules
+node_modules
+frontend/dist
+dist
+.npm
+
+# ── Environment & Secrets ──
 .env
+*.local
+
+# ── Project Legacy / Scratch ──
+frontend_legacy
+Plan
+.gemini

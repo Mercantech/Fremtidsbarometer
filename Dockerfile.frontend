@@ -20,8 +20,8 @@ FROM nginx:alpine
 # Копируем собранные файлы из первого этапа в директорию Nginx
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Если нужно, копируем конфигурацию nginx:
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Копируем конфигурацию nginx с проксированием и SPA роутингом:
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
