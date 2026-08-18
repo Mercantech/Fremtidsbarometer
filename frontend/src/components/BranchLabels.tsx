@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import { globeState } from '../utils/globeState';
 
 const escapeHtml = (str: string) =>
   String(str || '').replace(/[&<>'"]/g, (tag) => ({
@@ -9,8 +10,6 @@ const escapeHtml = (str: string) =>
     "'": '&#39;',
     '"': '&quot;',
   }[tag] || tag));
-
-export const globeState = { rotationY: 0 };
 
 export const BranchLabels: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);

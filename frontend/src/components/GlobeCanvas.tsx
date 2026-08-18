@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from '../store/useStore';
-import { globeState } from './BranchLabels';
+import { globeState } from '../utils/globeState';
 
 // Removed HeatmapNode completely as requested
 
