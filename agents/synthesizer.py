@@ -156,6 +156,7 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
                 score=normalized_score,
                 direction=direction,
                 summary=summary,
+                status="published",
                 sources=["reddit", "hackernews", "github", "teamtailor"]
             )
             db.add(new_hype)

@@ -18,7 +18,7 @@ def get_hype(
     """
     results = db.query(HypeAnalysis)\
         .filter(HypeAnalysis.status == 'published')\
-        .order_by(HypeAnalysis.created_at.desc())\
+        .order_by(HypeAnalysis.date.desc(), HypeAnalysis.score.desc())\
         .limit(limit)\
         .all()
     return results

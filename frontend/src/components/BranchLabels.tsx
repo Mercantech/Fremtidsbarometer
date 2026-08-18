@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 
+const escapeHtml = (str: string) =>
+  String(str || '').replace(/[&<>'"]/g, (tag) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  }[tag] || tag));
+
 export const globeState = { rotationY: 0 };
 
 export const BranchLabels: React.FC = () => {
@@ -68,11 +77,11 @@ export const BranchLabels: React.FC = () => {
       div.style.cursor = 'pointer';
       
       div.innerHTML = `
-        <div class="branch-pill hover:scale-105 transition-transform" style="border: 1px solid ${t.color}40; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);">
-          <div class="branch-dot" style="background:${t.color}; box-shadow: 0 0 8px ${t.color}"></div>
-          <span style="color: #111; font-weight: 600;">${t.topic}</span>
+        <div class="branch-pill hover:scale-105 transition-transform" style="border: 1px solid ${escapeHtml(t.color)}40; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);">
+          <div class="branch-dot" style="background:${escapeHtml(t.color)}; box-shadow: 0 0 8px ${escapeHtml(t.color)}"></div>
+          <span style="color: #111; font-weight: 600;">${escapeHtml(t.topic)}</span>
         </div>
-        <div class="branch-country" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1)">${t.country}</div>
+        <div class="branch-country" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1)">${escapeHtml(t.country)}</div>
       `;
       
       div.onclick = () => setSelectedTopic(t);

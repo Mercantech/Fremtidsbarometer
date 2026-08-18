@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Header, status
 from sqlalchemy.orm import Session
 from typing import Optional, List
 import os
+import secrets
 from dotenv import load_dotenv
 
 from api.database import get_db
@@ -9,12 +10,12 @@ from database.models import SystemLog
 from api.schemas import SystemLogSchema
 
 load_dotenv()
-ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 
 def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    if not ADMIN_API_KEY:
+    admin_key = os.getenv("ADMIN_API_KEY")
+    if not admin_key:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Admin API key is not configured")
-    if x_api_key != ADMIN_API_KEY:
+    if not x_api_key or not secrets.compare_digest(x_api_key, admin_key):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(verify_api_key)])
