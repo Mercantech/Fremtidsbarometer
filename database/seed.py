@@ -310,7 +310,7 @@ def seed_ai_models():
         {"task_type": "jobs_extraction", "model_name": "gemini-3.5-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
         
         # Final Synthesis
-        {"task_type": "final_synthesis", "model_name": "gemini-3.1-pro", "provider": "google", "is_active": 1, "is_fallback": 0},
+        {"task_type": "final_synthesis", "model_name": "gemini-3.1-pro-preview", "provider": "google", "is_active": 1, "is_fallback": 0},
         {"task_type": "final_synthesis", "model_name": "gemini-3.6-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
     ]
 

@@ -20,6 +20,8 @@ def seed_ats_companies(db):
         db.commit()
         logger.info("Seeded initial ATS companies.")
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
 async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
     """
     Parses public RSS feeds of all registered Teamtailor companies.
@@ -43,7 +45,13 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 if not title or not link:
                     continue
                     
-                exists = db.query(JobPosting).filter(JobPosting.url == link).first()
+                company_name = company.domain.capitalize()[:200]
+                
+                # Check if exists by URL or by (title, company, source)
+                exists = db.query(JobPosting).filter(
+                    (JobPosting.url == link) | 
+                    ((JobPosting.title == title[:500]) & (JobPosting.company == company_name) & (JobPosting.source == "teamtailor"))
+                ).first()
                 if exists:
                     continue
                     
@@ -60,10 +68,10 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 )
                 db.add(raw_entry)
                 
-                # 2. Add basic structured job
-                new_job = JobPosting(
+                # 2. Add basic structured job safely
+                stmt = pg_insert(JobPosting).values(
                     title=title[:500],
-                    company=company.domain.capitalize()[:200],
+                    company=company_name,
                     url=link[:1000],
                     source="teamtailor",
                     country="DK",
@@ -72,9 +80,11 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                     tags=["junior", "teamtailor"],
                     date=datetime.now(timezone.utc),
                     match_score=85.0,
-                    match_reason="Direct ATS vacancy"
-                )
-                db.add(new_job)
+                    match_reason="Direct ATS vacancy",
+                    status="published"
+                ).on_conflict_do_nothing(index_elements=["title", "company", "source"])
+                
+                db.execute(stmt)
                 saved_count += 1
                 
             db.commit()
