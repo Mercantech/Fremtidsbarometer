@@ -135,18 +135,64 @@ async def run_synthesis(db=None):
             db.close()
 
 
-async def run_full_cycle():
+from datetime import datetime, timedelta, timezone
+from database.models import HypeAnalysis, RawScrapeData
+
+def check_data_freshness(db=None, max_age_hours: int = 12):
+    """
+    Checks if fresh synthesized data and raw scrapes exist in the database.
+    Returns a dictionary with status and metadata.
+    """
+    should_close = False
+    if db is None:
+        db = get_session()
+        should_close = True
+
+    try:
+        threshold = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        
+        latest_hype = db.query(HypeAnalysis).filter(
+            HypeAnalysis.created_at >= threshold
+        ).order_by(HypeAnalysis.created_at.desc()).first()
+        
+        raw_recent_count = db.query(RawScrapeData).filter(
+            RawScrapeData.created_at >= threshold
+        ).count()
+        
+        is_fresh = bool(latest_hype and raw_recent_count >= 5)
+        
+        return {
+            "is_fresh": is_fresh,
+            "latest_hype_topic": latest_hype.topic if latest_hype else None,
+            "latest_hype_created_at": latest_hype.created_at.isoformat() if latest_hype else None,
+            "recent_raw_records": raw_recent_count,
+            "max_age_hours": max_age_hours
+        }
+    finally:
+        if should_close:
+            db.close()
+
+
+async def run_full_cycle(force: bool = False):
     """
     Runs all 4 sweeps sequentially for testing or manual pipeline execution.
+    If force=False and fresh data exists (<12h), skips to avoid redundant AI token usage.
     """
     db = get_session()
     try:
-        logger.info("Starting Full Manual Pipeline Cycle (Partitions 1-4)...")
+        if not force:
+            freshness = check_data_freshness(db, max_age_hours=12)
+            if freshness["is_fresh"]:
+                logger.info(f"⏩ Fresh data exists (topic: '{freshness['latest_hype_topic']}', {freshness['recent_raw_records']} raw records). Skipping full cycle to preserve AI tokens.")
+                return {"status": "skipped", "reason": "fresh_data_exists", "freshness": freshness}
+
+        logger.info("Starting Full Pipeline Cycle (Partitions 1-4)...")
         await run_social_sweep(db)
         await run_tech_sweep(db)
         await run_jobs_sweep(db)
-        await run_synthesis(db)
+        results = await run_synthesis(db)
         logger.info("Full Pipeline Cycle Completed Successfully!")
+        return {"status": "success", "synthesized_topics": len(results) if results else 0}
     except Exception as e:
         logger.error(f"Full pipeline cycle failed: {e}")
         db.add(SystemLog(level="ERROR", component="Orchestrator-FullCycle", message=str(e)))
@@ -156,4 +202,4 @@ async def run_full_cycle():
         db.close()
 
 if __name__ == "__main__":
-    asyncio.run(run_full_cycle())
+    asyncio.run(run_full_cycle(force=True))

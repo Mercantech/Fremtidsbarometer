@@ -37,3 +37,63 @@ def get_system_logs(
         
     logs = query.order_by(SystemLog.created_at.desc()).offset(offset).limit(limit).all()
     return logs
+
+
+@router.get("/status")
+def get_pipeline_status(
+    max_age_hours: int = Query(12, ge=1, le=168, description="Max age in hours for data freshness check"),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns data freshness status and recent database statistics for Admin Panel dashboard.
+    """
+    from agents.orchestrator import check_data_freshness
+    freshness = check_data_freshness(db, max_age_hours=max_age_hours)
+    return {
+        "status": "ok",
+        "freshness": freshness
+    }
+
+
+from fastapi import BackgroundTasks
+
+@router.post("/trigger-pipeline")
+async def trigger_pipeline(
+    background_tasks: BackgroundTasks,
+    force: bool = Query(False, description="Set to true to force scraping and AI synthesis even if data is fresh"),
+    sweep: Optional[str] = Query("all", description="Sweep type: 'all', 'social', 'tech', 'jobs', 'synthesis', 'news'"),
+    db: Session = Depends(get_db)
+):
+    """
+    Manual 'Пуск' trigger for scraping and AI processing.
+    Runs asynchronously in the background so the admin UI receives an immediate response.
+    """
+    from agents.orchestrator import run_full_cycle, run_social_sweep, run_tech_sweep, run_jobs_sweep, run_synthesis
+    from agents.news_agent import NewsAgent
+
+    async def _execute_pipeline():
+        try:
+            if sweep == "all":
+                await run_full_cycle(force=force)
+            elif sweep == "social":
+                await run_social_sweep()
+            elif sweep == "tech":
+                await run_tech_sweep()
+            elif sweep == "jobs":
+                await run_jobs_sweep()
+            elif sweep == "synthesis":
+                await run_synthesis()
+            elif sweep == "news":
+                await NewsAgent().fetch_news()
+        except Exception as e:
+            # Errors are already logged to system_logs by the orchestrator/agents
+            pass
+
+    background_tasks.add_task(_execute_pipeline)
+
+    return {
+        "status": "dispatched",
+        "sweep": sweep,
+        "force": force,
+        "message": f"Pipeline task '{sweep}' (force={force}) has been queued and started in background."
+    }

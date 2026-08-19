@@ -104,8 +104,72 @@ GET /api/admin/logs?level=ERROR&component=Synthesizer&limit=50&offset=0
 
 ---
 
-## ⚡ 5. Ручной запуск и тестирование сбора данных
+## ⚡ 5. Кнопка «Пуск» и Ручной Запуск (Ручное Управление)
 
-Админ-панель может предоставлять кнопки ручного запуска:
-- **«Собрать новости сейчас»**: Вызывает `NewsAgent().fetch_news()` для немедленного обновления левой ленты.
-- **«Запустить полный цикл сбора и синтеза»**: Вызывает `run_full_cycle()` (сбор соцсетей $\to$ сбор технических блогов $\to$ сбор вакансий $\to$ синтез тем хайпа).
+В админ-панели реализована возможность ручного запуска всего цикла сбора данных либо отдельных этапов, а также проверка свежести данных.
+
+### А. Проверка свежести данных:
+```http
+GET /api/admin/status?max_age_hours=12 HTTP/1.1
+x-api-key: <ADMIN_API_KEY>
+```
+
+**Пример ответа (200 OK):**
+```json
+{
+  "status": "ok",
+  "freshness": {
+    "is_fresh": true,
+    "latest_hype_topic": "Accelerated Frontier LLM Inference",
+    "latest_hype_created_at": "2026-08-18T11:53:28.864000+00:00",
+    "recent_raw_records": 64,
+    "max_age_hours": 12
+  }
+}
+```
+*Если `is_fresh === true`, на дашборде админки можно отобразить зеленую плашку: «Данные актуальны, повторный запуск не требуется».*
+
+---
+
+### Б. Эндпоинт кнопки «Пуск» (Запуск сбора в фоне):
+```http
+POST /api/admin/trigger-pipeline?sweep=all&force=true HTTP/1.1
+x-api-key: <ADMIN_API_KEY>
+```
+
+**Параметры Query:**
+- `sweep` (string, по умолчанию `"all"`):
+  - `"all"` — Полный цикл (Соцсети $\to$ Технические блоги $\to$ Вакансии $\to$ Синтезатор).
+  - `"social"` — Запуск только сбора соцсетей (Reddit / Threads).
+  - `"tech"` — Запуск только сбора HackerNews и GitHub.
+  - `"jobs"` — Запуск только сбора вакансий TeamTailor.
+  - `"synthesis"` — Запуск только ИИ-синтеза и кластеризации хайпа.
+  - `"news"` — Немедленный опрос мировых новостей IT (Google News / RSS).
+- `force` (boolean, по умолчанию `false`):
+  - `false` — Если данные уже свежие ($< 12$ часов), бэкенд пропустит повторный сбор и сэкономит токены ИИ.
+  - `true` — **Принудительный запуск («Жесткий Пуск»)**: скраперы и ИИ пройдутся по интернету в реальном времени, даже если данные собирались 5 минут назад.
+
+**Пример ответа (200 OK — задача принята и выполняется в фоне):**
+```json
+{
+  "status": "dispatched",
+  "sweep": "all",
+  "force": true,
+  "message": "Pipeline task 'all' (force=True) has been queued and started in background."
+}
+```
+
+**Пример вызова на JavaScript (Fetch):**
+```javascript
+async function triggerPipeline(sweepType = 'all', force = false) {
+  const response = await fetch(`/api/admin/trigger-pipeline?sweep=${sweepType}&force=${force}`, {
+    method: 'POST',
+    headers: {
+      'x-api-key': 'admin_dev_key_12345',
+      'Content-Type': 'application/json'
+    }
+  });
+  const data = await response.json();
+  console.log('Task dispatched:', data);
+}
+```
