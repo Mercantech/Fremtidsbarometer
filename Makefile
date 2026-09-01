@@ -3,8 +3,8 @@
 # ── Run the entire project ──
 dev:
 	@echo "🚀 Starting Fremtidsbarometer (local mode)..."
-	@cd agents && python scheduler.py &
-	@uvicorn api.main:app --reload --port 8000 &
+	@start "Fremtidsbarometer Scheduler" cmd /K "python -m agents.scheduler"
+	@start "Fremtidsbarometer API" cmd /K "python -m uvicorn api.main:app --reload --port 8000"
 	@cd frontend && npm run dev
 
 # ── Stop ──
@@ -25,7 +25,7 @@ api:
 	@uvicorn api.main:app --reload --port 8000
 
 agents:
-	@cd agents && python scheduler.py
+	@python -m agents.scheduler
 
 # ── Database Initialization ──
 db-init:
