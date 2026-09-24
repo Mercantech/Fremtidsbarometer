@@ -1,8 +1,11 @@
 import asyncio
 import logging
+from dotenv import load_dotenv
 from database.session import get_session
 from database.models import DataSource, SystemLog, SourceLog, AIModelConfig
 from utils.logger import get_centralized_logger
+
+load_dotenv()
 
 from agents.scrapers.social_scraper import scrape_reddit_discussions
 from agents.scrapers.tech_scraper import scrape_hackernews, scrape_github_trending

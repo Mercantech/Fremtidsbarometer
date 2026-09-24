@@ -3,7 +3,10 @@ import json
 import logging
 import httpx
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
 import google.generativeai as genai
+
+load_dotenv()
 
 logger = logging.getLogger("AIProvider")
 
@@ -13,7 +16,7 @@ class AIProviderError(Exception):
 
 class GeminiProvider:
     def __init__(self, model_name: str = 'gemini-3.6-flash'):
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
         if not api_key:
             logger.warning("GEMINI_API_KEY is not set in environment.")
         else:
@@ -25,7 +28,8 @@ class GeminiProvider:
         Sends prompt to Gemini and expects a validated JSON response.
         Raises AIProviderError on missing keys or generation failures.
         """
-        if not os.getenv("GEMINI_API_KEY"):
+        api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+        if not api_key:
             raise AIProviderError("GEMINI_API_KEY environment variable is not configured.")
             
         full_prompt = f"{prompt}\n\nMust return ONLY valid JSON. {schema}"
@@ -48,7 +52,7 @@ class GeminiProvider:
 class OpenAICompatibleProvider:
     def __init__(self, model_name: str = "gpt-4o-mini", api_key: str = None, base_url: str = "https://api.openai.com/v1"):
         self.model_name = model_name
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.api_key = (api_key or os.getenv("OPENAI_API_KEY") or "").strip()
         self.base_url = base_url.rstrip("/")
 
     async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
