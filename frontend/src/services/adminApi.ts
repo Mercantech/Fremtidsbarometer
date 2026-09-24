@@ -1,20 +1,23 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
-const DEFAULT_ADMIN_KEY = import.meta.env.VITE_ADMIN_API_KEY || 'admin_dev_key_12345';
+const getAdminKey = (): string => {
+  return localStorage.getItem('admin_api_key') || (import.meta.env.VITE_ADMIN_API_KEY as string) || '';
+};
 
 export const adminApi = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'x-api-key': localStorage.getItem('admin_api_key') || DEFAULT_ADMIN_KEY,
   },
 });
 
 adminApi.interceptors.request.use((config) => {
-  const customKey = localStorage.getItem('admin_api_key');
-  if (customKey) {
-    config.headers['x-api-key'] = customKey;
+  const key = getAdminKey();
+  if (key) {
+    config.headers['x-api-key'] = key;
+  } else {
+    delete config.headers['x-api-key'];
   }
   return config;
 });

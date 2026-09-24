@@ -70,7 +70,7 @@ export default function Auth() {
               autoFocus
             />
             <p className="text-[11px] text-slate-500 mt-2">
-              Default local dev key: <code className="text-blue-400">admin_dev_key_12345</code>
+              Authentication required. Provide the configured administrative access token.
             </p>
           </div>
 

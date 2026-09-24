@@ -25,10 +25,23 @@ def get_active_model(db, task_type: str):
     ).first()
     
     if not model_config:
-        logger.warning(f"No active model found for {task_type}. Falling back to default: gemini-3.6-flash")
-        return {"provider": "google", "model_name": "gemini-3.6-flash"}
+        logger.warning(f"No active model found for {task_type}. Falling back to default: gemini-3.8-flash")
+        return {"provider": "google", "model_name": "gemini-3.8-flash"}
         
     return {"provider": model_config.provider, "model_name": model_config.model_name}
+
+def get_data_source_status(db, keyword: str):
+    """
+    Checks if a data source is registered and active in the database.
+    Returns (is_active: bool, source_id: Optional[int]).
+    """
+    source = db.query(DataSource).filter(
+        (DataSource.name.ilike(f"%{keyword}%")) |
+        (DataSource.url.ilike(f"%{keyword}%"))
+    ).first()
+    if source is not None:
+        return bool(source.is_active), source.id
+    return True, None
 
 async def run_social_sweep(db=None):
     """
@@ -41,11 +54,17 @@ async def run_social_sweep(db=None):
         
     try:
         logger.info("=== Partition 1: Social Sweep ===")
+        is_active, source_id = get_data_source_status(db, "Reddit")
+        if not is_active:
+            logger.info("⏩ Social sweep skipped: Reddit/Social data source is disabled in Admin Panel.")
+            return 0
+
         model = get_active_model(db, "social_extraction")
         logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
         
-        count = await scrape_reddit_discussions(db, source_id=1, limit_per_sub=15)
+        count = await scrape_reddit_discussions(db, source_id=source_id or 1, limit_per_sub=15)
         logger.info(f"Partition 1 Complete: Scraped {count} social discussions.")
+        return count
     except Exception as e:
         logger.error(f"Social sweep failed: {e}")
         db.rollback()
@@ -68,12 +87,30 @@ async def run_tech_sweep(db=None):
 
     try:
         logger.info("=== Partition 2: Technical Sweep ===")
+        hn_active, hn_id = get_data_source_status(db, "HackerNews")
+        gh_active, gh_id = get_data_source_status(db, "GitHub")
+
+        if not hn_active and not gh_active:
+            logger.info("⏩ Tech sweep skipped: Both HackerNews and GitHub are disabled in Admin Panel.")
+            return 0, 0
+
         model = get_active_model(db, "tech_extraction")
         logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
         
-        hn_count = await scrape_hackernews(db, source_id=2, max_stories=25)
-        gh_count = await scrape_github_trending(db, source_id=3)
+        hn_count = 0
+        gh_count = 0
+        if hn_active:
+            hn_count = await scrape_hackernews(db, source_id=hn_id or 2, max_stories=25)
+        else:
+            logger.info("⏩ HackerNews scraping skipped: Disabled in Admin Panel.")
+
+        if gh_active:
+            gh_count = await scrape_github_trending(db, source_id=gh_id or 3)
+        else:
+            logger.info("⏩ GitHub Trending scraping skipped: Disabled in Admin Panel.")
+
         logger.info(f"Partition 2 Complete: Scraped {hn_count} HN stories + {gh_count} GitHub dumps.")
+        return hn_count, gh_count
     except Exception as e:
         logger.error(f"Tech sweep failed: {e}")
         db.rollback()
@@ -96,11 +133,17 @@ async def run_jobs_sweep(db=None):
 
     try:
         logger.info("=== Partition 3: Jobs & Salaries Sweep ===")
+        tt_active, tt_id = get_data_source_status(db, "TeamTailor")
+        if not tt_active:
+            logger.info("⏩ Jobs sweep skipped: TeamTailor ATS data source is disabled in Admin Panel.")
+            return 0
+
         model = get_active_model(db, "jobs_extraction")
         logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
         
-        jobs_count = await scrape_teamtailor_jobs(db, source_id=4)
+        jobs_count = await scrape_teamtailor_jobs(db, source_id=tt_id or 1)
         logger.info(f"Partition 3 Complete: Scraped {jobs_count} ATS jobs.")
+        return jobs_count
     except Exception as e:
         logger.error(f"Jobs sweep failed: {e}")
         db.rollback()

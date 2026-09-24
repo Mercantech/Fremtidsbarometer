@@ -105,6 +105,22 @@ export const fetchTrends = async (country = 'GLOBAL', limit = 10): Promise<TechT
   }
 };
 
+export const fetchTrendsHistory = async (
+  country = 'GLOBAL',
+  startYear = 1960,
+  endYear = 2034
+): Promise<EraTrendHistory[]> => {
+  try {
+    const res = await api.get<EraTrendHistory[]>(
+      `/api/trends/history?country=${country}&start_year=${startYear}&end_year=${endYear}`
+    );
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch trends history', error);
+    throw error;
+  }
+};
+
 export const fetchJobs = async (limit = 10): Promise<JobPosting[]> => {
   try {
     const res = await api.get<JobPosting[]>(`/api/jobs?limit=${limit}`);

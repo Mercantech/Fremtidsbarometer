@@ -6,7 +6,7 @@ This document serves as the central source of truth for the project's architectu
 
 ### Backend
 - **Framework**: FastAPI (Python)
-- **Database**: SQLite (via SQLAlchemy ORM)
+- **Database**: PostgreSQL (Neon Serverless & Local Docker) via SQLAlchemy ORM (JSONB, PostgreSQL native dialect)
 - **API Documentation**: Built-in Swagger UI (Accessible at `http://localhost:8000/docs`)
 - **Background Tasks**: APScheduler (for scraping agents like NewsAgent)
 
@@ -82,7 +82,7 @@ To prevent recurring issues, here is a record of deeply rooted bugs that were so
    - *Root Cause*: Two layered issues. First, `<MapContainer>` inside an animating `<motion.div>` calculates its bounds when opacity is 0 (size 0x0). Second, a custom CSS filter (`invert(1) brightness(0.6)`) was being applied to Esri Dark Gray tiles. Since they were already dark, the filter inverted them and crushed the contrast, turning the map completely gray.
    - *Solution*: Added a `<MapInvalidateSize />` hook component inside `MapContainer` that calls `map.invalidateSize()` after a 150ms timeout. Removed the destructive `.leaflet-dark .leaflet-tile` CSS filter entirely, relying purely on the native Esri dark tiles.
 
-3. **Empty API Responses (Planet without events)**:
-   - *Problem*: Front-end showed zero events globally despite math fixes.
-   - *Root Cause*: The backend database was genuinely empty for `jobs`, `hype`, and `salary`, meaning the API returned `[]`.
-   - *Solution*: Added fallback mock data generation in `useStore.ts`. If `jobsData.length === 0`, it injects ~30 realistic geo-located events globally so the UI is never empty while scrapers are inactive.
+3. **API Response Handling**:
+   - *Problem*: Front-end showed zero events globally when database was newly created or unseeded.
+   - *Root Cause*: The backend database was genuinely empty for `jobs`, `hype`, and `salary` before seed or initial scraper execution.
+   - *Solution*: Data is seeded cleanly via `python database/seed.py` and kept fresh via the 4-partition orchestrator pipeline (`agents/orchestrator.py`).

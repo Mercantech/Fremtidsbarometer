@@ -36,7 +36,7 @@ export const BranchLabels: React.FC = () => {
   }, []);
 
   const latLngToScreen = useCallback((lat: number, lng: number, rotY: number) => {
-    const { CX, CY, GLOBE_R } = getScreenDimensions();
+    const { H, CX, CY, GLOBE_R } = getScreenDimensions();
     const radLat = lat * (Math.PI / 180);
     const radLng = lng * (Math.PI / 180);
 
@@ -49,10 +49,15 @@ export const BranchLabels: React.FC = () => {
     const sinR = Math.sin(rotY);
     const rx = x3 * cosR - z3 * sinR;
     const rz = x3 * sinR + z3 * cosR;
+
+    // Perspective projection matching GlobeCanvas (PerspectiveCamera fov 42)
+    const fovRad = (42 / 2) * (Math.PI / 180);
+    const camDistInRadii = (H / (2 * Math.tan(fovRad))) / GLOBE_R;
+    const perspectiveFactor = camDistInRadii / Math.max(0.1, camDistInRadii - (rz / GLOBE_R));
     
     return {
-      x: CX + rx,
-      y: CY - y3,
+      x: CX + rx * perspectiveFactor,
+      y: CY - y3 * perspectiveFactor,
       rz: rz,
       visible: rz > -10 // Visible if on front hemisphere
     };
@@ -67,6 +72,8 @@ export const BranchLabels: React.FC = () => {
     wrap.innerHTML = '';
     labelEls.current = [];
     lineEls.current = [];
+    currentPosRef.current = [];
+    const timers: number[] = [];
 
     filteredTopics.forEach((t, i) => {
       const div = document.createElement('div');
@@ -96,11 +103,16 @@ export const BranchLabels: React.FC = () => {
       svg.appendChild(line);
       lineEls.current.push(line);
 
-      setTimeout(() => {
+      const tid = window.setTimeout(() => {
         div.style.opacity = '1';
         line.setAttribute('opacity', '0.6');
       }, 60 + i * 40);
+      timers.push(tid);
     });
+
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id));
+    };
   }, [filteredTopics, setSelectedTopic]);
 
   useEffect(() => {

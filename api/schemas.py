@@ -106,7 +106,6 @@ class AIModelConfigSchema(BaseModel):
     is_active: int
     is_fallback: int
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 

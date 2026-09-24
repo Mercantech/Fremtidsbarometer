@@ -15,7 +15,7 @@ class AIProviderError(Exception):
     pass
 
 class GeminiProvider:
-    def __init__(self, model_name: str = 'gemini-3.6-flash'):
+    def __init__(self, model_name: str = 'gemini-3.8-flash'):
         api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
         if not api_key:
             logger.warning("GEMINI_API_KEY is not set in environment.")
@@ -85,7 +85,7 @@ class OpenAICompatibleProvider:
                 logger.error(f"OpenAI API error: {e}")
                 raise AIProviderError(f"OpenAI JSON generation failed: {e}") from e
 
-def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.6-flash"):
+def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.8-flash"):
     """
     Factory function to instantiate the correct provider based on configuration.
     Falls back to Gemini if alternative provider keys are missing.
@@ -97,4 +97,4 @@ def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.6-flas
             return OpenAICompatibleProvider(model_name=model_name, api_key=openai_key)
         logger.warning(f"Provider '{provider}' requested, but OPENAI_API_KEY not found. Falling back to Gemini.")
 
-    return GeminiProvider(model_name=model_name or "gemini-3.6-flash")
+    return GeminiProvider(model_name=model_name or "gemini-3.8-flash")

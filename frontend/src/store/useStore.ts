@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import type {
-  NewsItem, TechTrend, JobPosting, HypeTopic, SalaryData, EraInfo
+  NewsItem, TechTrend, JobPosting, HypeTopic, SalaryData, EraInfo, EraTrendHistory
 } from '../services/api';
 import {
-  fetchNews, fetchTrends, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries
+  fetchNews, fetchTrends, fetchTrendsHistory, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries
 } from '../services/api';
 import { resolveCoordinates } from '../utils/GeoLookup';
 
@@ -31,6 +31,7 @@ interface AppState {
   countries: string[];
   news: NewsItem[];
   trends: TechTrend[];
+  trendsHistory: EraTrendHistory[];
   jobs: JobPosting[];
   hype: HypeTopic[];
   salary: SalaryData[];
@@ -61,6 +62,45 @@ const SEMANTIC_COLORS = {
   salary: '#ffd000'  // Yellow: Money, stats, gold
 };
 
+const GLOBAL_TECH_HUBS = [
+  { city: 'San Francisco', country: 'US' },
+  { city: 'London', country: 'GB' },
+  { city: 'Tokyo', country: 'JP' },
+  { city: 'Berlin', country: 'DE' },
+  { city: 'New York', country: 'US' },
+  { city: 'Copenhagen', country: 'DK' },
+  { city: 'Singapore', country: 'SG' },
+  { city: 'Stockholm', country: 'SE' },
+  { city: 'Amsterdam', country: 'NL' },
+  { city: 'Seoul', country: 'KR' },
+  { city: 'Zurich', country: 'CH' },
+  { city: 'Sydney', country: 'AU' }
+];
+
+function resolveHypeLocation(topic: string, summary: string = ''): { city: string; country: string } {
+  const combined = (topic + ' ' + summary).toLowerCase();
+  if (/mistral|gdpr|eu |european|berlin|paris|asml/.test(combined)) {
+    return { city: 'Berlin', country: 'DE' };
+  }
+  if (/nordic|denmark|danish|sweden|scandinavia|copenhagen|stockholm/.test(combined)) {
+    return { city: 'Copenhagen', country: 'DK' };
+  }
+  if (/web3|crypto|bitcoin|ethereum|solana|decentralized|blockchain/.test(combined)) {
+    return { city: 'Zurich', country: 'CH' };
+  }
+  if (/robot|hardware|semiconductor|chip|tsmc|gpu|tokyo|asia/.test(combined)) {
+    return { city: 'Tokyo', country: 'JP' };
+  }
+  if (/open source|linux|kernel|rust|python|git/.test(combined)) {
+    return { city: 'London', country: 'GB' };
+  }
+  if (/openai|anthropic|google|silicon valley|meta|apple|ai |agent|llm/.test(combined)) {
+    return { city: 'San Francisco', country: 'US' };
+  }
+  const charCodeSum = topic.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return GLOBAL_TECH_HUBS[charCodeSum % GLOBAL_TECH_HUBS.length];
+}
+
 import { persist } from 'zustand/middleware';
 
 export const useStore = create<AppState>()(
@@ -75,6 +115,7 @@ export const useStore = create<AppState>()(
       countries: [],
       news: [],
       trends: [],
+      trendsHistory: [],
       jobs: [],
       hype: [],
       salary: [],
@@ -111,9 +152,10 @@ export const useStore = create<AppState>()(
         set({ isLoadingNews: true, apiError: null });
 
         try {
-          const [newsData, trendsData, jobsData, hypeData, salaryData, erasData, countriesData] = await Promise.all([
+          const [newsData, trendsData, historyData, jobsData, hypeData, salaryData, erasData, countriesData] = await Promise.all([
             fetchNews(15),
             fetchTrends('GLOBAL', 10),
+            fetchTrendsHistory('GLOBAL', 1960, 2034),
             fetchJobs(20),
             fetchHype(5),
             fetchSalary('DK'),
@@ -134,38 +176,24 @@ export const useStore = create<AppState>()(
 
           // Map jobs to live topics
           jobsData.forEach(j => {
-            const coords = resolveCoordinates(j.source === 'teamtailor' ? 'DK' : (j.country || 'GLOBAL'), j.city);
+            const country = j.country || 'GLOBAL';
+            const coords = resolveCoordinates(country, j.city);
             newLiveTopics.push({
               id: `job-${idCounter++}`,
-              country: j.country || (j.source === 'teamtailor' ? 'DK' : 'GLOBAL'),
+              country: country,
               city: j.city,
               lat: coords.lat,
               lng: coords.lng,
               type: 'job',
               topic: j.title,
-              details: `${j.company || 'Unknown'} — ${j.city || 'Remote'}`,
+              details: `${j.company || 'Unknown'} — ${j.city || 'Remote'} (${country})`,
               color: SEMANTIC_COLORS.job
             });
           });
 
-          // Map hype topics to live topics (distributed across major world tech hubs)
-          const GLOBAL_TECH_HUBS = [
-            { city: 'San Francisco', country: 'US' },
-            { city: 'London', country: 'GB' },
-            { city: 'Tokyo', country: 'JP' },
-            { city: 'Berlin', country: 'DE' },
-            { city: 'New York', country: 'US' },
-            { city: 'Copenhagen', country: 'DK' },
-            { city: 'Singapore', country: 'SG' },
-            { city: 'Stockholm', country: 'SE' },
-            { city: 'Amsterdam', country: 'NL' },
-            { city: 'Seoul', country: 'KR' },
-            { city: 'Zurich', country: 'CH' },
-            { city: 'Sydney', country: 'AU' }
-          ];
-
-          hypeData.forEach((h, idx) => {
-            const hub = GLOBAL_TECH_HUBS[idx % GLOBAL_TECH_HUBS.length];
+          // Map hype topics to live topics (topic-aware regional tech hubs)
+          hypeData.forEach((h) => {
+            const hub = resolveHypeLocation(h.topic, h.summary || '');
             const coords = resolveCoordinates(hub.country, hub.city);
             newLiveTopics.push({
               id: `hype-${idCounter++}`,
@@ -190,7 +218,7 @@ export const useStore = create<AppState>()(
               lng: coords.lng,
               type: 'salary',
               topic: s.role || s.technology,
-              details: `${s.source}\nMedian: ${s.median ?? 'N/A'} ${s.currency || 'DKK'}`,
+              details: `${s.source}\nMedian: ${s.median ?? 'N/A'} ${s.currency || 'USD'}`,
               color: SEMANTIC_COLORS.salary
             });
           });
@@ -201,6 +229,7 @@ export const useStore = create<AppState>()(
             countries: countriesData,
             news: newsData,
             trends: trendsData,
+            trendsHistory: historyData,
             jobs: jobsData,
             hype: hypeData,
             salary: salaryData,

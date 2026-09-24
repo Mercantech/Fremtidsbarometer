@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from bs4 import BeautifulSoup
-from database.models import RawScrapeData, SourceLog, TechTrend
+from database.models import RawScrapeData, SourceLog
 from utils.logger import get_centralized_logger
 
 logger = get_centralized_logger("TechScraper")

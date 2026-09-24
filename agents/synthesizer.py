@@ -81,7 +81,7 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
     """
 
     provider_name = model_config.get("provider", "google") if model_config else "google"
-    model_name = model_config.get("model_name", "gemini-3.6-flash") if model_config else "gemini-3.6-flash"
+    model_name = model_config.get("model_name", "gemini-3.8-flash") if model_config else "gemini-3.8-flash"
     ai = get_ai_provider(provider=provider_name, model_name=model_name)
     
     try:
@@ -209,14 +209,6 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
     ]
     
     all_texts_joined = " ".join(r.raw_text for r in raw_records).lower()
-    for tech, category in tracked_techs:
-        pattern = re.compile(rf"\b{re.escape(tech.lower())}\b")
-        mentions_count = len(pattern.findall(all_texts_joined))
-        
-        # Calculate popularity 15% - 99% based on mention density
-        ratio = mentions_count / max(total_posts, 1)
-        popularity = min(99.0, max(20.0, round(25.0 + ratio * 80.0, 1)))
-        
     existing_trends = {
         t.technology: t for t in db.query(TechTrend).filter(
             TechTrend.country == "GLOBAL",

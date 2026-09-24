@@ -1,0 +1,127 @@
+/* Root Container */
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+/* Header */
+.admin-header {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  padding: 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.header-content h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.header-content p {
+  margin: 0.5rem 0 0 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+/* Main Layout */
+.admin-container {
+  display: flex;
+  flex: 1;
+  gap: 0;
+}
+
+/* Sidebar Navigation */
+.admin-sidebar {
+  width: 250px;
+  background-color: #2c3e50;
+  border-right: 1px solid #1a252f;
+  padding: 1.5rem 0;
+  position: sticky;
+  top: 0;
+  height: fit-content;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nav-item {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: none;
+  color: #ecf0f1;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+
+  &:hover {
+    background-color: #34495e;
+    border-left-color: #3498db;
+  }
+
+  &.active {
+    background-color: #3498db;
+    color: white;
+    border-left-color: #2980b9;
+  }
+}
+
+/* Main Content */
+.admin-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+/* Sections */
+.section-overview,
+.section-pipeline,
+.section-ai-models,
+.section-data-sources,
+.section-logs {
+  max-width: 1200px;
+}
+
+/* Responsive Layout */
+@media (max-width: 768px) {
+  .admin-container {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #1a252f;
+    padding: 0;
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 1rem;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    padding: 1rem 1.5rem;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+
+    &:hover,
+    &.active {
+      border-bottom-color: #3498db;
+      border-left-color: transparent;
+    }
+  }
+
+  .admin-content {
+    padding: 1rem;
+  }
+}

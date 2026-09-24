@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 
-from database.models import TechTrend
+from database.models import TechTrend, JobPosting, SalaryData
 from api.database import get_db
 
 router = APIRouter(prefix="/api/countries", tags=["Locations"])
@@ -13,13 +13,11 @@ def get_countries(db: Session = Depends(get_db)):
     """
     Returns a list of available countries with data in the database.
     """
-    results = db.query(TechTrend.country).distinct().all()
+    trend_countries = [r[0] for r in db.query(TechTrend.country).distinct().all() if r[0]]
+    job_countries = [r[0] for r in db.query(JobPosting.country).distinct().all() if r[0]]
+    salary_countries = [r[0] for r in db.query(SalaryData.country).distinct().all() if r[0]]
     
-    # Extract values from SQLAlchemy tuples
-    countries = [r[0] for r in results if r[0]]
-    
-    # Add "GLOBAL" if missing, as it is implied
-    if "GLOBAL" not in countries:
-        countries.insert(0, "GLOBAL")
-        
-    return countries
+    all_countries = set(trend_countries + job_countries + salary_countries)
+    all_countries.discard("GLOBAL")
+    sorted_countries = sorted(list(all_countries))
+    return ["GLOBAL"] + sorted_countries

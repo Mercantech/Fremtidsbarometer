@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/trends/history", tags=["Trends"])
 def get_trends_history(
     country: Optional[str] = Query("GLOBAL", description="Country to filter by"),
     start_year: int = Query(1960, description="Start year"),
-    end_year: int = Query(2025, description="End year"),
+    end_year: int = Query(2034, description="End year"),
     db: Session = Depends(get_db)
 ):
     """

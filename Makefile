@@ -1,4 +1,4 @@
-.PHONY: dev stop db-up db-down frontend api agents
+.PHONY: dev stop db-up db-down frontend api agents test
 
 # ── Run the entire project ──
 dev:
@@ -15,6 +15,9 @@ stop:
 	@echo "✅ All services stopped"
 
 # ── Individual components ──
+db-up:
+	@docker-compose up -d db
+
 db-down:
 	@docker-compose down
 
@@ -35,3 +38,9 @@ db-init:
 db-seed:
 	@python database/seed.py
 	@echo "✅ Seed data loaded"
+
+# ── Testing ──
+test:
+	@PYTHONPATH=. python3 -m pytest -v tests/ || ./venv/bin/pytest -v tests/
+
+
