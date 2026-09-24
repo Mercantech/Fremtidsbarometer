@@ -7,6 +7,7 @@ SOURCES_SEED = [
     {"name": "GitHub Trending", "url": "https://github.com/trending", "source_type": "html_scrape", "category": "tech", "is_active": 1},
     {"name": "Reddit Discussions", "url": "https://www.reddit.com", "source_type": "api", "category": "social", "is_active": 1},
     {"name": "Lobste.rs Discussions", "url": "https://lobste.rs", "source_type": "api", "category": "tech", "is_active": 1},
+    {"name": "Google News Technology", "url": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en", "source_type": "rss", "category": "news", "is_active": 1},
     {"name": "Glassdoor Salary RSS", "url": "https://glassdoor.com/rss", "source_type": "rss", "category": "salary", "is_active": 1},
 ]
 

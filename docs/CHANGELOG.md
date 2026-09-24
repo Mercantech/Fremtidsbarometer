@@ -269,3 +269,28 @@
    - Added automatic daily 03:00 UTC database retention cleaner (`cleanup_stale_data`), purging raw dumps > 14 days and logs > 30 days.
    - Added `POST /api/admin/cleanup` endpoint for manual database retention cleanup.
 
+---
+
+## [Step 0.7] — 2026-09-24 (Codebase Remediation & Hardening)
+### What was done
+1. **Logger Connection Recovery**:
+   - Refactored `DBLogHandler` in `utils/logger.py` to acquire and close sessions cleanly per emit rather than holding a single session indefinitely. Prevents silent logger freeze on Neon serverless idle SSL disconnection.
+
+2. **AI Model Alignment (2026 Catalog)**:
+   - Replaced invalid `gemini-3.8-pro` with live Google production model `gemini-2.5-pro` in database seeds, orchestrator synthesis defaults, and Neon database rows.
+   - Preserved confirmed live `gemini-3.8-flash` for high-throughput extraction.
+
+3. **Frontend Security Hardening**:
+   - Removed client-side bundling of `VITE_ADMIN_API_KEY` from `ProtectedRoute.tsx` and `adminApi.ts`. Admin authentication now strictly relies on dynamic input stored in runtime storage.
+   - Standardized `API_BASE_URL` resolution across `api.ts` and `adminApi.ts`.
+   - Aligned `updated_at?: string` in `adminApi.ts` interfaces with backend database models.
+
+4. **NewsAgent Dynamic Database Integration**:
+   - Updated `NewsAgent` to dynamically query active RSS feeds from the `data_sources` table in the database, with graceful fallback.
+   - Added Google News Technology RSS to default seed sources.
+
+5. **Dead Code & Asset Removal**:
+   - Removed 2.5 MB of dead static assets (`earth_texture.jpg`, `author_bg.jpg`, `header-drip-right.png`).
+   - Removed vestigial `agents/base_agent.py` and pruned `tenacity` from `requirements.txt`.
+   - Eliminated duplicate `db.add(SystemLog(...))` and redundant model logging in `agents/orchestrator.py`.
+

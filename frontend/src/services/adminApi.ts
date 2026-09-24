@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : '');
 const getAdminKey = (): string => {
-  return localStorage.getItem('admin_api_key') || (import.meta.env.VITE_ADMIN_API_KEY as string) || '';
+  return localStorage.getItem('admin_api_key') || '';
 };
 
 export const adminApi = axios.create({
@@ -92,7 +92,7 @@ export interface AIModelConfig {
   is_active: number;
   is_fallback: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface CreateAIModelConfig {
@@ -149,7 +149,7 @@ export interface DataSource {
   source_type: string;
   is_active: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface CreateDataSource {

@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   useEffect(() => {
     let isMounted = true;
     const verifyToken = async () => {
-      const key = localStorage.getItem('admin_api_key') || (import.meta.env.VITE_ADMIN_API_KEY as string);
+      const key = localStorage.getItem('admin_api_key');
       if (!key) {
         if (isMounted) setIsAuthenticated(false);
         return;

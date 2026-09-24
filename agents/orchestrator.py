@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dotenv import load_dotenv
 from database.session import get_session
-from database.models import DataSource, SystemLog, SourceLog, AIModelConfig
+from database.models import DataSource, AIModelConfig
 from utils.logger import get_centralized_logger
 
 load_dotenv()
@@ -25,8 +25,16 @@ def get_active_model(db, task_type: str):
     ).first()
     
     if not model_config:
-        logger.warning(f"No active model found for {task_type}. Falling back to default: gemini-3.8-flash")
-        return {"provider": "google", "model_name": "gemini-3.8-flash"}
+        # Check fallback model
+        model_config = db.query(AIModelConfig).filter(
+            AIModelConfig.task_type == task_type,
+            AIModelConfig.is_fallback == 1
+        ).first()
+
+    if not model_config:
+        default_model = "gemini-2.5-pro" if task_type == "final_synthesis" else "gemini-3.8-flash"
+        logger.warning(f"No active or fallback model found for {task_type}. Falling back to default: {default_model}")
+        return {"provider": "google", "model_name": default_model}
         
     return {"provider": model_config.provider, "model_name": model_config.model_name}
 
@@ -59,17 +67,12 @@ async def run_social_sweep(db=None):
             logger.info("⏩ Social sweep skipped: Reddit/Social data source is disabled in Admin Panel.")
             return 0
 
-        model = get_active_model(db, "social_extraction")
-        logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
-        
         count = await scrape_reddit_discussions(db, source_id=source_id or 1, limit_per_sub=15)
         logger.info(f"Partition 1 Complete: Scraped {count} social discussions.")
         return count
     except Exception as e:
         logger.error(f"Social sweep failed: {e}")
         db.rollback()
-        db.add(SystemLog(level="ERROR", component="Orchestrator-Social", message=str(e)))
-        db.commit()
         raise e
     finally:
         if should_close:
@@ -94,9 +97,6 @@ async def run_tech_sweep(db=None):
             logger.info("⏩ Tech sweep skipped: Both HackerNews and GitHub are disabled in Admin Panel.")
             return 0, 0
 
-        model = get_active_model(db, "tech_extraction")
-        logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
-        
         hn_count = 0
         gh_count = 0
         if hn_active:
@@ -114,8 +114,6 @@ async def run_tech_sweep(db=None):
     except Exception as e:
         logger.error(f"Tech sweep failed: {e}")
         db.rollback()
-        db.add(SystemLog(level="ERROR", component="Orchestrator-Tech", message=str(e)))
-        db.commit()
         raise e
     finally:
         if should_close:
@@ -137,9 +135,6 @@ async def run_jobs_sweep(db=None):
         if not tt_active:
             logger.info("⏩ Jobs sweep skipped: TeamTailor ATS data source is disabled in Admin Panel.")
             return 0
-
-        model = get_active_model(db, "jobs_extraction")
-        logger.info(f"Using Model: {model['model_name']} ({model['provider']})")
         
         jobs_count = await scrape_teamtailor_jobs(db, source_id=tt_id or 1)
         logger.info(f"Partition 3 Complete: Scraped {jobs_count} ATS jobs.")
@@ -147,8 +142,6 @@ async def run_jobs_sweep(db=None):
     except Exception as e:
         logger.error(f"Jobs sweep failed: {e}")
         db.rollback()
-        db.add(SystemLog(level="ERROR", component="Orchestrator-Jobs", message=str(e)))
-        db.commit()
         raise e
     finally:
         if should_close:
@@ -177,8 +170,6 @@ async def run_synthesis(db=None):
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
         db.rollback()
-        db.add(SystemLog(level="ERROR", component="Orchestrator-Synthesis", message=str(e)))
-        db.commit()
         raise e
     finally:
         if should_close:
@@ -246,8 +237,6 @@ async def run_full_cycle(force: bool = False):
     except Exception as e:
         logger.error(f"Full pipeline cycle failed: {e}")
         db.rollback()
-        db.add(SystemLog(level="ERROR", component="Orchestrator-FullCycle", message=str(e)))
-        db.commit()
         raise e
     finally:
         db.close()
