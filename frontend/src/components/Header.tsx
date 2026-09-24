@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+
 export const Header: React.FC = () => {
   return (
     <header className="w-full h-20 px-[40px] flex items-center justify-between z-30 pointer-events-auto absolute top-0 left-0">
@@ -14,7 +16,14 @@ export const Header: React.FC = () => {
 
       {/* Action Controls */}
       <div className="flex items-center space-x-4">
-        {/* Language Switcher moved to LanguageSwitcher.tsx */}
+        <Link
+          to="/admin"
+          className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-700 bg-white/80 hover:bg-white hover:text-slate-900 border border-slate-200 shadow-sm backdrop-blur-md transition-all flex items-center gap-1.5"
+          title="Open Administration Panel"
+        >
+          <span>⚙️</span>
+          <span>Admin</span>
+        </Link>
       </div>
     </header>
   );
