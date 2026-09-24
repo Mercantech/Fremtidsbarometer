@@ -10,6 +10,7 @@ load_dotenv()
 from agents.scrapers.social_scraper import scrape_reddit_discussions
 from agents.scrapers.tech_scraper import scrape_hackernews, scrape_github_trending
 from agents.scrapers.jobs_scraper import scrape_teamtailor_jobs
+from agents.scrapers.salary_scraper import scrape_developer_salaries
 from agents.synthesizer import run_mathematical_synthesis
 
 logger = get_centralized_logger("Orchestrator")
@@ -141,6 +142,34 @@ async def run_jobs_sweep(db=None):
         return jobs_count
     except Exception as e:
         logger.error(f"Jobs sweep failed: {e}")
+        db.rollback()
+        raise e
+    finally:
+        if should_close:
+            db.close()
+
+
+async def run_salary_sweep(db=None):
+    """
+    Run Salary Sweep: Aggregates real developer salary benchmarks from RemoteOK API.
+    """
+    should_close = False
+    if db is None:
+        db = get_session()
+        should_close = True
+
+    try:
+        logger.info("=== Partition Salary: Developer Compensation Sweep ===")
+        is_active, source_id = get_data_source_status(db, "RemoteOK")
+        if not is_active:
+            logger.info("⏩ Salary sweep skipped: RemoteOK salary source is disabled in Admin Panel.")
+            return 0
+        
+        count = await scrape_developer_salaries(db, source_id=source_id)
+        logger.info(f"Salary Sweep Complete: Updated {count} benchmarks.")
+        return count
+    except Exception as e:
+        logger.error(f"Salary sweep failed: {e}")
         db.rollback()
         raise e
     finally:

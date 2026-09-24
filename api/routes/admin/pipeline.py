@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
-from api.database import get_db
+from database.session import get_db
 from database.session import get_session
 from database.models import RawScrapeData, SystemLog, SourceLog
 
@@ -49,7 +49,14 @@ async def trigger_pipeline(
             detail="A pipeline task is already actively running. Please wait for it to finish."
         )
 
-    from agents.orchestrator import run_full_cycle, run_social_sweep, run_tech_sweep, run_jobs_sweep, run_synthesis
+    from agents.orchestrator import (
+        run_full_cycle,
+        run_social_sweep,
+        run_tech_sweep,
+        run_jobs_sweep,
+        run_salary_sweep,
+        run_synthesis,
+    )
     from agents.news_agent import NewsAgent
 
     async def _execute_pipeline():
@@ -63,6 +70,8 @@ async def trigger_pipeline(
                     await run_tech_sweep()
                 elif sweep == "jobs":
                     await run_jobs_sweep()
+                elif sweep == "salary":
+                    await run_salary_sweep()
                 elif sweep == "synthesis":
                     await run_synthesis()
                 elif sweep == "news":

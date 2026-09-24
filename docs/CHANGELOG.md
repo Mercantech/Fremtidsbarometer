@@ -294,3 +294,28 @@
    - Removed vestigial `agents/base_agent.py` and pruned `tenacity` from `requirements.txt`.
    - Eliminated duplicate `db.add(SystemLog(...))` and redundant model logging in `agents/orchestrator.py`.
 
+---
+
+## [Step 0.8] — 2026-09-24 (Production Lifespan Scheduler, Real Salary Scraper & Architecture Clean)
+### What was done
+1. **Real Developer Salary Scraper (`agents/scrapers/salary_scraper.py`)**:
+   - Implemented truthful salary scraper using RemoteOK Developer Salaries API and empirical vacancy compensation.
+   - Calculates statistical quartiles ($P_{25}, Median, P_{75}$) across 9 IT categories and maps them to US, DK, NO, DE, SE.
+   - Scheduled weekly on Sundays at 02:00 UTC and exposed to Admin Panel on-demand triggers.
+   - Replaced fake `Glassdoor Salary RSS` with authentic `RemoteOK Developer Salaries API` in `sources.py`, database, and admin panel.
+
+2. **In-Process Production Scheduler in FastAPI (`lifespan`)**:
+   - Added asynchronous `lifespan` in `api/main.py` to automatically start and stop the background scheduler with FastAPI.
+   - Ensures background data collection runs in production deployments without requiring manual external processes.
+
+3. **Removed Dead `GeographyGrid` Rudiment**:
+   - Removed unused `GeographyGrid` model from `database/models.py`.
+   - Removed `database/seeds/geography.py` and seed runner invocations.
+   - Dropped obsolete `geography_grid` table from Neon DB.
+
+4. **Eliminated `api/database.py` Architecture Layer**:
+   - Moved `get_db` generator directly to `database/session.py`.
+   - Updated all 12 API route files to import from `database.session`.
+   - Deleted redundant `api/database.py`.
+
+

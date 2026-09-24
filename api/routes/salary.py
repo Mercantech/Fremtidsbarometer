@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import Optional, List
 
 from database.models import SalaryData
-from api.database import get_db
+from database.session import get_db
 from api.schemas import SalaryDataSchema
 
 router = APIRouter(prefix="/api/salary", tags=["Salary"])

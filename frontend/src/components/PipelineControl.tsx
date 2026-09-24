@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { triggerPipeline, triggerCleanup, type CleanupResponse } from '../services/adminApi';
 import '../styles/admin.css';
 
-type SweepType = 'all' | 'social' | 'tech' | 'jobs' | 'synthesis' | 'news';
+type SweepType = 'all' | 'social' | 'tech' | 'jobs' | 'salary' | 'synthesis' | 'news';
 
 export const PipelineControl: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -77,6 +77,7 @@ export const PipelineControl: React.FC = () => {
               <option value="social">Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)</option>
               <option value="tech">Partition 2: Technical Trends (HackerNews, GitHub Trending)</option>
               <option value="jobs">Partition 3: ATS Tech Jobs (Teamtailor)</option>
+              <option value="salary">Partition Salary: Developer Salaries (RemoteOK API)</option>
               <option value="synthesis">Partition 4: AI Mathematical Synthesis (Clustering & Eras)</option>
               <option value="news">Live Real-Time News (Google News, TechCrunch RSS)</option>
             </select>

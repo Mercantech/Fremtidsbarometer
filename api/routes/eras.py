@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from database.models import Era
-from api.database import get_db
+from database.session import get_db
 from api.schemas import EraSchema
 
 router = APIRouter(prefix="/api/eras", tags=["Eras"])

@@ -7,7 +7,14 @@ from dotenv import load_dotenv
 import pytz
 
 # Import orchestrator & news agent
-from agents.orchestrator import run_social_sweep, run_tech_sweep, run_jobs_sweep, run_synthesis, run_full_cycle
+from agents.orchestrator import (
+    run_social_sweep,
+    run_tech_sweep,
+    run_jobs_sweep,
+    run_salary_sweep,
+    run_synthesis,
+    run_full_cycle,
+)
 from agents.news_agent import NewsAgent
 from datetime import datetime, timedelta, timezone
 from database.models import SystemLog, RawScrapeData, SourceLog
@@ -71,8 +78,11 @@ def job_listener(event):
         logger.info(msg)
         log_to_db("INFO", "Scheduler", msg)
 
-async def main():
-    logger.info("Starting AP Scheduler (Mon/Thu Partitioned Pipeline + 15m Live News)...")
+def create_configured_scheduler() -> AsyncIOScheduler:
+    """
+    Creates and configures the AsyncIOScheduler instance with all recurring jobs.
+    Does not start the scheduler, allowing external lifecycle management (e.g., FastAPI lifespan).
+    """
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
     # Add event listener for DB logging
@@ -115,7 +125,19 @@ async def main():
         cleanup_stale_data, 'cron', hour=3, minute=0,
         id='db_cleanup_job', replace_existing=True
     )
-    
+
+    # ── Weekly Developer Salary Benchmark Sweep (Sundays at 02:00 UTC) ──
+    scheduler.add_job(
+        run_salary_sweep, 'cron', day_of_week='sun', hour=2, minute=0,
+        id='salary_sweep_job', replace_existing=True
+    )
+
+    return scheduler
+
+
+async def main():
+    logger.info("Starting AP Scheduler (Mon/Thu Partitioned Pipeline + 15m Live News)...")
+    scheduler = create_configured_scheduler()
     scheduler.start()
     
     # Run initial tasks on startup with safe error logging
@@ -125,6 +147,7 @@ async def main():
         except Exception as e:
             logger.error(f"Startup task '{name}' failed: {e}")
 
+    news_agent = NewsAgent()
     cleanup_stale_data()
     asyncio.create_task(safe_startup_task("fetch_news", news_agent.fetch_news()))
     asyncio.create_task(safe_startup_task("full_cycle", run_full_cycle()))

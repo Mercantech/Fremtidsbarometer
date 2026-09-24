@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
-from api.database import get_db
+from database.session import get_db
 from database.models import SystemLog, SourceLog
 from api.schemas import SystemLogSchema, SourceLogSchema
 

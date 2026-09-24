@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from database.models import TechTrend, JobPosting, SalaryData
-from api.database import get_db
+from database.session import get_db
 
 router = APIRouter(prefix="/api/countries", tags=["Locations"])
 

@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 
 from database.models import TechTrend
-from api.database import get_db
+from database.session import get_db
 from api.schemas import TrendHistoryYearSchema
 
 router = APIRouter(prefix="/api/trends/history", tags=["Trends"])

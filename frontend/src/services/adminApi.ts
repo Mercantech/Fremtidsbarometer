@@ -229,7 +229,7 @@ export interface PipelineResponse {
 }
 
 export const triggerPipeline = async (
-  sweep: 'all' | 'social' | 'tech' | 'jobs' | 'synthesis' | 'news' = 'all',
+  sweep: 'all' | 'social' | 'tech' | 'jobs' | 'salary' | 'synthesis' | 'news' = 'all',
   force: boolean = false
 ): Promise<PipelineResponse> => {
   const response = await adminApi.post('/api/admin/trigger-pipeline', null, {

@@ -16,11 +16,32 @@ logger = get_centralized_logger("FastAPI")
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    enable_scheduler = os.getenv("ENABLE_SCHEDULER", "true").lower() in ("true", "1", "yes")
+    scheduler = None
+    if enable_scheduler:
+        logger.info("🚀 Initializing in-process background scheduler for production...")
+        try:
+            from agents.scheduler import create_configured_scheduler
+            scheduler = create_configured_scheduler()
+            scheduler.start()
+            logger.info("✅ Background scheduler started successfully.")
+        except Exception as e:
+            logger.error(f"❌ Failed to start background scheduler: {e}")
+    yield
+    if scheduler and scheduler.running:
+        logger.info("🛑 Shutting down background scheduler...")
+        scheduler.shutdown()
+
 # Initialize app
 app = FastAPI(
     title="Fremtidsbarometer API",
     description="API for the interactive 3D IT trends platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

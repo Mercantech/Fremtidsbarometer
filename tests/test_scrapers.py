@@ -65,3 +65,14 @@ def test_non_tech_exclusion():
         t_lower = title.lower()
         has_exclude = any(ex in t_lower for ex in EXCLUDE_KEYWORDS)
         assert has_exclude is True
+
+def test_salary_job_classification():
+    from agents.scrapers.salary_scraper import _classify_job
+    assert _classify_job("Senior Machine Learning Engineer", ["ai", "python"]) == "Data & AI"
+    assert _classify_job("Lead DevOps Specialist", ["kubernetes", "aws"]) == "Cloud & DevOps"
+    assert _classify_job("Python Backend Developer", ["fastapi"]) == "Python"
+    assert _classify_job("React Native Frontend Engineer", ["typescript"]) == "Frontend"
+    assert _classify_job("Low-level Systems Programmer", ["rust"]) == "Rust"
+    assert _classify_job("Golang Microservices Developer", ["go"]) == "Go"
+    assert _classify_job("Security Operations Analyst", ["cyber"]) == "Cybersecurity"
+

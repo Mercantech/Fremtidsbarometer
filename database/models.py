@@ -224,24 +224,6 @@ class SourceLog(Base):
     created_at      = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
-# ── 11. Geography Grid (Tier-1 / Tier-2) ───────────────────
-class GeographyGrid(Base):
-    __tablename__ = "geography_grid"
-    __table_args__ = (
-        UniqueConstraint("country_code", "region_name", name="uq_geo_region"),
-    )
-
-    id            = Column(Integer, primary_key=True, autoincrement=True)
-    country_code  = Column(String(10), nullable=False) # "DK", "US", "GLOBAL"
-    region_name   = Column(String(100), nullable=False) # "Scandinavia", "Silicon Valley"
-    tier          = Column(Integer, nullable=False, default=2) # 1 = Deep Analysis, 2 = Batched
-    lat           = Column(Float, nullable=True)
-    lng           = Column(Float, nullable=True)
-    last_scraped  = Column(DateTime(timezone=True), nullable=True)
-
-    def __repr__(self):
-        return f"<GeographyGrid {self.region_name} Tier-{self.tier}>"
-
 
 # ── 12. Raw Scrape Data (Pass 1 Dump) ──────────────────────
 class RawScrapeData(Base):

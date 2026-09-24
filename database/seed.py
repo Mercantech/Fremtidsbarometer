@@ -16,7 +16,6 @@ from database.session import get_session
 from database.seeds import (
     seed_historical_data,
     seed_eras,
-    seed_geography,
     seed_sources,
     seed_ai_models,
     seed_salary_data,
@@ -29,7 +28,6 @@ def run_all_seeds():
     try:
         seed_historical_data(session)
         seed_eras(session)
-        seed_geography(session)
         seed_sources(session)
         seed_ai_models(session)
         seed_salary_data(session)
