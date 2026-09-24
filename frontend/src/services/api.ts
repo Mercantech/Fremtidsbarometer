@@ -141,9 +141,10 @@ export const fetchHype = async (limit = 5): Promise<HypeTopic[]> => {
   }
 };
 
-export const fetchSalary = async (country = 'DK'): Promise<SalaryData[]> => {
+export const fetchSalary = async (country?: string): Promise<SalaryData[]> => {
   try {
-    const res = await api.get<SalaryData[]>(`/api/salary?country=${country}`);
+    const url = country ? `/api/salary?country=${country}` : '/api/salary';
+    const res = await api.get<SalaryData[]>(url);
     return res.data;
   } catch (error) {
     console.error('Failed to fetch salary', error);

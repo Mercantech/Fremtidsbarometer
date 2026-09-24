@@ -45,60 +45,51 @@ class NewsAgent:
             if not rss_candidates:
                 rss_candidates = [("Google News", self.primary_rss)] + self.fallback_rss
 
-            feed = None
-            source_name = "Unknown"
+            new_items = 0
+            successful_sources = 0
 
             for candidate_name, candidate_url in rss_candidates:
                 try:
                     parsed = await asyncio.to_thread(feedparser.parse, candidate_url)
                     if parsed and getattr(parsed, 'entries', None) and len(parsed.entries) > 0:
-                        feed = parsed
-                        source_name = candidate_name
-                        self.logger.info(f"Successfully fetched {len(feed.entries)} entries from {candidate_name} ({candidate_url})")
-                        break
+                        successful_sources += 1
+                        self.logger.info(f"Fetched {len(parsed.entries)} entries from {candidate_name} ({candidate_url})")
+                        for entry in parsed.entries[:50]:
+                            url = entry.get("link", "")
+                            if not url:
+                                continue
+                                
+                            item_id = hashlib.sha256(url.encode('utf-8')).hexdigest()[:16]
+                            existing = db.query(NewsItem).filter(NewsItem.id == item_id).first()
+                            if existing:
+                                continue
+                                
+                            title = entry.get("title", "")[:500]
+                            pub_date = datetime.now(timezone.utc)
+                            if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                                pub_date = datetime.fromtimestamp(time.mktime(entry.published_parsed), tz=timezone.utc)
+                            
+                            new_item = NewsItem(
+                                id=item_id,
+                                title=title,
+                                url=url,
+                                source=entry.get("source", {}).get("title") or candidate_name,
+                                country="GLOBAL",
+                                score=0,
+                                created_at=pub_date
+                            )
+                            db.add(new_item)
+                            new_items += 1
                 except Exception as ex:
                     self.logger.warning(f"Failed to fetch RSS from {candidate_name} ({candidate_url}): {ex}")
             
-            if not feed or not getattr(feed, 'entries', None):
+            if successful_sources == 0:
                 self.logger.error("All RSS sources failed.")
                 raise RuntimeError("All primary and fallback RSS sources failed to return entries.")
 
-            new_items = 0
-            for entry in feed.entries[:100]:
-                url = entry.get("link", "")
-                if not url:
-                    continue
-                    
-                # sha256 of url as id
-                item_id = hashlib.sha256(url.encode('utf-8')).hexdigest()[:16]
-                
-                # Check if exists
-                existing = db.query(NewsItem).filter(NewsItem.id == item_id).first()
-                if existing:
-                    continue
-                    
-                title = entry.get("title", "")[:500]
-                
-                # Parse date
-                pub_date = datetime.now(timezone.utc)
-                if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                    pub_date = datetime.fromtimestamp(time.mktime(entry.published_parsed), tz=timezone.utc)
-                
-                new_item = NewsItem(
-                    id=item_id,
-                    title=title,
-                    url=url,
-                    source=entry.get("source", {}).get("title") or source_name,
-                    country="GLOBAL",
-                    score=0,
-                    created_at=pub_date
-                )
-                db.add(new_item)
-                new_items += 1
-                
             try:
                 db.commit()
-                self.logger.info(f"Added {new_items} new news items. News database updated successfully.")
+                self.logger.info(f"Added {new_items} new news items from {successful_sources} sources. News database updated successfully.")
             except IntegrityError as e:
                 db.rollback()
                 self.logger.error(f"Commit failed: {e}")

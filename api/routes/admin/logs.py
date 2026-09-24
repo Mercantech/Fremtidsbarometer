@@ -32,7 +32,7 @@ def get_log_components(db: Session = Depends(get_db)):
     default_components = [
         "FastAPI", "Orchestrator", "Orchestrator-Social", "Orchestrator-Tech",
         "Orchestrator-Jobs", "Orchestrator-Synthesis", "Scheduler", "Synthesizer",
-        "SocialScraper", "TechScraper", "JobsScraper", "NewsAgent"
+        "SocialScraper", "TechScraper", "JobsScraper", "SalaryScraper", "NewsAgent"
     ]
     return sorted(list(set(comp_list + default_components)))
 

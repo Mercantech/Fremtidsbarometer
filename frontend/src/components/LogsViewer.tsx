@@ -37,7 +37,7 @@ export const LogsViewer: React.FC = () => {
       .catch(() => {
         setAvailableComponents([
           'FastAPI', 'JobsScraper', 'NewsAgent', 'Orchestrator',
-          'Scheduler', 'SocialScraper', 'Synthesizer', 'TechScraper'
+          'SalaryScraper', 'Scheduler', 'SocialScraper', 'Synthesizer', 'TechScraper'
         ]);
       });
   }, []);

@@ -81,7 +81,7 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
     """
 
     provider_name = model_config.get("provider", "google") if model_config else "google"
-    model_name = model_config.get("model_name", "gemini-3.8-flash") if model_config else "gemini-3.8-flash"
+    model_name = model_config.get("model_name", "gemini-2.5-pro") if model_config else "gemini-2.5-pro"
     ai = get_ai_provider(provider=provider_name, model_name=model_name)
     
     try:

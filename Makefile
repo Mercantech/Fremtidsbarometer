@@ -3,7 +3,6 @@
 # ── Run the entire project ──
 dev:
 	@echo "🚀 Starting Fremtidsbarometer (local mode)..."
-	@PYTHONPATH=. python agents/scheduler.py &
 	@uvicorn api.main:app --reload --port 8000 &
 	@cd frontend && npm run dev
 

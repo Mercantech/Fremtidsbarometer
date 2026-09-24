@@ -158,7 +158,7 @@ export const useStore = create<AppState>()(
             fetchTrendsHistory('GLOBAL', 1960, 2034),
             fetchJobs(20),
             fetchHype(5),
-            fetchSalary('DK'),
+            fetchSalary(),
             fetchEras(),
             fetchCountries()
           ]);

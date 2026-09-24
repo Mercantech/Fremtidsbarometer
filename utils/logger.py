@@ -50,8 +50,16 @@ class DBLogHandler(logging.Handler):
 
 db_handler = DBLogHandler()
 
+class SafeConsoleHandler(logging.StreamHandler):
+    """Console handler that safely handles process teardown when sys.stdout is closed."""
+    def emit(self, record):
+        try:
+            super().emit(record)
+        except (ValueError, BrokenPipeError, AttributeError):
+            pass
+
 # Standard console handler for immediate output
-console_handler = logging.StreamHandler(sys.stdout)
+console_handler = SafeConsoleHandler(sys.stdout)
 console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 
 import atexit

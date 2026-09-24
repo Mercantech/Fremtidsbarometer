@@ -25,6 +25,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-fremtids_user}:${POSTGRES_PASSWORD:-fremtids_pass}@db:5432/${POSTGRES_DB:-fremtids_db}
+      - ENABLE_SCHEDULER=false
     ports:
       - "8000:8000"
     depends_on:
