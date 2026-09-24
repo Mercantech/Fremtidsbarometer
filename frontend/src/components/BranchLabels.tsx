@@ -17,7 +17,37 @@ export const BranchLabels: React.FC = () => {
   const activeFilters = useStore((s) => s.activeFilters);
   const setSelectedTopic = useStore((s) => s.setSelectedTopic);
 
-  const filteredTopics = liveTopics.filter(t => activeFilters.includes(t.type));
+  // Curate prominent diverse labels for the 3D globe to avoid visual crowding
+  const filteredTopics = React.useMemo(() => {
+    const active = liveTopics.filter(t => activeFilters.includes(t.type));
+    const hypes = active.filter(t => t.type === 'hype');
+    
+    // Select diverse jobs across different countries (up to 3)
+    const jobs = active.filter(t => t.type === 'job');
+    const selectedJobs: typeof jobs = [];
+    const seenJobCountries = new Set<string>();
+    for (const j of jobs) {
+      if (!seenJobCountries.has(j.country) || selectedJobs.length < 2) {
+        selectedJobs.push(j);
+        seenJobCountries.add(j.country);
+        if (selectedJobs.length >= 3) break;
+      }
+    }
+
+    // Select diverse salaries across different regions (up to 3)
+    const salaries = active.filter(t => t.type === 'salary');
+    const selectedSalaries: typeof salaries = [];
+    const seenSalaryCountries = new Set<string>();
+    for (const s of salaries) {
+      if (!seenSalaryCountries.has(s.country) || selectedSalaries.length < 2) {
+        selectedSalaries.push(s);
+        seenSalaryCountries.add(s.country);
+        if (selectedSalaries.length >= 3) break;
+      }
+    }
+
+    return [...hypes, ...selectedJobs, ...selectedSalaries];
+  }, [liveTopics, activeFilters]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -139,9 +169,8 @@ export const BranchLabels: React.FC = () => {
         };
       });
 
-      // Repulsive collision resolution to spread them apart sideways
-      const PADDING = 45; // Increase padding to spread them out more
-      for (let iter = 0; iter < 4; iter++) {
+      // Repulsive collision resolution with elliptical bounds matching wide rectangular pills
+      for (let iter = 0; iter < 8; iter++) {
         for (let i = 0; i < labelTargets.length; i++) {
           if (!positions[i].visible) continue;
           for (let j = i + 1; j < labelTargets.length; j++) {
@@ -149,16 +178,16 @@ export const BranchLabels: React.FC = () => {
             
             const dx = labelTargets[i].x - labelTargets[j].x;
             const dy = labelTargets[i].y - labelTargets[j].y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            // Elliptical distance accounting for wide rectangular pill aspect ratio (width ~140, height ~36)
+            const normDist = Math.sqrt((dx / 120) ** 2 + (dy / 36) ** 2);
             
-            if (dist > 0 && dist < PADDING) {
-              // Softened push force to prevent aggressive bouncing
-              const pushFactor = (PADDING - dist) * 0.15;
+            if (normDist > 0 && normDist < 1.0) {
+              const pushFactor = (1.0 - normDist) * 10;
               const angle = Math.atan2(dy, dx);
               
-              labelTargets[i].x += Math.cos(angle) * pushFactor;
+              labelTargets[i].x += Math.cos(angle) * pushFactor * 1.5;
               labelTargets[i].y += Math.sin(angle) * pushFactor;
-              labelTargets[j].x -= Math.cos(angle) * pushFactor;
+              labelTargets[j].x -= Math.cos(angle) * pushFactor * 1.5;
               labelTargets[j].y -= Math.sin(angle) * pushFactor;
             }
           }
