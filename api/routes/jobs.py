@@ -8,6 +8,7 @@ from api.schemas import JobPostingSchema
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
+@router.get("", response_model=List[JobPostingSchema], include_in_schema=False)
 @router.get("/", response_model=List[JobPostingSchema])
 def get_jobs(
     country: Optional[str] = Query(None, description="Country filter (e.g. DK, EU). If empty, returns all."),

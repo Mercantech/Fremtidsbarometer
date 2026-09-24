@@ -1,48 +1,113 @@
-import React, { useEffect, useState } from 'react';
-import { fetchSystemLogs, type SystemLog, fetchSourceLogs, type SourceLog, type DataSource, fetchDataSources } from '../services/adminApi';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  fetchSystemLogs,
+  type SystemLog,
+  fetchSourceLogs,
+  type SourceLog,
+  type DataSource,
+  fetchDataSources,
+  fetchLogComponents,
+} from '../services/adminApi';
 import '../styles/admin.css';
+
+const PAGE_SIZE = 50;
 
 export const LogsViewer: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'system' | 'source'>('system');
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const [sourceLogs, setSourceLogs] = useState<SourceLog[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [availableComponents, setAvailableComponents] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters
   const [logLevel, setLogLevel] = useState<string | undefined>(undefined);
   const [component, setComponent] = useState<string | undefined>(undefined);
   const [selectedSource, setSelectedSource] = useState<number | undefined>(undefined);
 
-  const loadLogs = React.useCallback(async () => {
+  // Pagination
+  const [page, setPage] = useState(1);
+
+  // Load components once on mount
+  useEffect(() => {
+    fetchLogComponents()
+      .then((comps) => setAvailableComponents(comps))
+      .catch(() => {
+        // Fallback default components if API unavailable
+        setAvailableComponents([
+          'FastAPI',
+          'JobsScraper',
+          'NewsAgent',
+          'Orchestrator',
+          'Orchestrator-FullCycle',
+          'Orchestrator-Jobs',
+          'Orchestrator-Social',
+          'Orchestrator-Synthesis',
+          'Orchestrator-Tech',
+          'Scheduler',
+          'SocialScraper',
+          'Synthesizer',
+          'TechScraper',
+        ]);
+      });
+  }, []);
+
+  const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      const offset = (page - 1) * PAGE_SIZE;
 
       if (activeTab === 'system') {
-        const data = await fetchSystemLogs(logLevel, component, 100, 0);
+        const data = await fetchSystemLogs(logLevel, component, PAGE_SIZE, offset);
         setSystemLogs(data);
+
+        // Also merge any new components observed in logs
+        setAvailableComponents((prev) => {
+          const merged = new Set([...prev, ...data.map((l) => l.component).filter(Boolean)]);
+          return Array.from(merged).sort();
+        });
       } else {
-        const data = await fetchSourceLogs(selectedSource, 100, 0);
+        const data = await fetchSourceLogs(selectedSource, PAGE_SIZE, offset);
         setSourceLogs(data);
 
-        // Load data sources for display
-        const sources = await fetchDataSources();
-        setDataSources(sources);
+        if (dataSources.length === 0) {
+          const sources = await fetchDataSources();
+          setDataSources(sources);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load logs');
     } finally {
       setLoading(false);
     }
-  }, [activeTab, logLevel, component, selectedSource]);
+  }, [activeTab, logLevel, component, selectedSource, page, dataSources.length]);
 
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
 
-  const getComponentOptions = () => {
-    const components = new Set(systemLogs.map((log) => log.component));
-    return Array.from(components).sort();
+  // Reset page to 1 when filters change
+  const handleLevelChange = (lvl: string | undefined) => {
+    setLogLevel(lvl);
+    setPage(1);
+  };
+
+  const handleComponentChange = (comp: string | undefined) => {
+    setComponent(comp);
+    setPage(1);
+  };
+
+  const handleSourceChange = (src: number | undefined) => {
+    setSelectedSource(src);
+    setPage(1);
+  };
+
+  const handleTabChange = (tab: 'system' | 'source') => {
+    setActiveTab(tab);
+    setPage(1);
+    setError(null);
   };
 
   const getSourceName = (sourceId: number) => {
@@ -50,7 +115,7 @@ export const LogsViewer: React.FC = () => {
   };
 
   const getLevelColor = (level: string) => {
-    switch (level) {
+    switch (level.toUpperCase()) {
       case 'ERROR':
         return 'level-error';
       case 'WARNING':
@@ -64,33 +129,48 @@ export const LogsViewer: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="admin-section-loading">Loading logs...</div>;
+  const currentCount = activeTab === 'system' ? systemLogs.length : sourceLogs.length;
 
   return (
     <div className="admin-card">
-      <div className="card-header">
-        <h2>System & Source Logs</h2>
+      <div className="card-header flex justify-between items-center">
+        <div>
+          <h2>System & Source Logs</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Real-time execution diagnostics, orchestrator logs, and error traces
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="text-xs text-blue-600 font-medium animate-pulse flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+              Updating...
+            </span>
+          )}
+          <button
+            onClick={() => loadLogs()}
+            disabled={loading}
+            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1 cursor-pointer"
+            title="Refresh logs from database"
+          >
+            <span>🔄</span>
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message mb-4">{error}</div>}
 
       <div className="tabs">
         <button
           className={`tab-button ${activeTab === 'system' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('system');
-            setLogLevel(undefined);
-            setComponent(undefined);
-          }}
+          onClick={() => handleTabChange('system')}
         >
           System Logs
         </button>
         <button
           className={`tab-button ${activeTab === 'source' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('source');
-            setSelectedSource(undefined);
-          }}
+          onClick={() => handleTabChange('source')}
         >
           Source Logs
         </button>
@@ -103,7 +183,7 @@ export const LogsViewer: React.FC = () => {
               <label>Level:</label>
               <select
                 value={logLevel || ''}
-                onChange={(e) => setLogLevel(e.target.value || undefined)}
+                onChange={(e) => handleLevelChange(e.target.value || undefined)}
                 className="form-input"
               >
                 <option value="">All Levels</option>
@@ -118,22 +198,37 @@ export const LogsViewer: React.FC = () => {
               <label>Component:</label>
               <select
                 value={component || ''}
-                onChange={(e) => setComponent(e.target.value || undefined)}
+                onChange={(e) => handleComponentChange(e.target.value || undefined)}
                 className="form-input"
               >
-                <option value="">All Components</option>
-                {getComponentOptions().map((comp) => (
+                <option value="">All Components ({availableComponents.length})</option>
+                {availableComponents.map((comp) => (
                   <option key={comp} value={comp}>
                     {comp}
                   </option>
                 ))}
               </select>
             </div>
+
+            {(logLevel || component) && (
+              <button
+                onClick={() => {
+                  setLogLevel(undefined);
+                  setComponent(undefined);
+                  setPage(1);
+                }}
+                className="btn-secondary text-xs px-2.5 py-1 text-slate-500 hover:text-slate-700"
+              >
+                Reset Filters ✕
+              </button>
+            )}
           </div>
 
-          <div className="logs-container">
-            {systemLogs.length === 0 ? (
-              <p className="no-data">No logs found</p>
+          <div className="logs-container relative min-h-[220px]">
+            {loading && systemLogs.length === 0 ? (
+              <div className="admin-section-loading">Loading system logs...</div>
+            ) : systemLogs.length === 0 ? (
+              <p className="no-data">No logs found for current filters</p>
             ) : (
               systemLogs.map((log) => (
                 <div key={log.id} className={`log-entry ${getLevelColor(log.level)}`}>
@@ -167,23 +262,38 @@ export const LogsViewer: React.FC = () => {
       {activeTab === 'source' && (
         <>
           <div className="filter-section">
-            <label>Data Source:</label>
-            <select
-              value={selectedSource || ''}
-              onChange={(e) => setSelectedSource(e.target.value ? parseInt(e.target.value) : undefined)}
-              className="form-input"
-            >
-              <option value="">All Sources</option>
-              {dataSources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name} ({source.category})
-                </option>
-              ))}
-            </select>
+            <div className="filter-group">
+              <label>Data Source:</label>
+              <select
+                value={selectedSource || ''}
+                onChange={(e) =>
+                  handleSourceChange(e.target.value ? parseInt(e.target.value) : undefined)
+                }
+                className="form-input"
+              >
+                <option value="">All Sources</option>
+                {dataSources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name} ({source.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedSource !== undefined && (
+              <button
+                onClick={() => handleSourceChange(undefined)}
+                className="btn-secondary text-xs px-2.5 py-1 text-slate-500 hover:text-slate-700"
+              >
+                Reset Filter ✕
+              </button>
+            )}
           </div>
 
-          <div className="logs-container">
-            {sourceLogs.length === 0 ? (
+          <div className="logs-container relative min-h-[220px]">
+            {loading && sourceLogs.length === 0 ? (
+              <div className="admin-section-loading">Loading source logs...</div>
+            ) : sourceLogs.length === 0 ? (
               <p className="no-data">No source logs found</p>
             ) : (
               sourceLogs.map((log) => (
@@ -199,13 +309,37 @@ export const LogsViewer: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <div className="log-message">{log.error_message}</div>
+                  <div className="log-message font-mono text-xs">{log.error_message}</div>
                 </div>
               ))
             )}
           </div>
         </>
       )}
+
+      {/* Pagination Footer */}
+      <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-200 text-xs text-slate-600">
+        <div>
+          Showing page {page} {currentCount > 0 ? `(${currentCount} entries)` : ''}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1 || loading}
+            className="btn-secondary px-3 py-1 rounded cursor-pointer disabled:opacity-40"
+          >
+            ← Previous
+          </button>
+          <span className="font-semibold px-1">Page {page}</span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={currentCount < PAGE_SIZE || loading}
+            className="btn-secondary px-3 py-1 rounded cursor-pointer disabled:opacity-40"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

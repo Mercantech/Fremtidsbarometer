@@ -7,6 +7,7 @@ from api.database import get_db
 
 router = APIRouter(prefix="/api/countries", tags=["Locations"])
 
+@router.get("", response_model=List[str], include_in_schema=False)
 @router.get("/", response_model=List[str])
 def get_countries(db: Session = Depends(get_db)):
     """

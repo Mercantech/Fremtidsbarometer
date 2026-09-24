@@ -141,13 +141,20 @@ async def scrape_reddit_discussions(db, source_id: int = None, limit_per_sub: in
         saved_count += devto_count
 
         # 2. Reddit as best-effort (handled gracefully if 403)
+        consecutive_blocks = 0
         for sub in SUBREDDITS:
             url = f"https://www.reddit.com/r/{sub}/hot.json?limit={limit_per_sub}"
             try:
                 resp = await client.get(url)
-                if resp.status_code != 200:
-                    # Non-fatal: Reddit blocks server IPs
+                if resp.status_code == 403:
+                    consecutive_blocks += 1
+                    if consecutive_blocks >= 2:
+                        logger.info("Reddit cloud IP blocks detected on consecutive subreddits. Skipping remaining Reddit requests.")
+                        break
                     continue
+                elif resp.status_code != 200:
+                    continue
+                consecutive_blocks = 0
                 
                 data = resp.json()
                 children = data.get("data", {}).get("children", [])

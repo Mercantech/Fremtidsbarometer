@@ -8,6 +8,7 @@ from api.schemas import HypeAnalysisSchema
 
 router = APIRouter(prefix="/api/hype", tags=["Hype"])
 
+@router.get("", response_model=List[HypeAnalysisSchema], include_in_schema=False)
 @router.get("/", response_model=List[HypeAnalysisSchema])
 def get_hype(
     limit: int = Query(10, description="Number of trends to return"),

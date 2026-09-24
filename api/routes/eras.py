@@ -8,6 +8,7 @@ from api.schemas import EraSchema
 
 router = APIRouter(prefix="/api/eras", tags=["Eras"])
 
+@router.get("", response_model=List[EraSchema], include_in_schema=False)
 @router.get("/", response_model=List[EraSchema])
 def get_eras(db: Session = Depends(get_db)):
     """

@@ -85,15 +85,27 @@ export const DataSourceManager: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="admin-section-loading">Loading data sources...</div>;
+  if (loading && sources.length === 0) {
+    return <div className="admin-section-loading">Loading data sources...</div>;
+  }
 
   return (
     <div className="admin-card">
-      <div className="card-header">
-        <h2>Data Sources Management</h2>
-        <button onClick={() => setShowForm(!showForm)} className="btn-secondary">
-          {showForm ? '✕ Cancel' : '+ Add Source'}
-        </button>
+      <div className="card-header flex justify-between items-center">
+        <div>
+          <h2>Data Sources Management</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Manage external APIs, RSS feeds, and scrapers</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="text-xs text-blue-600 font-medium animate-pulse">
+              Updating...
+            </span>
+          )}
+          <button onClick={() => setShowForm(!showForm)} className="btn-secondary">
+            {showForm ? '✕ Cancel' : '+ Add Source'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}

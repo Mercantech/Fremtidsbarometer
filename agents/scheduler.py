@@ -118,10 +118,16 @@ async def main():
     
     scheduler.start()
     
-    # Run initial tasks on startup: cleanup, news fetch, full cycle
+    # Run initial tasks on startup with safe error logging
+    async def safe_startup_task(name, coro):
+        try:
+            await coro
+        except Exception as e:
+            logger.error(f"Startup task '{name}' failed: {e}")
+
     cleanup_stale_data()
-    asyncio.create_task(news_agent.fetch_news())
-    asyncio.create_task(run_full_cycle())
+    asyncio.create_task(safe_startup_task("fetch_news", news_agent.fetch_news()))
+    asyncio.create_task(safe_startup_task("full_cycle", run_full_cycle()))
 
     logger.info("Scheduler started with data retention cleaner. Press Ctrl+C to exit.")
 

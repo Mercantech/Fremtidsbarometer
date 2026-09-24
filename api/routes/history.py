@@ -9,6 +9,7 @@ from api.schemas import TrendHistoryYearSchema
 
 router = APIRouter(prefix="/api/trends/history", tags=["Trends"])
 
+@router.get("", response_model=List[TrendHistoryYearSchema], include_in_schema=False)
 @router.get("/", response_model=List[TrendHistoryYearSchema])
 def get_trends_history(
     country: Optional[str] = Query("GLOBAL", description="Country to filter by"),

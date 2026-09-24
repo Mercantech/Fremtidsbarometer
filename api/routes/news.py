@@ -8,6 +8,7 @@ from api.schemas import NewsItemSchema
 
 router = APIRouter(prefix="/api/news", tags=["News"])
 
+@router.get("", response_model=List[NewsItemSchema], include_in_schema=False)
 @router.get("/", response_model=List[NewsItemSchema])
 def get_news(
     limit: int = Query(15, description="Number of news items to return"),

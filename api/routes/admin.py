@@ -17,11 +17,22 @@ from api.schemas import (
 
 load_dotenv()
 
-def verify_api_key(x_api_key: Optional[str] = Header(None)):
+def verify_api_key(
+    x_api_key: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None)
+):
     admin_key = os.getenv("ADMIN_API_KEY")
     if not admin_key:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Admin API key is not configured")
-    if not x_api_key or not secrets.compare_digest(x_api_key, admin_key):
+    
+    token = x_api_key
+    if not token and authorization:
+        if authorization.lower().startswith("bearer "):
+            token = authorization[7:].strip()
+        else:
+            token = authorization.strip()
+
+    if not token or not secrets.compare_digest(token, admin_key):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API Key")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(verify_api_key)])
@@ -43,6 +54,20 @@ def get_system_logs(
         
     logs = query.order_by(SystemLog.created_at.desc()).offset(offset).limit(limit).all()
     return logs
+
+
+@router.get("/components", response_model=List[str])
+def get_log_components(db: Session = Depends(get_db)):
+    """Returns a list of distinct components present in SystemLog."""
+    components = db.query(SystemLog.component).distinct().filter(SystemLog.component.isnot(None)).all()
+    comp_list = sorted(list(set(c[0] for c in components if c[0])))
+    default_components = [
+        "FastAPI", "Orchestrator", "Orchestrator-Social", "Orchestrator-Tech",
+        "Orchestrator-Jobs", "Orchestrator-Synthesis", "Scheduler", "Synthesizer",
+        "SocialScraper", "TechScraper", "JobsScraper", "NewsAgent"
+    ]
+    all_comps = sorted(list(set(comp_list + default_components)))
+    return all_comps
 
 
 @router.get("/status")
@@ -157,6 +182,11 @@ def create_ai_model(model_data: AIModelConfigCreateSchema, db: Session = Depends
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model config already exists")
     
+    if model_data.is_active == 1:
+        db.query(AIModelConfig).filter(
+            AIModelConfig.task_type == model_data.task_type
+        ).update({"is_active": 0})
+
     new_model = AIModelConfig(**model_data.dict())
     db.add(new_model)
     db.commit()

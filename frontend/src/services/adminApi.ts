@@ -54,6 +54,11 @@ export const fetchSystemLogs = async (
   return response.data;
 };
 
+export const fetchLogComponents = async (): Promise<string[]> => {
+  const response = await adminApi.get('/api/admin/components');
+  return response.data;
+};
+
 // ── System Status ────────────────────────────────────
 export interface SystemStatus {
   status: 'ok' | 'stale' | 'no_data' | 'error';
@@ -226,6 +231,21 @@ export const triggerPipeline = async (
 ): Promise<PipelineResponse> => {
   const response = await adminApi.post('/api/admin/trigger-pipeline', null, {
     params: { sweep, force },
+  });
+  return response.data;
+};
+
+// ── Database Retention Cleanup ───────────────────────
+export interface CleanupResponse {
+  status: string;
+  deleted_raw_scrapes: number;
+  deleted_system_logs: number;
+  deleted_source_logs: number;
+}
+
+export const triggerCleanup = async (days: number = 14): Promise<CleanupResponse> => {
+  const response = await adminApi.post('/api/admin/cleanup', null, {
+    params: { days },
   });
   return response.data;
 };

@@ -27,8 +27,8 @@ export const SystemStatusDisplay: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) return <div className="status-loading">Loading status...</div>;
-  if (error) return <div className="status-error">Error: {error}</div>;
+  if (loading && !status) return <div className="status-loading">Loading status...</div>;
+  if (error && !status) return <div className="status-error">Error: {error}</div>;
   if (!status) return <div className="status-error">No status data available</div>;
 
   const isHealthy = status.status === 'ok';
@@ -36,7 +36,30 @@ export const SystemStatusDisplay: React.FC = () => {
 
   return (
     <div className="system-status-card">
-      <h2>System Status</h2>
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="!mb-0">System Status</h2>
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="text-xs text-blue-600 font-medium animate-pulse">
+              Syncing...
+            </span>
+          )}
+          <button
+            onClick={() => {
+              setLoading(true);
+              fetchSystemStatus(12)
+                .then(setStatus)
+                .catch((err) => setError(err.message))
+                .finally(() => setLoading(false));
+            }}
+            disabled={loading}
+            className="text-xs px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+            title="Refresh system status"
+          >
+            🔄 Sync
+          </button>
+        </div>
+      </div>
       <div className={statusClass}>
         <span className="status-dot"></span>
         <span className="status-text">

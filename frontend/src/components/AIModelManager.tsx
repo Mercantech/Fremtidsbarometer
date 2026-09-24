@@ -84,7 +84,9 @@ export const AIModelManager: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="admin-section-loading">Loading AI models...</div>;
+  if (loading && models.length === 0) {
+    return <div className="admin-section-loading">Loading AI models...</div>;
+  }
 
   // Group models by task type
   const modelsByTask = TASK_TYPES.reduce((acc, task) => {
@@ -94,11 +96,21 @@ export const AIModelManager: React.FC = () => {
 
   return (
     <div className="admin-card">
-      <div className="card-header">
-        <h2>AI Model Configurations</h2>
-        <button onClick={() => setShowForm(!showForm)} className="btn-secondary">
-          {showForm ? '✕ Cancel' : '+ Add Model'}
-        </button>
+      <div className="card-header flex justify-between items-center">
+        <div>
+          <h2>AI Model Configurations</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Configure models for social, tech, jobs extraction & synthesis</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="text-xs text-blue-600 font-medium animate-pulse">
+              Syncing...
+            </span>
+          )}
+          <button onClick={() => setShowForm(!showForm)} className="btn-secondary">
+            {showForm ? '✕ Cancel' : '+ Add Model'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}

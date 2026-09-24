@@ -9,6 +9,7 @@ from api.schemas import SalaryDataSchema
 
 router = APIRouter(prefix="/api/salary", tags=["Salary"])
 
+@router.get("", response_model=List[SalaryDataSchema], include_in_schema=False)
 @router.get("/", response_model=List[SalaryDataSchema])
 def get_salary(
     country: Optional[str] = Query("DK", description="Country to filter by"),

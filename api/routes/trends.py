@@ -10,6 +10,7 @@ from api.schemas import TechTrendSchema
 
 router = APIRouter(prefix="/api/trends", tags=["Trends"])
 
+@router.get("", response_model=List[TechTrendSchema], include_in_schema=False)
 @router.get("/", response_model=List[TechTrendSchema])
 def get_trends(
     country: Optional[str] = Query("GLOBAL", description="Country code (e.g. DK, GLOBAL)"),
