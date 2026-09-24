@@ -102,6 +102,33 @@ async def trigger_pipeline(
     }
 
 
+@router.post("/cleanup")
+def trigger_db_cleanup(
+    days: int = Query(14, ge=1, le=90, description="Delete raw records older than this number of days"),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually triggers database retention cleanup to free up PostgreSQL disk space.
+    """
+    from datetime import datetime, timedelta, timezone
+    from database.models import RawScrapeData, SystemLog, SourceLog
+    
+    cutoff_raw = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_logs = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    deleted_raw = db.query(RawScrapeData).filter(RawScrapeData.created_at < cutoff_raw).delete()
+    deleted_sys = db.query(SystemLog).filter(SystemLog.created_at < cutoff_logs).delete()
+    deleted_src = db.query(SourceLog).filter(SourceLog.created_at < cutoff_logs).delete()
+    db.commit()
+    
+    return {
+        "status": "success",
+        "deleted_raw_scrapes": deleted_raw,
+        "deleted_system_logs": deleted_sys,
+        "deleted_source_logs": deleted_src
+    }
+
+
 # ── AI Model Configs ─────────────────────────────────
 @router.get("/ai-models", response_model=List[AIModelConfigSchema])
 def get_ai_models(

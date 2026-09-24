@@ -45,6 +45,7 @@ async def run_social_sweep(db=None):
         logger.info(f"Partition 1 Complete: Scraped {count} social discussions.")
     except Exception as e:
         logger.error(f"Social sweep failed: {e}")
+        db.rollback()
         db.add(SystemLog(level="ERROR", component="Orchestrator-Social", message=str(e)))
         db.commit()
         raise e
@@ -72,6 +73,7 @@ async def run_tech_sweep(db=None):
         logger.info(f"Partition 2 Complete: Scraped {hn_count} HN stories + {gh_count} GitHub dumps.")
     except Exception as e:
         logger.error(f"Tech sweep failed: {e}")
+        db.rollback()
         db.add(SystemLog(level="ERROR", component="Orchestrator-Tech", message=str(e)))
         db.commit()
         raise e
@@ -98,6 +100,7 @@ async def run_jobs_sweep(db=None):
         logger.info(f"Partition 3 Complete: Scraped {jobs_count} ATS jobs.")
     except Exception as e:
         logger.error(f"Jobs sweep failed: {e}")
+        db.rollback()
         db.add(SystemLog(level="ERROR", component="Orchestrator-Jobs", message=str(e)))
         db.commit()
         raise e
@@ -127,6 +130,7 @@ async def run_synthesis(db=None):
         return results
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
+        db.rollback()
         db.add(SystemLog(level="ERROR", component="Orchestrator-Synthesis", message=str(e)))
         db.commit()
         raise e
@@ -195,6 +199,7 @@ async def run_full_cycle(force: bool = False):
         return {"status": "success", "synthesized_topics": len(results) if results else 0}
     except Exception as e:
         logger.error(f"Full pipeline cycle failed: {e}")
+        db.rollback()
         db.add(SystemLog(level="ERROR", component="Orchestrator-FullCycle", message=str(e)))
         db.commit()
         raise e

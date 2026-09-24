@@ -9,7 +9,8 @@ import pytz
 # Import orchestrator & news agent
 from agents.orchestrator import run_social_sweep, run_tech_sweep, run_jobs_sweep, run_synthesis, run_full_cycle
 from agents.news_agent import NewsAgent
-from database.models import SystemLog
+from datetime import datetime, timedelta, timezone
+from database.models import SystemLog, RawScrapeData, SourceLog
 from database.session import get_session
 
 # Logging setup
@@ -17,6 +18,29 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Scheduler")
 
 load_dotenv()
+
+def cleanup_stale_data():
+    """
+    Deletes raw scrape dumps older than 14 days and system logs older than 30 days
+    to prevent database storage exhaustion.
+    """
+    db = get_session()
+    try:
+        cutoff_raw = datetime.now(timezone.utc) - timedelta(days=14)
+        cutoff_logs = datetime.now(timezone.utc) - timedelta(days=30)
+
+        deleted_raw = db.query(RawScrapeData).filter(RawScrapeData.created_at < cutoff_raw).delete()
+        deleted_sys = db.query(SystemLog).filter(SystemLog.created_at < cutoff_logs).delete()
+        deleted_src = db.query(SourceLog).filter(SourceLog.created_at < cutoff_logs).delete()
+
+        db.commit()
+        if deleted_raw or deleted_sys or deleted_src:
+            logger.info(f"Database retention cleanup: purged {deleted_raw} raw dumps, {deleted_sys} system logs, {deleted_src} source logs.")
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Database cleanup failed: {e}")
+    finally:
+        db.close()
 
 def log_to_db(level: str, component: str, message: str, traceback: str = None):
     """
@@ -85,14 +109,21 @@ async def main():
         run_synthesis, 'cron', day_of_week='mon,thu', hour=12, minute=0,
         id='synthesis_job', replace_existing=True
     )
+
+    # 03:00 UTC Daily - Database Retention Cleanup (prevent storage exhaustion)
+    scheduler.add_job(
+        cleanup_stale_data, 'cron', hour=3, minute=0,
+        id='db_cleanup_job', replace_existing=True
+    )
     
     scheduler.start()
     
-    # Run initial news fetch and full cycle on startup for immediate data
+    # Run initial tasks on startup: cleanup, news fetch, full cycle
+    cleanup_stale_data()
     asyncio.create_task(news_agent.fetch_news())
     asyncio.create_task(run_full_cycle())
 
-    logger.info("Scheduler started. Press Ctrl+C to exit.")
+    logger.info("Scheduler started with data retention cleaner. Press Ctrl+C to exit.")
 
     # Infinite loop
     try:

@@ -1,11 +1,12 @@
 import asyncio
 import logging
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
-from database.models import RawScrapeData, HypeAnalysis, Era, SystemLog
-from agents.ai_provider import GeminiProvider, AIProviderError
+from database.models import RawScrapeData, HypeAnalysis, Era, SystemLog, TechTrend
+from agents.ai_provider import get_ai_provider, AIProviderError
 from utils.logger import get_centralized_logger
 
 logger = get_centralized_logger("Synthesizer")
@@ -79,8 +80,9 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
     }
     """
 
+    provider_name = model_config.get("provider", "google") if model_config else "google"
     model_name = model_config.get("model_name", "gemini-3.6-flash") if model_config else "gemini-3.6-flash"
-    ai = GeminiProvider(model_name=model_name)
+    ai = get_ai_provider(provider=provider_name, model_name=model_name)
     
     try:
         result = await ai.analyze_json(prompt, schema)
@@ -184,10 +186,77 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
             current_era.stats = updated_stats
             logger.info(f"Updated Era {current_era.year} with Top Hype Topic: '{top_topic['topic']}'")
 
-    # 6. Mark raw records as processed
-    for r in raw_records:
-        r.processed = 1
+    # 6. Dynamically update TechTrend table with real developer mention frequencies
+    tracked_techs = [
+        ("Python", "Language"),
+        ("TypeScript", "Language"),
+        ("JavaScript", "Language"),
+        ("Rust", "Language"),
+        ("Go", "Language"),
+        ("Java", "Language"),
+        ("C++", "Language"),
+        ("C#", "Language"),
+        ("React", "Framework"),
+        ("Vue", "Framework"),
+        ("Next.js", "Framework"),
+        ("Docker", "Cloud/DevOps"),
+        ("Kubernetes", "Cloud/DevOps"),
+        ("PostgreSQL", "Database"),
+        ("PyTorch", "AI/ML"),
+        ("Linux", "Cloud/DevOps"),
+        ("AWS", "Cloud/DevOps"),
+        ("Git", "Tool")
+    ]
+    
+    all_texts_joined = " ".join(r.raw_text for r in raw_records).lower()
+    for tech, category in tracked_techs:
+        pattern = re.compile(rf"\b{re.escape(tech.lower())}\b")
+        mentions_count = len(pattern.findall(all_texts_joined))
+        
+        # Calculate popularity 15% - 99% based on mention density
+        ratio = mentions_count / max(total_posts, 1)
+        popularity = min(99.0, max(20.0, round(25.0 + ratio * 80.0, 1)))
+        
+    existing_trends = {
+        t.technology: t for t in db.query(TechTrend).filter(
+            TechTrend.country == "GLOBAL",
+            TechTrend.source == "aggregated",
+            TechTrend.date == today
+        ).all()
+    }
+
+    for tech, category in tracked_techs:
+        pattern = re.compile(rf"\b{re.escape(tech.lower())}\b")
+        mentions_count = len(pattern.findall(all_texts_joined))
+        
+        # Calculate popularity 15% - 99% based on mention density
+        ratio = mentions_count / max(total_posts, 1)
+        popularity = min(99.0, max(20.0, round(25.0 + ratio * 80.0, 1)))
+        
+        existing_trend = existing_trends.get(tech)
+        if existing_trend:
+            existing_trend.popularity = popularity
+            existing_trend.mentions = mentions_count
+            existing_trend.metadata_ = {"category": category}
+        else:
+            db.add(TechTrend(
+                technology=tech,
+                popularity=popularity,
+                mentions=mentions_count,
+                source="aggregated",
+                country="GLOBAL",
+                date=today,
+                status="published",
+                metadata_={"category": category}
+            ))
+
+    # 7. Bulk mark raw records as processed (1 fast query instead of 150 individual updates)
+    if raw_records:
+        raw_ids = [r.id for r in raw_records]
+        db.query(RawScrapeData).filter(RawScrapeData.id.in_(raw_ids)).update(
+            {RawScrapeData.processed: 1}, synchronize_session=False
+        )
 
     db.commit()
-    logger.info(f"Successfully synthesized {len(synthesized_results)} hype topics with mathematical verification.")
+    logger.info(f"Successfully synthesized {len(synthesized_results)} hype topics and updated TechTrends.")
     return synthesized_results

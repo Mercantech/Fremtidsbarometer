@@ -148,12 +148,29 @@ export const useStore = create<AppState>()(
             });
           });
 
-          // Map hype topics to live topics (distributed across major tech hubs)
-          hypeData.forEach(h => {
-            const coords = resolveCoordinates('GLOBAL');
+          // Map hype topics to live topics (distributed across major world tech hubs)
+          const GLOBAL_TECH_HUBS = [
+            { city: 'San Francisco', country: 'US' },
+            { city: 'London', country: 'GB' },
+            { city: 'Tokyo', country: 'JP' },
+            { city: 'Berlin', country: 'DE' },
+            { city: 'New York', country: 'US' },
+            { city: 'Copenhagen', country: 'DK' },
+            { city: 'Singapore', country: 'SG' },
+            { city: 'Stockholm', country: 'SE' },
+            { city: 'Amsterdam', country: 'NL' },
+            { city: 'Seoul', country: 'KR' },
+            { city: 'Zurich', country: 'CH' },
+            { city: 'Sydney', country: 'AU' }
+          ];
+
+          hypeData.forEach((h, idx) => {
+            const hub = GLOBAL_TECH_HUBS[idx % GLOBAL_TECH_HUBS.length];
+            const coords = resolveCoordinates(hub.country, hub.city);
             newLiveTopics.push({
               id: `hype-${idCounter++}`,
-              country: 'GLOBAL',
+              country: hub.city,
+              city: hub.city,
               lat: coords.lat,
               lng: coords.lng,
               type: 'hype',
