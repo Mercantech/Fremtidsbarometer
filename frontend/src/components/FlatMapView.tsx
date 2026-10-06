@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 export const FlatMapView: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
   const currentEraIndex = useStore((s) => s.currentEraIndex);
+  const liveTopics = useStore((s) => s.liveTopics);
   const era = ERAS[currentEraIndex];
 
   if (viewMode !== 'map') return null;
@@ -39,15 +40,15 @@ export const FlatMapView: React.FC = () => {
             [ FLAT MAP PROJECTION LAYER ]
           </div>
 
-          {/* Era Topic Markers mapped onto 2D Coordinates */}
-          {era.topics.map((t, idx) => {
+          {/* Live topic markers mapped onto 2D Coordinates */}
+          {liveTopics.map((t, idx) => {
             // Map lat (-90 to 90) -> (100% to 0%), lng (-180 to 180) -> (0% to 100%)
             const left = `${((t.lng + 180) / 360) * 100}%`;
             const top = `${((90 - t.lat) / 180) * 100}%`;
 
             return (
               <motion.div
-                key={idx}
+                key={t.id}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: idx * 0.15, type: 'spring' }}
