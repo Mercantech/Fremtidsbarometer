@@ -61,8 +61,13 @@ export const RightPanel: React.FC = () => {
         <circle cx="${rDotX}" cy="${rDotY}" r="3.5" fill="#00d4ff" />
       `;
       
+      const panelTop = rightShelfY + 20;
       rightPanel.style.right = rightInset + 'px'; 
-      rightPanel.style.top = (rightShelfY + 20) + 'px';
+      rightPanel.style.top = panelTop + 'px';
+
+      const bottomMargin = 28;
+      const availableH = Math.max(220, (H - panelTop - bottomMargin) / 0.85);
+      rightPanel.style.maxHeight = `${availableH}px`;
     };
 
     window.addEventListener('resize', positionPanels);
@@ -105,9 +110,12 @@ export const RightPanel: React.FC = () => {
           </div>
         </div>
 
-        {panelTab === 'stats' && <StatsTab era={era} lang={lang} />}
-        {panelTab === 'hype' && <HypeTab era={era} hypeList={hypeList} />}
-        {panelTab === 'compare' && <CompareTab />}
+        {/* ── Scrollable Tab Content Container ── */}
+        <div className="rp-scroll-content">
+          {panelTab === 'stats' && <StatsTab era={era} lang={lang} />}
+          {panelTab === 'hype' && <HypeTab era={era} hypeList={hypeList} />}
+          {panelTab === 'compare' && <CompareTab />}
+        </div>
 
       </div>
     </>

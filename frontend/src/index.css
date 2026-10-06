@@ -226,8 +226,36 @@ svg.branches {
 
 /* RIGHT PANEL */
 #right-panel {
-    position: absolute; width: 340px; display: flex; flex-direction: column; gap: 16px; pointer-events: auto; color: #111; z-index: 20;
+    position: absolute; width: 340px; display: flex; flex-direction: column; gap: 8px; pointer-events: auto; color: #111; z-index: 20;
     transform: scale(0.85); transform-origin: top right;
+    overflow: hidden;
+}
+
+.rp-scroll-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
+    padding-bottom: 20px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.rp-scroll-content::-webkit-scrollbar {
+    width: 4px;
+}
+.rp-scroll-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+}
+.rp-scroll-content::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+.rp-scroll-content::-webkit-scrollbar-thumb:hover {
+    background: #ffd000;
 }
 .rp-block { display: flex; flex-direction: column; gap: 10px; }
 .rp-block--stats { margin-left: -12px; }
