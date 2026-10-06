@@ -65,6 +65,7 @@ export const fetchLogComponents = async (): Promise<string[]> => {
 // ── System Status ────────────────────────────────────
 export interface SystemStatus {
   status: 'ok' | 'stale' | 'no_data' | 'error';
+  is_running?: boolean;
   freshness?: {
     is_fresh: boolean;
     latest_hype_topic?: string;
@@ -82,6 +83,24 @@ export const fetchSystemStatus = async (maxAgeHours: number = 12): Promise<Syste
   });
   return response.data;
 };
+
+// ── Database Seeding ──────────────────────────────────
+export interface SeedDatabaseResponse {
+  status: string;
+  message: string;
+  counts: {
+    eras: number;
+    ai_models: number;
+    data_sources: number;
+    tech_trends: number;
+  };
+}
+
+export const seedDatabase = async (): Promise<SeedDatabaseResponse> => {
+  const response = await adminApi.post('/api/admin/seed-database');
+  return response.data;
+};
+
 
 // ── AI Model Configs ─────────────────────────────────
 export interface AIModelConfig {

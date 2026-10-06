@@ -33,7 +33,7 @@ def get_active_model(db, task_type: str):
         ).first()
 
     if not model_config:
-        default_model = "gemini-2.5-pro" if task_type == "final_synthesis" else "gemini-3.8-flash"
+        default_model = "gemini-3.8-flash"
         logger.warning(f"No active or fallback model found for {task_type}. Falling back to default: {default_model}")
         return {"provider": "google", "model_name": default_model}
         

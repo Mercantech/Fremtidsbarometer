@@ -17,8 +17,8 @@ MODELS_SEED = [
     {"task_type": "jobs_extraction", "model_name": "open-mistral-nemo", "provider": "mistral", "is_active": 0, "is_fallback": 1},
     
     # Final Synthesis
-    {"task_type": "final_synthesis", "model_name": "gemini-2.5-pro", "provider": "google", "is_active": 1, "is_fallback": 0},
-    {"task_type": "final_synthesis", "model_name": "gemini-3.8-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
+    {"task_type": "final_synthesis", "model_name": "gemini-3.8-flash", "provider": "google", "is_active": 1, "is_fallback": 0},
+    {"task_type": "final_synthesis", "model_name": "gemini-3.7-flash", "provider": "google", "is_active": 0, "is_fallback": 1},
     {"task_type": "final_synthesis", "model_name": "open-mistral-nemo", "provider": "mistral", "is_active": 0, "is_fallback": 1},
 ]
 

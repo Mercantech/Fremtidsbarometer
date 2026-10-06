@@ -41,6 +41,7 @@ class JobPostingSchema(BaseModel):
     company: Optional[str]
     url: Optional[str]
     source: Optional[str]
+    country: Optional[str] = "DK"
     city: Optional[str]
     technology: Optional[str]
     tags: Optional[List[str]]

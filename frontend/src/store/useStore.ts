@@ -176,7 +176,7 @@ export const useStore = create<AppState>()(
 
           // Map jobs to live topics
           jobsData.forEach(j => {
-            const country = j.country || 'GLOBAL';
+            const country = j.country || 'DK';
             const coords = resolveCoordinates(country, j.city);
             newLiveTopics.push({
               id: `job-${idCounter++}`,

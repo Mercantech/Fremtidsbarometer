@@ -19,6 +19,10 @@ def get_ai_models(
     db: Session = Depends(get_db)
 ):
     """Get all configured AI models with optional filtering."""
+    if db.query(AIModelConfig).count() == 0:
+        from database.seeds.ai_models import seed_ai_models
+        seed_ai_models(db)
+
     query = db.query(AIModelConfig)
     if task_type:
         query = query.filter(AIModelConfig.task_type == task_type)

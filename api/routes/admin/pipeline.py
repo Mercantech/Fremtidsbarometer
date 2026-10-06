@@ -124,3 +124,41 @@ def trigger_db_cleanup(
         "deleted_system_logs": deleted_sys,
         "deleted_source_logs": deleted_src
     }
+
+@router.post("/seed-database")
+def trigger_seed_database(db: Session = Depends(get_db)):
+    """
+    Manually triggers database seeding of eras, historical trends, AI models, sources, and salaries.
+    Idempotent and safe to execute anytime.
+    """
+    from database.seeds.eras import seed_eras
+    from database.seeds.history import seed_historical_data
+    from database.seeds.sources import seed_sources
+    from database.seeds.ai_models import seed_ai_models
+    from database.seeds.salaries import seed_salary_data
+    from database.models import Era, AIModelConfig, DataSource, TechTrend
+
+    try:
+        seed_eras(db)
+        seed_historical_data(db)
+        seed_sources(db)
+        seed_ai_models(db)
+        seed_salary_data(db)
+
+        return {
+            "status": "success",
+            "message": "Database successfully populated with default seed data (eras, trends, models, sources).",
+            "counts": {
+                "eras": db.query(Era).count(),
+                "ai_models": db.query(AIModelConfig).count(),
+                "data_sources": db.query(DataSource).count(),
+                "tech_trends": db.query(TechTrend).count(),
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to seed database: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to seed database: {str(e)}"
+        )

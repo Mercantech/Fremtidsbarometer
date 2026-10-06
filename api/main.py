@@ -49,8 +49,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 from api.routes import trends, news, history, countries, hype, jobs, salary, admin, eras
 
 # Configure CORS
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8000,http://127.0.0.1:5173,http://127.0.0.1:8000,https://fremtidsbarometer.mercantec.tech")
 allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+if "https://fremtidsbarometer.mercantec.tech" not in allowed_origins and "*" not in allowed_origins:
+    allowed_origins.append("https://fremtidsbarometer.mercantec.tech")
 
 app.add_middleware(
     CORSMiddleware,

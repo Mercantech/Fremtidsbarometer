@@ -19,6 +19,10 @@ def get_data_sources(
     db: Session = Depends(get_db)
 ):
     """Get all data sources with optional filtering."""
+    if db.query(DataSource).count() == 0:
+        from database.seeds.sources import seed_sources
+        seed_sources(db)
+
     query = db.query(DataSource)
     if category:
         query = query.filter(DataSource.category == category)

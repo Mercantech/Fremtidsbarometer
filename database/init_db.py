@@ -36,7 +36,27 @@ def init_db():
         for name in sorted(table_names):
             print(f"   📋 {name}")
 
-        print("\n🎉 Database initialized successfully!")
+        # Ensure initial seed data is populated (eras, AI models, sources, trends)
+        from database.session import get_session
+        from database.seeds.eras import seed_eras
+        from database.seeds.history import seed_historical_data
+        from database.seeds.sources import seed_sources
+        from database.seeds.ai_models import seed_ai_models
+        from database.seeds.salaries import seed_salary_data
+
+        session = get_session()
+        try:
+            print("\n🌱 Checking and populating seed data...")
+            seed_eras(session)
+            seed_historical_data(session)
+            seed_sources(session)
+            seed_ai_models(session)
+            seed_salary_data(session)
+            print("✅ All seed data verified and ready.")
+        finally:
+            session.close()
+
+        print("\n🎉 Database initialized and seeded successfully!")
 
     except Exception as e:
         print(f"❌ DB initialization error: {e}")
