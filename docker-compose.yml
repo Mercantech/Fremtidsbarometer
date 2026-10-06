@@ -37,7 +37,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    command: ["python", "agents/scheduler.py"]
+    command: ["python", "-m", "agents.scheduler"]
     restart: unless-stopped
     env_file:
       - .env
