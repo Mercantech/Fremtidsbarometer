@@ -53,4 +53,8 @@ pgdata/
 .agents/
 .gemini/
 
+# ── Local Presentation & Video Scripts ──
+VIDEO_SCRIPTS.md
+docs/VIDEO_SCRIPTS.md
+
 **/.env
