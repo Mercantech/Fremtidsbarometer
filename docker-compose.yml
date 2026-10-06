@@ -14,7 +14,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - internal
+      - default
 
   api:
     build:
@@ -31,7 +31,7 @@ services:
       db:
         condition: service_healthy
     networks:
-      - internal
+      - default
 
   scheduler:
     build:
@@ -49,7 +49,7 @@ services:
       api:
         condition: service_started
     networks:
-      - internal
+      - default
 
   web:
     build:
@@ -62,7 +62,7 @@ services:
     depends_on:
       - api
     networks:
-      - internal
+      - default
       - dokploy-network
     labels:
       # Cloudflare tunnel → Traefik :80 (web). TLS termineres i Cloudflare.
@@ -76,6 +76,11 @@ volumes:
   postgres_data:
 
 networks:
-  internal:
+  # Eksplicit subnet: undgår "all predefined address pools have been fully subnetted"
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${COMPOSE_SUBNET:-10.42.80.0/24}
   dokploy-network:
     external: true

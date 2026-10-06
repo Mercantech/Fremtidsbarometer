@@ -13,10 +13,11 @@ services:
   web:
     ports:
       - "3000:3000"
-    networks:
-      - internal
 
 networks:
-  # Opret lokalt i stedet for at kræve Dokploy's eksterne netværk
   dokploy-network:
     external: false
+  default:
+    ipam:
+      config:
+        - subnet: 10.42.81.0/24
