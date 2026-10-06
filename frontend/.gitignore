@@ -1,5 +1,5 @@
-# Logs
-logs
+# Logs (kun build/runtime-logs — ikke source under src/)
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
