@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from database.models import NewsItem
-from api.database import get_db
+from database.session import get_db
 from api.schemas import NewsItemSchema
 
 router = APIRouter(prefix="/api/news", tags=["News"])
 
+@router.get("", response_model=List[NewsItemSchema], include_in_schema=False)
 @router.get("/", response_model=List[NewsItemSchema])
 def get_news(
     limit: int = Query(15, description="Number of news items to return"),

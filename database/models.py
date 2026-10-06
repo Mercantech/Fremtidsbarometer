@@ -6,7 +6,7 @@ Compatible with Neon (serverless PostgreSQL) and local Docker PostgreSQL.
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Float, Integer, DateTime, Text, Boolean,
+    Column, String, Float, Integer, DateTime, Text,
     UniqueConstraint, Index, create_engine
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -55,6 +55,7 @@ class TechTrend(Base):
     date       = Column(DateTime(timezone=True), nullable=False)
     popularity = Column(Float)        # 0–100 popularity index
     mentions   = Column(Integer)      # Mention count
+    status     = Column(String(20), default="published", index=True)
     metadata_  = Column("metadata", JSONB)  # Additional data
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     status     = Column(String(20))   # Additional status field
@@ -85,6 +86,7 @@ class JobPosting(Base):
     date        = Column(DateTime(timezone=True))
     match_score = Column(Float)        # AI scoring (0–100)
     match_reason = Column(Text)        # Why it fits
+    status      = Column(String(20), default="published", index=True)
     created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     status      = Column(String(20))   # Additional status field
 
@@ -110,6 +112,7 @@ class SalaryData(Base):
     p75        = Column(Float)         # 75th percentile
     currency   = Column(String(10), default="USD")
     role       = Column(String(100))   # "Software Engineer", "DevOps"
+    status     = Column(String(20), default="published", index=True)
     metadata_  = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     status     = Column(String(20))    # Additional status field
@@ -132,6 +135,7 @@ class HypeAnalysis(Base):
     direction  = Column(String(10))    # "rising", "falling", "stable"
     summary    = Column(Text)          # AI-generated summary
     sources    = Column(JSONB)         # ["hackernews", "reddit", "techcrunch"]
+    status     = Column(String(20), default="published", index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     status     = Column(String(20))    # Additional status field
 
@@ -139,19 +143,23 @@ class HypeAnalysis(Base):
         return f"<HypeAnalysis {self.topic}: {self.score}>"
 
 
-# ── 6. Scrape Error Log ──────────────────────────────────
-class ScrapeError(Base):
-    __tablename__ = "scrape_errors"
 
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    source     = Column(String(50), nullable=False)
-    error_type = Column(String(100))   # "timeout", "blocked", "parse_error"
-    message    = Column(Text)
-    url        = Column(String(1000))
+# ── 6. Eras (Historical IT Periods) ──────────────────────────
+class Era(Base):
+    __tablename__ = "eras"
+    __table_args__ = (
+        UniqueConstraint("year", name="uq_era_year"),
+    )
+
+    id       = Column(Integer, primary_key=True, autoincrement=True)
+    year     = Column(Integer, nullable=False)
+    title    = Column(String(200), nullable=False)
+    subtitle = Column(String(500))
+    stats    = Column(JSONB)  # Flexible: roles, stack, hypeTopic, hypeDesc, etc.
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
-        return f"<ScrapeError {self.source}: {self.error_type}>"
+        return f"<Era {self.year}: {self.title}>"
 
 
 # ── 7. ATS Companies (Auto-Discovery) ────────────────────────
@@ -243,81 +251,68 @@ class SystemLog(Base):
         return f"<SystemLog {self.level} [{self.component}] {self.message[:40]}>"
 
 
-# ── 9. AI Model Configurations (Admin Panel) ─────────────────────────────
-class AIModelConfig(Base):
-    __tablename__ = "ai_model_configs"
-
-    __table_args__ = (
-        UniqueConstraint(
-            "task_type",
-            "model_name",
-            "provider",
-            name="uq_ai_model_config"
-        ),
-        Index("idx_aimodel_task", "task_type"),
-        Index("idx_aimodel_active", "is_active"),
-    )
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    task_type = Column(String(50), nullable=False)
-    model_name = Column(String(100), nullable=False)
-    provider = Column(String(50), nullable=False)
-    is_active = Column(Integer, default=0)
-    is_fallback = Column(Integer, default=0)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc)
-    )
-
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-# ── 10. Data Sources (Admin Panel) ─────────────────────────────
+# ── 9. Dynamic Data Sources ────────────────────────────────
 class DataSource(Base):
     __tablename__ = "data_sources"
     __table_args__ = (
         UniqueConstraint("url", name="uq_datasource_url"),
-        Index("idx_datasource_category", "category"),
-        Index("idx_datasource_active", "is_active"),
     )
 
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    name       = Column(String(200), nullable=False)  # "TeamTailor API", "HackerNews", "Reddit Dev"
-    url        = Column(String(1000), nullable=False) # URL or endpoint
-    category   = Column(String(50))
-    source_type = Column(String(50))
-    is_active  = Column(Integer)
-    created_at = Column(DateTime(timezone=True))
-    updated_at = Column(
-    DateTime(timezone=True),
-    default=lambda: datetime.now(timezone.utc),
-    onupdate=lambda: datetime.now(timezone.utc),
-    )
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    name        = Column(String(200), nullable=False)
+    url         = Column(String(1000), nullable=False)
+    source_type = Column(String(50))   # "rss", "api", "html_scrape"
+    category    = Column(String(50))   # "jobs", "hype", "salary", "news"
+    is_active   = Column(Integer, default=1) # 1=active, 0=inactive (disabled due to errors)
+    created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
-        return f"<DataSource {self.name} ({self.category})>"
+        return f"<DataSource {self.name} active={self.is_active}>"
 
 
-# ── 11. Source Logs (Admin Panel) ─────────────────────────────
+# ── 10. Source Logs (Scraping Errors) ──────────────────────
 class SourceLog(Base):
     __tablename__ = "source_logs"
-    __table_args__ = (
-        Index("idx_sourcelog_created", "created_at"),
-        Index("idx_sourcelog_source", "data_source_id"),
-    )
 
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    data_source_id = Column(Integer, nullable=False)  # Reference to data_sources.id
-    error_message = Column(Text, nullable=False)      # Description of the error
-    http_status = Column(Integer, nullable=True)      # HTTP status code (429, 404, 500, etc.)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    data_source_id  = Column(Integer, nullable=False)
+    error_message   = Column(Text, nullable=False)
+    http_status     = Column(Integer, nullable=True)
+    created_at      = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+
+# ── 12. Raw Scrape Data (Pass 1 Dump) ──────────────────────
+class RawScrapeData(Base):
+    __tablename__ = "raw_scrape_data"
+
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    source_id       = Column(Integer, nullable=True)
+    country_code    = Column(String(10), nullable=True)
+    raw_text        = Column(Text, nullable=False)
+    extracted_urls  = Column(JSONB, nullable=True)
+    processed       = Column(Integer, default=0) # 0=Raw, 1=Processed by AI
+    created_at      = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+# ── 13. AI Model Configurations (Admin Panel) ──────────────────
+class AIModelConfig(Base):
+    """
+    Configuration table for AI models used in the multi-pass pipeline.
+    Allows the Admin Panel to switch models on the fly.
+    """
+    __tablename__ = "ai_model_configs"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    task_type   = Column(String(50), nullable=False)   # "spam_filter", "synthesis", "translation"
+    model_name  = Column(String(100), nullable=False)  # "gpt-4o-mini", "claude-3-haiku-20240307"
+    provider    = Column(String(50), nullable=False)   # "openai", "anthropic"
+    is_active   = Column(Integer, default=1)           # 1=Primary, 0=Disabled
+    is_fallback = Column(Integer, default=0)           # 1=Fallback if primary fails
+    created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
-        return f"<SourceLog source_id={self.data_source_id}: {self.error_message[:50]}>"
+        return f"<AIModelConfig {self.task_type}: {self.model_name}>"
 
 
 # ── Engine & Session Factory ─────────────────────────────────

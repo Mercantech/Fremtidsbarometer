@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { SystemStatusDisplay } from '../components/SystemStatusDisplay';
 import { PipelineControl } from '../components/PipelineControl';
 import { AIModelManager } from '../components/AIModelManager';
@@ -7,16 +8,36 @@ import { LogsViewer } from '../components/LogsViewer';
 import '../styles/admin.css';
 
 export default function Admin() {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<
     'overview' | 'pipeline' | 'ai-models' | 'data-sources' | 'logs'
   >('overview');
 
   return (
     <div className="admin-panel">
-      <header className="admin-header">
+      <header className="admin-header flex justify-between items-center">
         <div className="header-content">
           <h1>Administration Panel</h1>
           <p>Manage system configuration, monitor health, and control data collection pipelines</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/"
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition flex items-center gap-1.5"
+          >
+            <span>🌐</span>
+            <span>Live Radar</span>
+          </Link>
+          <button
+            onClick={() => {
+              localStorage.removeItem('admin_api_key');
+              navigate('/login');
+            }}
+            className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition cursor-pointer"
+            title="Log out and clear stored API key"
+          >
+            Logout
+          </button>
         </div>
       </header>
 

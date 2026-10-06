@@ -233,3 +233,89 @@
 - Written `agents/hype_agent.py`. It collects fresh trends from the DB (from Reddit and GitHub agents) and passes them to Gemini.
 - AI analyzes the "zeitgeist", extracting main narratives and discussions in the IT/AI sphere (e.g., "Shift to Agentic AI", "Junior Fears", "React Alternatives") and saves to the `hype_analysis` table.
 - Developed a unified Scheduler (`agents/scheduler.py`) based on `APScheduler`, which automatically runs the entire agent chain (`Jobs -> GitHub -> Reddit -> Hype`) at 07:55 every day.
+
+---
+
+## [Step 3.0 Production Architecture & Pipeline Overhaul] — 2026-09-24
+### What was done
+1. **Admin Panel & Authentication**:
+   - Integrated full frontend router with `react-router-dom` (`/`, `/admin`, `/login`).
+   - Added secure `x-api-key` header interceptor in `adminApi.ts` and `Auth.tsx`.
+   - Built full CRUD endpoints for `AIModelConfig`, `DataSource`, `SystemLog`, and `SourceLog`.
+   - Added manual 'Пуск' pipeline trigger with partition selection and data freshness detection (`force=False` prevents redundant token usage).
+
+2. **Open Community Scraping & Anti-Block Resilience**:
+   - Replaced blocked Reddit endpoints (HTTP 403) with high-signal **Lobste.rs API** (`/hottest.json`, `/t/ai.json`) and **Dev.to API** (`/api/articles?tag=ai`).
+   - Retained Reddit as best-effort with graceful fallback.
+
+3. **Playwright Elimination & Concurrent Scraping**:
+   - Replaced heavy Playwright/Chromium scraper on GitHub Trending with lightweight `httpx` + `BeautifulSoup`. Execution time dropped from 25s to 1.8s with 0 browser dependencies.
+   - Parallelized HackerNews top story and comment retrieval using `asyncio.Semaphore(8)`.
+
+4. **N+1 Database Query Elimination**:
+   - Refactored `jobs_scraper.py` to use candidate URL batch pre-fetching and `pg_insert(JobPosting).on_conflict_do_nothing(index_elements=["title", "company", "source"])`. Runtime dropped from 77s to 12s (82% reduction).
+   - Added IT role keyword filtering to avoid non-tech vacancy clutter in `raw_scrape_data`.
+
+5. **Universal AI Provider Architecture**:
+   - Implemented `get_ai_provider(provider, model_name)` factory in `agents/ai_provider.py`.
+   - Added `OpenAICompatibleProvider` supporting OpenAI (`gpt-4o`, `gpt-4o-mini`), Mistral, and Azure endpoints alongside `GeminiProvider`.
+
+6. **Dynamic Mathematical Trends & Era Sync**:
+   - Implemented deterministic mathematical share calculation ($N_{topic} / N_{total}$) and delta tracking.
+   - Implemented real-time word-frequency popularity analysis for 18 core technologies in `agents/synthesizer.py`.
+   - Fixed 3D globe coordinates mapping from fallback `{lat: 20, lng: 0}` to international tech hubs (`GLOBAL_TECH_HUBS`).
+
+7. **Storage Retention & Stale Data Cleaner**:
+   - Added automatic daily 03:00 UTC database retention cleaner (`cleanup_stale_data`), purging raw dumps > 14 days and logs > 30 days.
+   - Added `POST /api/admin/cleanup` endpoint for manual database retention cleanup.
+
+---
+
+## [Step 0.7] — 2026-09-24 (Codebase Remediation & Hardening)
+### What was done
+1. **Logger Connection Recovery**:
+   - Refactored `DBLogHandler` in `utils/logger.py` to acquire and close sessions cleanly per emit rather than holding a single session indefinitely. Prevents silent logger freeze on Neon serverless idle SSL disconnection.
+
+2. **AI Model Alignment (2026 Catalog)**:
+   - Replaced invalid `gemini-3.8-pro` with live Google production model `gemini-2.5-pro` in database seeds, orchestrator synthesis defaults, and Neon database rows.
+   - Preserved confirmed live `gemini-3.8-flash` for high-throughput extraction.
+
+3. **Frontend Security Hardening**:
+   - Removed client-side bundling of `VITE_ADMIN_API_KEY` from `ProtectedRoute.tsx` and `adminApi.ts`. Admin authentication now strictly relies on dynamic input stored in runtime storage.
+   - Standardized `API_BASE_URL` resolution across `api.ts` and `adminApi.ts`.
+   - Aligned `updated_at?: string` in `adminApi.ts` interfaces with backend database models.
+
+4. **NewsAgent Dynamic Database Integration**:
+   - Updated `NewsAgent` to dynamically query active RSS feeds from the `data_sources` table in the database, with graceful fallback.
+   - Added Google News Technology RSS to default seed sources.
+
+5. **Dead Code & Asset Removal**:
+   - Removed 2.5 MB of dead static assets (`earth_texture.jpg`, `author_bg.jpg`, `header-drip-right.png`).
+   - Removed vestigial `agents/base_agent.py` and pruned `tenacity` from `requirements.txt`.
+   - Eliminated duplicate `db.add(SystemLog(...))` and redundant model logging in `agents/orchestrator.py`.
+
+---
+
+## [Step 0.8] — 2026-09-24 (Production Lifespan Scheduler, Real Salary Scraper & Architecture Clean)
+### What was done
+1. **Real Developer Salary Scraper (`agents/scrapers/salary_scraper.py`)**:
+   - Implemented truthful salary scraper using RemoteOK Developer Salaries API and empirical vacancy compensation.
+   - Calculates statistical quartiles ($P_{25}, Median, P_{75}$) across 9 IT categories and maps them to US, DK, NO, DE, SE.
+   - Scheduled weekly on Sundays at 02:00 UTC and exposed to Admin Panel on-demand triggers.
+   - Replaced fake `Glassdoor Salary RSS` with authentic `RemoteOK Developer Salaries API` in `sources.py`, database, and admin panel.
+
+2. **In-Process Production Scheduler in FastAPI (`lifespan`)**:
+   - Added asynchronous `lifespan` in `api/main.py` to automatically start and stop the background scheduler with FastAPI.
+   - Ensures background data collection runs in production deployments without requiring manual external processes.
+
+3. **Removed Dead `GeographyGrid` Rudiment**:
+   - Removed unused `GeographyGrid` model from `database/models.py`.
+   - Removed `database/seeds/geography.py` and seed runner invocations.
+   - Dropped obsolete `geography_grid` table from Neon DB.
+
+4. **Eliminated `api/database.py` Architecture Layer**:
+   - Moved `get_db` generator directly to `database/session.py`.
+   - Updated all 12 API route files to import from `database.session`.
+   - Deleted redundant `api/database.py`.
+
+

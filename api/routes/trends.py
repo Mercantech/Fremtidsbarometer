@@ -5,11 +5,12 @@ from typing import List, Optional
 from datetime import datetime
 
 from database.models import TechTrend
-from api.database import get_db
+from database.session import get_db
 from api.schemas import TechTrendSchema
 
 router = APIRouter(prefix="/api/trends", tags=["Trends"])
 
+@router.get("", response_model=List[TechTrendSchema], include_in_schema=False)
 @router.get("/", response_model=List[TechTrendSchema])
 def get_trends(
     country: Optional[str] = Query("GLOBAL", description="Country code (e.g. DK, GLOBAL)"),

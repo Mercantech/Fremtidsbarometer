@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from database.models import HypeAnalysis
-from api.database import get_db
+from database.session import get_db
 from api.schemas import HypeAnalysisSchema
 
 router = APIRouter(prefix="/api/hype", tags=["Hype"])
 
+@router.get("", response_model=List[HypeAnalysisSchema], include_in_schema=False)
 @router.get("/", response_model=List[HypeAnalysisSchema])
 def get_hype(
     limit: int = Query(10, description="Number of trends to return"),
@@ -17,7 +18,8 @@ def get_hype(
     Returns AI-analyzed hype topics.
     """
     results = db.query(HypeAnalysis)\
-        .order_by(HypeAnalysis.created_at.desc())\
+        .filter(HypeAnalysis.status == 'published')\
+        .order_by(HypeAnalysis.date.desc(), HypeAnalysis.score.desc())\
         .limit(limit)\
         .all()
     return results

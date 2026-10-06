@@ -1,0 +1,3 @@
+"""
+Fremtidsbarometer Test Suite
+"""

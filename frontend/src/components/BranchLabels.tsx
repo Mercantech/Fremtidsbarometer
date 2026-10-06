@@ -1,17 +1,59 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import { globeState } from '../utils/globeState';
 
-export const globeState = { rotationY: 0 };
+const escapeHtml = (str: string) =>
+  String(str || '').replace(/[&<>'"]/g, (tag) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  }[tag] || tag));
 
 export const BranchLabels: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
   const liveTopics = useStore((s) => s.liveTopics);
+  const activeFilters = useStore((s) => s.activeFilters);
   const setSelectedTopic = useStore((s) => s.setSelectedTopic);
+
+  // Curate prominent diverse labels for the 3D globe to avoid visual crowding
+  const filteredTopics = React.useMemo(() => {
+    const active = liveTopics.filter(t => activeFilters.includes(t.type));
+    const hypes = active.filter(t => t.type === 'hype');
+    
+    // Select diverse jobs across different countries (up to 3)
+    const jobs = active.filter(t => t.type === 'job');
+    const selectedJobs: typeof jobs = [];
+    const seenJobCountries = new Set<string>();
+    for (const j of jobs) {
+      if (!seenJobCountries.has(j.country) || selectedJobs.length < 2) {
+        selectedJobs.push(j);
+        seenJobCountries.add(j.country);
+        if (selectedJobs.length >= 3) break;
+      }
+    }
+
+    // Select diverse salaries across different regions (up to 3)
+    const salaries = active.filter(t => t.type === 'salary');
+    const selectedSalaries: typeof salaries = [];
+    const seenSalaryCountries = new Set<string>();
+    for (const s of salaries) {
+      if (!seenSalaryCountries.has(s.country) || selectedSalaries.length < 2) {
+        selectedSalaries.push(s);
+        seenSalaryCountries.add(s.country);
+        if (selectedSalaries.length >= 3) break;
+      }
+    }
+
+    return [...hypes, ...selectedJobs, ...selectedSalaries];
+  }, [liveTopics, activeFilters]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const labelEls = useRef<HTMLDivElement[]>([]);
   const lineEls = useRef<SVGLineElement[]>([]);
+  const currentPosRef = useRef<{x: number, y: number}[]>([]);
   const animRef = useRef<number>(0);
 
   const getScreenDimensions = useCallback(() => {
@@ -24,21 +66,30 @@ export const BranchLabels: React.FC = () => {
   }, []);
 
   const latLngToScreen = useCallback((lat: number, lng: number, rotY: number) => {
-    const { CX, CY, GLOBE_R } = getScreenDimensions();
-    const phi = (90 - lat) * Math.PI / 180;
-    const theta = (lng + 180) * Math.PI / 180;
-    const x3 = -GLOBE_R * Math.sin(phi) * Math.cos(theta);
-    const z3 = GLOBE_R * Math.sin(phi) * Math.sin(theta);
-    const y3 = GLOBE_R * Math.cos(phi);
+    const { H, CX, CY, GLOBE_R } = getScreenDimensions();
+    const radLat = lat * (Math.PI / 180);
+    const radLng = lng * (Math.PI / 180);
+
+    const x3 = GLOBE_R * Math.cos(radLat) * Math.sin(radLng);
+    const y3 = GLOBE_R * Math.sin(radLat);
+    const z3 = GLOBE_R * Math.cos(radLat) * Math.cos(radLng);
+
+    // Rotate point by camera azimuthal angle rotY
     const cosR = Math.cos(rotY);
     const sinR = Math.sin(rotY);
-    const rx = x3 * cosR + z3 * sinR;
-    const rz = -x3 * sinR + z3 * cosR;
+    const rx = x3 * cosR - z3 * sinR;
+    const rz = x3 * sinR + z3 * cosR;
+
+    // Perspective projection matching GlobeCanvas (PerspectiveCamera fov 42)
+    const fovRad = (42 / 2) * (Math.PI / 180);
+    const camDistInRadii = (H / (2 * Math.tan(fovRad))) / GLOBE_R;
+    const perspectiveFactor = camDistInRadii / Math.max(0.1, camDistInRadii - (rz / GLOBE_R));
     
     return {
-      x: CX + rx,
-      y: CY - y3,
-      visible: rz > -(GLOBE_R * 0.15)
+      x: CX + rx * perspectiveFactor,
+      y: CY - y3 * perspectiveFactor,
+      rz: rz,
+      visible: rz > -10 // Visible if on front hemisphere
     };
   }, [getScreenDimensions]);
 
@@ -51,21 +102,22 @@ export const BranchLabels: React.FC = () => {
     wrap.innerHTML = '';
     labelEls.current = [];
     lineEls.current = [];
+    currentPosRef.current = [];
+    const timers: number[] = [];
 
-    liveTopics.forEach((t, i) => {
+    filteredTopics.forEach((t, i) => {
       const div = document.createElement('div');
       div.className = 'branch-label';
       div.style.opacity = '0';
-      // Make it clickable
       div.style.pointerEvents = 'auto';
       div.style.cursor = 'pointer';
       
       div.innerHTML = `
-        <div class="branch-pill hover:scale-105 transition-transform" style="border: 1px solid ${t.color}40; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);">
-          <div class="branch-dot" style="background:${t.color}; box-shadow: 0 0 8px ${t.color}"></div>
-          <span style="color: #111; font-weight: 600;">${t.topic}</span>
+        <div class="branch-pill hover:scale-105 transition-transform" style="border: 1px solid ${escapeHtml(t.color)}40; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);">
+          <div class="branch-dot" style="background:${escapeHtml(t.color)}; box-shadow: 0 0 8px ${escapeHtml(t.color)}"></div>
+          <span style="color: #111; font-weight: 600;">${escapeHtml(t.topic)}</span>
         </div>
-        <div class="branch-country" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1)">${t.country}</div>
+        <div class="branch-country" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1)">${escapeHtml(t.country)}</div>
       `;
       
       div.onclick = () => setSelectedTopic(t);
@@ -81,25 +133,73 @@ export const BranchLabels: React.FC = () => {
       svg.appendChild(line);
       lineEls.current.push(line);
 
-      setTimeout(() => {
+      const tid = window.setTimeout(() => {
         div.style.opacity = '1';
         line.setAttribute('opacity', '0.6');
       }, 60 + i * 40);
+      timers.push(tid);
     });
-  }, [liveTopics, setSelectedTopic]);
+
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id));
+    };
+  }, [filteredTopics, setSelectedTopic]);
 
   useEffect(() => {
     if (viewMode !== 'globe') return;
 
     const animate = () => {
-      const { W, CX, CY, GLOBE_R } = getScreenDimensions();
+      const { CX, CY, GLOBE_R } = getScreenDimensions();
+      const positions: { x: number, y: number, visible: boolean, dx: number, dy: number, dist: number, rz: number, originalIdx: number }[] = [];
 
-      liveTopics.forEach((t, i) => {
+      filteredTopics.forEach((t, i) => {
+        const pos = latLngToScreen(t.lat, t.lng, globeState.rotationY);
+        const dx = pos.x - CX;
+        const dy = pos.y - CY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        positions.push({ x: pos.x, y: pos.y, visible: pos.visible, dx, dy, dist, rz: pos.rz, originalIdx: i });
+      });
+
+      // Calculate target label positions with collision avoidance (radial stacking)
+      const labelTargets = positions.map(p => {
+        if (!p.visible) return { x: 0, y: 0 };
+        return {
+          x: CX + (p.dx / p.dist) * (GLOBE_R * 1.02),
+          y: CY + (p.dy / p.dist) * (GLOBE_R * 1.02)
+        };
+      });
+
+      // Repulsive collision resolution with elliptical bounds matching wide rectangular pills
+      for (let iter = 0; iter < 8; iter++) {
+        for (let i = 0; i < labelTargets.length; i++) {
+          if (!positions[i].visible) continue;
+          for (let j = i + 1; j < labelTargets.length; j++) {
+            if (!positions[j].visible) continue;
+            
+            const dx = labelTargets[i].x - labelTargets[j].x;
+            const dy = labelTargets[i].y - labelTargets[j].y;
+            // Elliptical distance accounting for wide rectangular pill aspect ratio (width ~140, height ~36)
+            const normDist = Math.sqrt((dx / 120) ** 2 + (dy / 36) ** 2);
+            
+            if (normDist > 0 && normDist < 1.0) {
+              const pushFactor = (1.0 - normDist) * 10;
+              const angle = Math.atan2(dy, dx);
+              
+              labelTargets[i].x += Math.cos(angle) * pushFactor * 1.5;
+              labelTargets[i].y += Math.sin(angle) * pushFactor;
+              labelTargets[j].x -= Math.cos(angle) * pushFactor * 1.5;
+              labelTargets[j].y -= Math.sin(angle) * pushFactor;
+            }
+          }
+        }
+      }
+
+      filteredTopics.forEach((_, i) => {
         const label = labelEls.current[i];
         const line = lineEls.current[i];
         if (!label || !line) return;
 
-        const pos = latLngToScreen(t.lat, t.lng, globeState.rotationY);
+        const pos = positions[i];
 
         if (!pos.visible) {
           label.style.opacity = '0';
@@ -108,29 +208,35 @@ export const BranchLabels: React.FC = () => {
           return;
         }
 
-        const dx = pos.x - CX;
-        const dy = pos.y - CY;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const target = labelTargets[i];
         
-        // Controlled, uniform spread to avoid chaos. 
-        // We use 1.05x radius to keep them closer to the atmosphere
-        const spread = GLOBE_R * 1.05 + (i % 3) * (GLOBE_R * 0.04);
-        const lx = CX + (dx / dist) * spread;
-        const ly = CY + (dy / dist) * spread;
+        // Smooth interpolation (lerp) to prevent jittering
+        let currentPos = currentPosRef.current[i];
+        if (!currentPos) {
+            currentPos = { x: target.x, y: target.y };
+            currentPosRef.current[i] = currentPos;
+        }
+        
+        const LERP_FACTOR = 0.04; // Extremely smooth factor to completely kill micro-jitter
+        currentPos.x += (target.x - currentPos.x) * LERP_FACTOR;
+        currentPos.y += (target.y - currentPos.y) * LERP_FACTOR;
+
+        const lx = currentPos.x;
+        const ly = currentPos.y;
 
         label.style.left = lx + 'px';
         label.style.top = ly + 'px';
         
-        // Edge fade logic (fade out if too close to Left Panel, Right Panel, or Timeline)
-        // Left Panel edge ~ 420px, Right Panel edge ~ W - 420px, Top Timeline edge ~ 150px
-        const distFromLeft = lx;
-        const distFromRight = W - lx;
-        const distFromTop = ly;
-        const edgeFade = Math.min(1, Math.max(0, (distFromLeft - 380) / 100)) *
-                         Math.min(1, Math.max(0, (distFromRight - 380) / 100)) *
-                         Math.min(1, Math.max(0, (distFromTop - 150) / 80));
-
-        const fade = Math.min(1, (pos.visible ? 1 : 0) * 1.5) * edgeFade;
+        // Smooth opacity fade based on depth (rz)
+        // rz goes from roughly +GLOBE_R (front) to 0 (edge) to -GLOBE_R (back)
+        const edgeThreshold = GLOBE_R * 0.15;
+        let fade = 0;
+        if (pos.rz > edgeThreshold) {
+            fade = 1;
+        } else if (pos.rz > -10) {
+            fade = (pos.rz + 10) / (edgeThreshold + 10);
+        }
+        
         label.style.opacity = String(fade);
         label.style.pointerEvents = fade > 0.5 ? 'auto' : 'none';
 
@@ -138,7 +244,7 @@ export const BranchLabels: React.FC = () => {
         line.setAttribute('y1', String(pos.y));
         line.setAttribute('x2', String(lx));
         line.setAttribute('y2', String(ly));
-        line.setAttribute('opacity', String(fade * 0.5));
+        line.setAttribute('opacity', String(fade * 0.6));
       });
 
       animRef.current = requestAnimationFrame(animate);
@@ -146,7 +252,7 @@ export const BranchLabels: React.FC = () => {
 
     animRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animRef.current);
-  }, [viewMode, liveTopics, getScreenDimensions, latLngToScreen]);
+  }, [viewMode, filteredTopics, getScreenDimensions, latLngToScreen]);
 
   if (viewMode !== 'globe') return null;
 

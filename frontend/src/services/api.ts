@@ -1,11 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ''
-    ? import.meta.env.VITE_API_URL
-    : import.meta.env.PROD
-      ? ''
-      : 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : '');
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -51,6 +46,7 @@ export interface JobPosting {
   company?: string;
   url?: string;
   source?: string;
+  country?: string;
   city?: string;
   technology?: string;
   tags?: string[];
@@ -70,6 +66,7 @@ export interface HypeTopic {
 
 export interface SalaryData {
   technology: string;
+  country?: string;
   median?: number;
   p25?: number;
   p75?: number;
@@ -94,7 +91,7 @@ export const fetchNews = async (limit = 15): Promise<NewsItem[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch news', error);
-    return [];
+    throw error;
   }
 };
 
@@ -104,7 +101,23 @@ export const fetchTrends = async (country = 'GLOBAL', limit = 10): Promise<TechT
     return res.data;
   } catch (error) {
     console.error('Failed to fetch trends', error);
-    return [];
+    throw error;
+  }
+};
+
+export const fetchTrendsHistory = async (
+  country = 'GLOBAL',
+  startYear = 1960,
+  endYear = 2034
+): Promise<EraTrendHistory[]> => {
+  try {
+    const res = await api.get<EraTrendHistory[]>(
+      `/api/trends/history?country=${country}&start_year=${startYear}&end_year=${endYear}`
+    );
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch trends history', error);
+    throw error;
   }
 };
 
@@ -114,7 +127,7 @@ export const fetchJobs = async (limit = 10): Promise<JobPosting[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch jobs', error);
-    return [];
+    throw error;
   }
 };
 
@@ -124,16 +137,51 @@ export const fetchHype = async (limit = 5): Promise<HypeTopic[]> => {
     return res.data;
   } catch (error) {
     console.error('Failed to fetch hype', error);
-    return [];
+    throw error;
   }
 };
 
-export const fetchSalary = async (country = 'DK'): Promise<SalaryData[]> => {
+export const fetchSalary = async (country?: string): Promise<SalaryData[]> => {
   try {
-    const res = await api.get<SalaryData[]>(`/api/salary?country=${country}`);
+    const url = country ? `/api/salary?country=${country}` : '/api/salary';
+    const res = await api.get<SalaryData[]>(url);
     return res.data;
   } catch (error) {
     console.error('Failed to fetch salary', error);
-    return [];
+    throw error;
+  }
+};
+
+export interface EraInfo {
+  id: number;
+  year: number;
+  title: string;
+  subtitle?: string;
+  stats?: {
+    roles?: [string, string][];
+    stack?: [string, string][];
+    hypeTopic?: string;
+    hypeDesc?: string;
+    [key: string]: unknown; // Flexible for AI-generated fields
+  };
+}
+
+export const fetchEras = async (): Promise<EraInfo[]> => {
+  try {
+    const res = await api.get<EraInfo[]>('/api/eras');
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch eras', error);
+    throw error;
+  }
+};
+
+export const fetchCountries = async (): Promise<string[]> => {
+  try {
+    const res = await api.get<string[]>('/api/countries');
+    return res.data;
+  } catch (error) {
+    console.error('Failed to fetch countries', error);
+    throw error;
   }
 };

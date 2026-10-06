@@ -74,6 +74,16 @@ class HypeAnalysisSchema(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+# --- Eras ---
+class EraSchema(BaseModel):
+    id: int
+    year: int
+    title: str
+    subtitle: Optional[str]
+    stats: Optional[Dict[str, Any]]
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- System Logs ---
 class SystemLogSchema(BaseModel):
     id: int
@@ -82,15 +92,9 @@ class SystemLogSchema(BaseModel):
     component: str
     message: str
     traceback: Optional[str]
-    metadata: Optional[Dict[str, Any]] = Field(
-        default=None,
-        validation_alias="metadata_"
-    )
-
-    model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True
-    )
+    metadata: Optional[Dict[str, Any]] = Field(default=None, validation_alias="metadata_")
+    
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 # --- AI Model Configs ---
@@ -101,8 +105,7 @@ class AIModelConfigSchema(BaseModel):
     provider: str
     is_active: int
     is_fallback: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -128,8 +131,8 @@ class DataSourceSchema(BaseModel):
     category: str
     source_type: str
     is_active: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -155,7 +158,10 @@ class SourceLogSchema(BaseModel):
     id: int
     data_source_id: int
     error_message: str
-    http_status: Optional[int]
-    created_at: datetime
+    http_status: Optional[int] = None
+    created_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+
+

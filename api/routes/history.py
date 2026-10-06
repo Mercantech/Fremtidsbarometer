@@ -4,16 +4,17 @@ from typing import Optional, List
 from datetime import datetime
 
 from database.models import TechTrend
-from api.database import get_db
+from database.session import get_db
 from api.schemas import TrendHistoryYearSchema
 
 router = APIRouter(prefix="/api/trends/history", tags=["Trends"])
 
+@router.get("", response_model=List[TrendHistoryYearSchema], include_in_schema=False)
 @router.get("/", response_model=List[TrendHistoryYearSchema])
 def get_trends_history(
     country: Optional[str] = Query("GLOBAL", description="Country to filter by"),
     start_year: int = Query(1960, description="Start year"),
-    end_year: int = Query(2025, description="End year"),
+    end_year: int = Query(2034, description="End year"),
     db: Session = Depends(get_db)
 ):
     """

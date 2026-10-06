@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
+import { t } from '../utils/translations';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const NewsFeed: React.FC = () => {
   const news = useStore((s) => s.news);
   const isLoadingNews = useStore((s) => s.isLoadingNews);
+  const lang = useStore((s) => s.lang);
   
   const stripSvgRef = useRef<SVGSVGElement>(null);
   const newsChatRef = useRef<HTMLDivElement>(null);
@@ -52,23 +54,26 @@ export const NewsFeed: React.FC = () => {
     };
 
     window.addEventListener('resize', positionPanels);
-    setTimeout(positionPanels, 100);
+    const timerId = window.setTimeout(positionPanels, 100);
     
-    return () => window.removeEventListener('resize', positionPanels);
+    return () => {
+      window.removeEventListener('resize', positionPanels);
+      window.clearTimeout(timerId);
+    };
   }, []);
 
   return (
     <>
       <svg id="news-strip-svg" ref={stripSvgRef}></svg>
       <div id="news-label" ref={newsLabelRef}>
-        <div className="news-label-title">What's hot in IT right now</div>
-        <div className="news-label-sub">live feed</div>
+        <div className="news-label-title">{t('hotInIt', lang)}</div>
+        <div className="news-label-sub">{t('liveFeed', lang)}</div>
       </div>
       <div id="news-chat" ref={newsChatRef}>
         <div className="chat-header">
           <div className="chat-header-dot"></div>
           <div className="chat-header-title">IT Feed</div>
-          <div className="chat-header-sub" id="chat-timer">{isLoadingNews ? 'loading...' : 'live'}</div>
+          <div className="chat-header-sub" id="chat-timer">{isLoadingNews ? t('loading', lang) : 'live'}</div>
         </div>
         <div className="chat-messages" id="chat-messages">
           <AnimatePresence>

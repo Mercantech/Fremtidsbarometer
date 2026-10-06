@@ -1,10 +1,9 @@
-.PHONY: dev stop db-up db-down frontend api agents
+.PHONY: dev stop db-up db-down frontend api agents test
 
 # ── Run the entire project ──
 dev:
 	@echo "🚀 Starting Fremtidsbarometer (local mode)..."
-	@start "Fremtidsbarometer Scheduler" cmd /K "python -m agents.scheduler"
-	@start "Fremtidsbarometer API" cmd /K "python -m uvicorn api.main:app --reload --port 8000"
+	@uvicorn api.main:app --reload --port 8000 &
 	@cd frontend && npm run dev
 
 # ── Stop ──
@@ -15,6 +14,9 @@ stop:
 	@echo "✅ All services stopped"
 
 # ── Individual components ──
+db-up:
+	@docker-compose up -d db
+
 db-down:
 	@docker-compose down
 
@@ -25,7 +27,7 @@ api:
 	@uvicorn api.main:app --reload --port 8000
 
 agents:
-	@python -m agents.scheduler
+	@PYTHONPATH=. python agents/scheduler.py
 
 # ── Database Initialization ──
 db-init:
@@ -35,3 +37,9 @@ db-init:
 db-seed:
 	@python database/seed.py
 	@echo "✅ Seed data loaded"
+
+# ── Testing ──
+test:
+	@PYTHONPATH=. python3 -m pytest -v tests/ || ./venv/bin/pytest -v tests/
+
+

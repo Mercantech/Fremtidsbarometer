@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from database.models import JobPosting
-from api.database import get_db
+from database.session import get_db
 from api.schemas import JobPostingSchema
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
+@router.get("", response_model=List[JobPostingSchema], include_in_schema=False)
 @router.get("/", response_model=List[JobPostingSchema])
 def get_jobs(
     country: Optional[str] = Query(None, description="Country filter (e.g. DK, EU). If empty, returns all."),
@@ -18,7 +19,7 @@ def get_jobs(
     """
     Returns the latest jobs.
     """
-    query = db.query(JobPosting)
+    query = db.query(JobPosting).filter(JobPosting.status == 'published')
     
     if country:
         query = query.filter(JobPosting.country == country)

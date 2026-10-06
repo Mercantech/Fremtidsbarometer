@@ -10,18 +10,10 @@ import sys
 log_queue = queue.Queue(-1)
 
 class DBLogHandler(logging.Handler):
-    def __init__(self):
-        super().__init__()
-        self.session = None
-
-    def _ensure_session(self):
-        if self.session is None:
-            self.session = get_session()
-        return self.session
-
     def emit(self, record):
+        session = None
         try:
-            session = self._ensure_session()
+            session = get_session()
             
             tb = None
             if record.exc_info:
@@ -44,21 +36,45 @@ class DBLogHandler(logging.Handler):
             session.commit()
         except Exception:
             self.handleError(record)
-            if self.session:
+            if session:
                 try:
-                    self.session.rollback()
-                except:
+                    session.rollback()
+                except Exception:
+                    pass
+        finally:
+            if session:
+                try:
+                    session.close()
+                except Exception:
                     pass
 
 db_handler = DBLogHandler()
 
+class SafeConsoleHandler(logging.StreamHandler):
+    """Console handler that safely handles process teardown when sys.stdout is closed."""
+    def emit(self, record):
+        try:
+            super().emit(record)
+        except (ValueError, BrokenPipeError, AttributeError):
+            pass
+
 # Standard console handler for immediate output
-console_handler = logging.StreamHandler(sys.stdout)
+console_handler = SafeConsoleHandler(sys.stdout)
 console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+
+import atexit
 
 # Start QueueListener
 listener = QueueListener(log_queue, db_handler, console_handler)
 listener.start()
+
+def _cleanup_logger():
+    try:
+        listener.stop()
+    except Exception:
+        pass
+
+atexit.register(_cleanup_logger)
 
 def get_centralized_logger(name: str):
     logger = logging.getLogger(name)

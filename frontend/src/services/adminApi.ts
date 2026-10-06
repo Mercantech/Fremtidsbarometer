@@ -1,19 +1,25 @@
 import axios from 'axios';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ''
-    ? import.meta.env.VITE_API_URL
-    : import.meta.env.PROD
-      ? ''
-      : 'http://localhost:8000';
-const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || 'admin_dev_key_12345';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:8000' : '');
+const getAdminKey = (): string => {
+  return localStorage.getItem('admin_api_key') || '';
+};
 
 export const adminApi = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
-    'x-api-key': ADMIN_API_KEY,
   },
+});
+
+adminApi.interceptors.request.use((config) => {
+  const key = getAdminKey();
+  if (key) {
+    config.headers['x-api-key'] = key;
+  } else {
+    delete config.headers['x-api-key'];
+  }
+  return config;
 });
 
 adminApi.interceptors.response.use(
@@ -51,6 +57,11 @@ export const fetchSystemLogs = async (
   return response.data;
 };
 
+export const fetchLogComponents = async (): Promise<string[]> => {
+  const response = await adminApi.get('/api/admin/components');
+  return response.data;
+};
+
 // ── System Status ────────────────────────────────────
 export interface SystemStatus {
   status: 'ok' | 'stale' | 'no_data' | 'error';
@@ -81,7 +92,7 @@ export interface AIModelConfig {
   is_active: number;
   is_fallback: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface CreateAIModelConfig {
@@ -138,7 +149,7 @@ export interface DataSource {
   source_type: string;
   is_active: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface CreateDataSource {
@@ -218,11 +229,26 @@ export interface PipelineResponse {
 }
 
 export const triggerPipeline = async (
-  sweep: 'all' | 'social' | 'tech' | 'jobs' | 'synthesis' | 'news' = 'all',
+  sweep: 'all' | 'social' | 'tech' | 'jobs' | 'salary' | 'synthesis' | 'news' = 'all',
   force: boolean = false
 ): Promise<PipelineResponse> => {
   const response = await adminApi.post('/api/admin/trigger-pipeline', null, {
     params: { sweep, force },
+  });
+  return response.data;
+};
+
+// ── Database Retention Cleanup ───────────────────────
+export interface CleanupResponse {
+  status: string;
+  deleted_raw_scrapes: number;
+  deleted_system_logs: number;
+  deleted_source_logs: number;
+}
+
+export const triggerCleanup = async (days: number = 14): Promise<CleanupResponse> => {
+  const response = await adminApi.post('/api/admin/cleanup', null, {
+    params: { days },
   });
   return response.data;
 };

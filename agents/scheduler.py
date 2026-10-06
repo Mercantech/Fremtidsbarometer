@@ -6,9 +6,18 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from dotenv import load_dotenv
 import pytz
 
-# Import agents
+# Import orchestrator & news agent
+from agents.orchestrator import (
+    run_social_sweep,
+    run_tech_sweep,
+    run_jobs_sweep,
+    run_salary_sweep,
+    run_synthesis,
+    run_full_cycle,
+)
 from agents.news_agent import NewsAgent
-from database.models import SystemLog
+from datetime import datetime, timedelta, timezone
+from database.models import SystemLog, RawScrapeData, SourceLog
 from database.session import get_session
 
 # Logging setup
@@ -16,6 +25,29 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Scheduler")
 
 load_dotenv()
+
+def cleanup_stale_data():
+    """
+    Deletes raw scrape dumps older than 14 days and system logs older than 30 days
+    to prevent database storage exhaustion.
+    """
+    db = get_session()
+    try:
+        cutoff_raw = datetime.now(timezone.utc) - timedelta(days=14)
+        cutoff_logs = datetime.now(timezone.utc) - timedelta(days=30)
+
+        deleted_raw = db.query(RawScrapeData).filter(RawScrapeData.created_at < cutoff_raw).delete()
+        deleted_sys = db.query(SystemLog).filter(SystemLog.created_at < cutoff_logs).delete()
+        deleted_src = db.query(SourceLog).filter(SourceLog.created_at < cutoff_logs).delete()
+
+        db.commit()
+        if deleted_raw or deleted_sys or deleted_src:
+            logger.info(f"Database retention cleanup: purged {deleted_raw} raw dumps, {deleted_sys} system logs, {deleted_src} source logs.")
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Database cleanup failed: {e}")
+    finally:
+        db.close()
 
 def log_to_db(level: str, component: str, message: str, traceback: str = None):
     """
@@ -46,37 +78,81 @@ def job_listener(event):
         logger.info(msg)
         log_to_db("INFO", "Scheduler", msg)
 
-# Agent instances
-news_agent = NewsAgent()
-# In the future we can add JobAgent, TrendAgent, etc.
-
-async def run_news_agent():
-    logger.info("Starting NewsAgent task")
-    await news_agent.fetch_news()
-
-async def main():
-    logger.info("Starting AP Scheduler...")
+def create_configured_scheduler() -> AsyncIOScheduler:
+    """
+    Creates and configures the AsyncIOScheduler instance with all recurring jobs.
+    Does not start the scheduler, allowing external lifecycle management (e.g., FastAPI lifespan).
+    """
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
     # Add event listener for DB logging
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
-    # Register jobs
-    # NewsAgent: every 15 minutes
+    # ── Live Real-Time IT News Feed (Every 15 minutes) ──
+    news_agent = NewsAgent()
     scheduler.add_job(
-        run_news_agent,
-        'interval',
-        minutes=15,
-        id='news_agent_job',
-        replace_existing=True
+        news_agent.fetch_news, 'interval', minutes=15,
+        id='live_news_feed_job', replace_existing=True
+    )
+
+    # ── Mon/Thu Partitioned Sweeps ──
+    # 09:00 UTC - Partition 1: Social Sweep
+    scheduler.add_job(
+        run_social_sweep, 'cron', day_of_week='mon,thu', hour=9, minute=0,
+        id='social_sweep_job', replace_existing=True
     )
     
+    # 10:00 UTC - Partition 2: Technical Sweep
+    scheduler.add_job(
+        run_tech_sweep, 'cron', day_of_week='mon,thu', hour=10, minute=0,
+        id='tech_sweep_job', replace_existing=True
+    )
+
+    # 11:00 UTC - Partition 3: Jobs Sweep
+    scheduler.add_job(
+        run_jobs_sweep, 'cron', day_of_week='mon,thu', hour=11, minute=0,
+        id='jobs_sweep_job', replace_existing=True
+    )
+
+    # 12:00 UTC - Partition 4: Final Synthesis
+    scheduler.add_job(
+        run_synthesis, 'cron', day_of_week='mon,thu', hour=12, minute=0,
+        id='synthesis_job', replace_existing=True
+    )
+
+    # 03:00 UTC Daily - Database Retention Cleanup (prevent storage exhaustion)
+    scheduler.add_job(
+        cleanup_stale_data, 'cron', hour=3, minute=0,
+        id='db_cleanup_job', replace_existing=True
+    )
+
+    # ── Weekly Developer Salary Benchmark Sweep (Sundays at 02:00 UTC) ──
+    scheduler.add_job(
+        run_salary_sweep, 'cron', day_of_week='sun', hour=2, minute=0,
+        id='salary_sweep_job', replace_existing=True
+    )
+
+    return scheduler
+
+
+async def main():
+    logger.info("Starting AP Scheduler (Mon/Thu Partitioned Pipeline + 15m Live News)...")
+    scheduler = create_configured_scheduler()
     scheduler.start()
     
-    # Run once immediately
-    asyncio.create_task(run_news_agent())
+    # Run initial tasks on startup with safe error logging
+    async def safe_startup_task(name, coro):
+        try:
+            await coro
+        except Exception as e:
+            logger.error(f"Startup task '{name}' failed: {e}")
 
-    logger.info("Scheduler started. Press Ctrl+C to exit.")
+    news_agent = NewsAgent()
+    cleanup_stale_data()
+    asyncio.create_task(safe_startup_task("fetch_news", news_agent.fetch_news()))
+    asyncio.create_task(safe_startup_task("full_cycle", run_full_cycle()))
+
+    logger.info("Scheduler started with data retention cleaner. Press Ctrl+C to exit.")
 
     # Infinite loop
     try:
