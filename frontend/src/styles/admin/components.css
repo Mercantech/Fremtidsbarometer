@@ -153,6 +153,26 @@ select {
       background-color: #7f8c8d;
     }
   }
+
+  &.fallback-on {
+    background-color: #e67e22;
+    color: white;
+
+    &:hover {
+      background-color: #d35400;
+    }
+  }
+
+  &.fallback-off {
+    background-color: #f1f2f6;
+    color: #57606f;
+    border: 1px solid #ced6e0;
+
+    &:hover {
+      background-color: #dfe4ea;
+      color: #2f3542;
+    }
+  }
 }
 
 /* ── Lists & Badges ────────────────────────────────────────── */

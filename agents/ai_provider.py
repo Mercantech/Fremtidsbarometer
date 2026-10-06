@@ -57,7 +57,7 @@ class OpenAICompatibleProvider:
 
     async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
         if not self.api_key:
-            raise AIProviderError("OPENAI_API_KEY is not configured.")
+            raise AIProviderError(f"API key for {self.base_url} is not configured.")
 
         full_prompt = f"{prompt}\n\nMust return ONLY valid JSON. {schema}"
         headers = {
@@ -77,13 +77,13 @@ class OpenAICompatibleProvider:
             try:
                 resp = await client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
                 if resp.status_code != 200:
-                    raise AIProviderError(f"OpenAI API error {resp.status_code}: {resp.text}")
+                    raise AIProviderError(f"AI API error ({self.base_url}) {resp.status_code}: {resp.text}")
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]
                 return json.loads(content.strip())
             except Exception as e:
-                logger.error(f"OpenAI API error: {e}")
-                raise AIProviderError(f"OpenAI JSON generation failed: {e}") from e
+                logger.error(f"AI API error ({self.base_url}): {e}")
+                raise AIProviderError(f"AI JSON generation failed: {e}") from e
 
 def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.8-flash"):
     """
@@ -91,10 +91,37 @@ def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.8-flas
     Falls back to Gemini if alternative provider keys are missing.
     """
     prov = (provider or "google").lower()
-    if prov in ("openai", "azure", "mistral", "custom"):
-        openai_key = os.getenv("OPENAI_API_KEY")
+
+    if prov == "mistral":
+        mistral_key = (os.getenv("MISTRAL_API_KEY") or "").strip()
+        if mistral_key:
+            target_model = model_name or "open-mistral-nemo"
+            return OpenAICompatibleProvider(
+                model_name=target_model,
+                api_key=mistral_key,
+                base_url="https://api.mistral.ai/v1"
+            )
+        logger.warning("Provider 'mistral' requested, but MISTRAL_API_KEY not found. Falling back to Gemini.")
+
+    elif prov == "groq":
+        groq_key = (os.getenv("GROQ_API_KEY") or "").strip()
+        if groq_key:
+            target_model = model_name or "llama-3.3-70b-versatile"
+            return OpenAICompatibleProvider(
+                model_name=target_model,
+                api_key=groq_key,
+                base_url="https://api.groq.com/openai/v1"
+            )
+        logger.warning("Provider 'groq' requested, but GROQ_API_KEY not found. Falling back to Gemini.")
+
+    elif prov in ("openai", "azure", "custom"):
+        openai_key = (os.getenv("OPENAI_API_KEY") or "").strip()
         if openai_key:
-            return OpenAICompatibleProvider(model_name=model_name, api_key=openai_key)
+            return OpenAICompatibleProvider(
+                model_name=model_name or "gpt-4o-mini",
+                api_key=openai_key,
+                base_url="https://api.openai.com/v1"
+            )
         logger.warning(f"Provider '{provider}' requested, but OPENAI_API_KEY not found. Falling back to Gemini.")
 
     return GeminiProvider(model_name=model_name or "gemini-3.8-flash")

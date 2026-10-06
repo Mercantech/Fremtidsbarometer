@@ -73,6 +73,15 @@ export const AIModelManager: React.FC = () => {
     }
   };
 
+  const handleToggleFallback = async (modelId: number, currentFallback: number) => {
+    try {
+      await updateAIModel(modelId, { is_fallback: currentFallback === 1 ? 0 : 1 });
+      await loadModels();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update fallback status');
+    }
+  };
+
   const handleDelete = async (modelId: number) => {
     if (window.confirm('Are you sure you want to delete this model configuration?')) {
       try {
@@ -208,6 +217,13 @@ export const AIModelManager: React.FC = () => {
                         className={`btn-toggle ${model.is_active === 1 ? 'active' : 'inactive'}`}
                       >
                         {model.is_active === 1 ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleToggleFallback(model.id, model.is_fallback)}
+                        className={`btn-toggle ${model.is_fallback === 1 ? 'fallback-on' : 'fallback-off'}`}
+                        title={model.is_fallback === 1 ? 'Disable Fallback' : 'Enable Fallback'}
+                      >
+                        {model.is_fallback === 1 ? '⚡ Fallback ON' : '+ Fallback'}
                       </button>
                       <button
                         onClick={() => handleDelete(model.id)}
