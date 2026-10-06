@@ -1,23 +1,81 @@
-version: '3.9'
-
 services:
   db:
     image: postgres:15-alpine
-    container_name: fremtidsbarometer-db
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: fremtidsbarometer
+      POSTGRES_USER: ${POSTGRES_USER:-fremtids_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fremtids_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-fremtids_db}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fremtids_user} -d ${POSTGRES_DB:-fremtids_db}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+    networks:
+      - internal
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fremtids_user}:${POSTGRES_PASSWORD:-fremtids_pass}@db:5432/${POSTGRES_DB:-fremtids_db}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://fremtidsbarometer.mercantec.tech}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["python", "agents/scheduler.py"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fremtids_user}:${POSTGRES_PASSWORD:-fremtids_pass}@db:5432/${POSTGRES_DB:-fremtids_db}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - internal
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_ADMIN_API_KEY: ${VITE_ADMIN_API_KEY:-}
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - internal
+      - dokploy-network
+    labels:
+      # Cloudflare tunnel → Traefik :80 (web). TLS termineres i Cloudflare.
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.${TRAEFIK_ROUTER:-fremtidsbarometer}.rule=Host(`${TRAEFIK_HOST:-fremtidsbarometer.mercantec.tech}`)
+      - traefik.http.routers.${TRAEFIK_ROUTER:-fremtidsbarometer}.entrypoints=${TRAEFIK_ENTRYPOINTS:-web}
+      - traefik.http.services.${TRAEFIK_ROUTER:-fremtidsbarometer}.loadbalancer.server.port=3000
 
 volumes:
-  pgdata:
+  postgres_data:
+
+networks:
+  internal:
+  dokploy-network:
+    external: true

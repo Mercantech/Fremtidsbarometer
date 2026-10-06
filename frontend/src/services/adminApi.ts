@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== ''
+    ? import.meta.env.VITE_API_URL
+    : import.meta.env.PROD
+      ? ''
+      : 'http://localhost:8000';
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || 'admin_dev_key_12345';
 
 export const adminApi = axios.create({

@@ -1,0 +1,22 @@
+# Lokal udvikling med host-porte:
+# docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  api:
+    ports:
+      - "8000:8000"
+
+  web:
+    ports:
+      - "3000:3000"
+    networks:
+      - internal
+
+networks:
+  # Opret lokalt i stedet for at kræve Dokploy's eksterne netværk
+  dokploy-network:
+    external: false
