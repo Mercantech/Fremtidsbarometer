@@ -58,7 +58,6 @@ class TechTrend(Base):
     status     = Column(String(20), default="published", index=True)
     metadata_  = Column("metadata", JSONB)  # Additional data
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    status     = Column(String(20))   # Additional status field
 
     def __repr__(self):
         return f"<TechTrend {self.technology} ({self.country}) {self.date}>"
@@ -88,7 +87,6 @@ class JobPosting(Base):
     match_reason = Column(Text)        # Why it fits
     status      = Column(String(20), default="published", index=True)
     created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    status      = Column(String(20))   # Additional status field
 
     def __repr__(self):
         return f"<JobPosting {self.company}: {self.title[:40]}>"
@@ -115,7 +113,6 @@ class SalaryData(Base):
     status     = Column(String(20), default="published", index=True)
     metadata_  = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    status     = Column(String(20))    # Additional status field
 
     def __repr__(self):
         return f"<SalaryData {self.technology} ({self.country}) {self.median}>"
@@ -137,7 +134,6 @@ class HypeAnalysis(Base):
     sources    = Column(JSONB)         # ["hackernews", "reddit", "techcrunch"]
     status     = Column(String(20), default="published", index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    status     = Column(String(20))    # Additional status field
 
     def __repr__(self):
         return f"<HypeAnalysis {self.topic}: {self.score}>"
@@ -176,59 +172,6 @@ class ATSCompany(Base):
 
     def __repr__(self):
         return f"<ATSCompany {self.domain} ({self.ats_type})>"
-
-
-# ── 7b. Eras ────────────────────────────────────────────────
-class Era(Base):
-    __tablename__ = "eras"
-    __table_args__ = (
-        UniqueConstraint("year", name="uq_era_year"),
-    )
-
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    year       = Column(Integer, nullable=False)
-    title      = Column(String(200), nullable=False)
-    subtitle   = Column(String(500))
-    stats      = Column(JSONB)
-    created_at = Column(DateTime(timezone=True))
-
-    def __repr__(self):
-        return f"<Era {self.year}: {self.title}>"
-
-
-# ── 7c. Geography Grid ────────────────────────────────────────────────
-class GeographyGrid(Base):
-    __tablename__ = "geography_grid"
-    __table_args__ = (
-        UniqueConstraint("country_code", "region_name", name="uq_geo_region"),
-    )
-
-    id           = Column(Integer, primary_key=True, autoincrement=True)
-    country_code = Column(String(10), nullable=False)
-    region_name  = Column(String(100), nullable=False)
-    tier         = Column(Integer, nullable=False)
-    lat          = Column(Float)
-    lng          = Column(Float)
-    last_scraped = Column(DateTime(timezone=True))
-
-    def __repr__(self):
-        return f"<GeographyGrid {self.country_code}: {self.region_name}>"
-
-
-# ── 7d. Raw Scrape Data ────────────────────────────────────────────────
-class RawScrapeData(Base):
-    __tablename__ = "raw_scrape_data"
-
-    id             = Column(Integer, primary_key=True, autoincrement=True)
-    source_id      = Column(Integer)
-    country_code   = Column(String(10))
-    raw_text       = Column(Text, nullable=False)
-    extracted_urls = Column(JSONB)
-    processed      = Column(Integer)
-    created_at     = Column(DateTime(timezone=True))
-
-    def __repr__(self):
-        return f"<RawScrapeData source_id={self.source_id} processed={self.processed}>"
 
 # ── 8. System Logs (Admin Panel) ─────────────────────────────
 class SystemLog(Base):
