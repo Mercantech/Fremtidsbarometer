@@ -27,6 +27,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-fremtids_user}:${POSTGRES_PASSWORD:-fremtids_pass}@db:5432/${POSTGRES_DB:-fremtids_db}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://fremtidsbarometer.mercantec.tech}
       ADMIN_API_KEY: ${ADMIN_API_KEY}
+      ENABLE_SCHEDULER: "false"
     depends_on:
       db:
         condition: service_healthy
