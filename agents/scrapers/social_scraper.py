@@ -4,32 +4,26 @@ import httpx
 from datetime import datetime, timezone
 from typing import List, Dict, Any
 
-from database.models import RawScrapeData, SourceLog
+from database.models import RawScrapeData, SourceLog, DataSource
 from utils.logger import get_centralized_logger
 
 logger = get_centralized_logger("SocialScraper")
 
-SUBREDDITS = [
-    "LocalLLaMA",
-    "programming",
-    "webdev",
-    "artificial",
-    "MachineLearning",
-    "cybersecurity",
-    "cscareerquestions",
-    "devops",
-]
-
-DEV_TO_TAGS = ["ai", "architecture", "devops", "security", "webdev"]
 
 async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) -> int:
-    """Scrapes top technical discussions from Lobste.rs JSON feed."""
+    """Scrapes top technical discussions from active Lobste.rs endpoints in DataSource."""
+    active_sources = db.query(DataSource).filter(
+        DataSource.name.ilike("%Lobste.rs%"),
+        DataSource.is_active == 1
+    ).all()
+
+    if not active_sources:
+        logger.info("Lobste.rs sources disabled or not configured.")
+        return 0
+
     saved = 0
-    urls = [
-        "https://lobste.rs/hottest.json",
-        "https://lobste.rs/t/ai.json"
-    ]
-    for url in urls:
+    for src in active_sources:
+        url = src.url
         try:
             resp = await client.get(url, timeout=12.0)
             if resp.status_code != 200:
@@ -57,7 +51,7 @@ async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) 
                     formatted_text += f"DESCRIPTION:\n{description[:1200]}\n"
 
                 raw_entry = RawScrapeData(
-                    source_id=source_id,
+                    source_id=src.id,
                     country_code="GLOBAL",
                     raw_text=formatted_text,
                     extracted_urls=[story_url or comments_url],
@@ -67,17 +61,32 @@ async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) 
                 db.add(raw_entry)
                 saved += 1
             db.commit()
-            logger.info(f"Saved {saved} discussions from {url}")
+            logger.info(f"Saved {saved} discussions from Lobsters [{src.name}].")
         except Exception as e:
             db.rollback()
             logger.warning(f"Error scraping Lobsters ({url}): {e}")
+            try:
+                db.add(SourceLog(data_source_id=src.id, error_message=str(e)[:500]))
+                db.commit()
+            except Exception:
+                db.rollback()
     return saved
 
 
 async def scrape_dev_to(client: httpx.AsyncClient, db, source_id: int = None) -> int:
-    """Scrapes trending technical articles and discussions from Dev.to public API."""
+    """Scrapes trending technical articles from active Dev.to sources in DataSource."""
+    active_sources = db.query(DataSource).filter(
+        DataSource.name.ilike("%Dev.to%"),
+        DataSource.is_active == 1
+    ).all()
+
+    if not active_sources:
+        logger.info("Dev.to sources disabled or not configured.")
+        return 0
+
     saved = 0
-    for tag in DEV_TO_TAGS:
+    for src in active_sources:
+        tag = src.url.rstrip("/").split("/")[-1]
         url = f"https://dev.to/api/articles?tag={tag}&top=7"
         try:
             resp = await client.get(url, timeout=12.0)
@@ -105,7 +114,7 @@ async def scrape_dev_to(client: httpx.AsyncClient, db, source_id: int = None) ->
                 )
 
                 raw_entry = RawScrapeData(
-                    source_id=source_id,
+                    source_id=src.id,
                     country_code="GLOBAL",
                     raw_text=formatted_text,
                     extracted_urls=[art_url],
@@ -117,15 +126,20 @@ async def scrape_dev_to(client: httpx.AsyncClient, db, source_id: int = None) ->
             db.commit()
         except Exception as e:
             db.rollback()
-            logger.warning(f"Error scraping Dev.to tag '{tag}': {e}")
-    logger.info(f"Saved {saved} discussions from Dev.to.")
+            logger.warning(f"Error scraping Dev.to [{src.name}]: {e}")
+            try:
+                db.add(SourceLog(data_source_id=src.id, error_message=str(e)[:500]))
+                db.commit()
+            except Exception:
+                db.rollback()
+    logger.info(f"Saved {saved} discussions from active Dev.to sources.")
     return saved
 
 
 async def scrape_reddit_discussions(db, source_id: int = None, limit_per_sub: int = 10) -> int:
     """
-    Scrapes developer discussions across Lobste.rs, Dev.to, and Reddit (best-effort).
-    Guarantees that Partition 1 always yields rich data even if Reddit blocks data-center IPs.
+    Scrapes developer discussions across active Lobste.rs, Dev.to, and Reddit sources.
+    Respects active toggles in Admin Panel.
     """
     saved_count = 0
     headers = {
@@ -134,20 +148,32 @@ async def scrape_reddit_discussions(db, source_id: int = None, limit_per_sub: in
 
     async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
         # 1. Reliable Open Technical Communities first
-        lobsters_count = await scrape_lobsters(client, db, source_id=source_id)
+        lobsters_count = await scrape_lobsters(client, db)
         saved_count += lobsters_count
 
-        devto_count = await scrape_dev_to(client, db, source_id=source_id)
+        devto_count = await scrape_dev_to(client, db)
         saved_count += devto_count
 
-        # 2. Reddit as best-effort (handled gracefully if 403)
+        # 2. Reddit active subreddits from DataSource
+        active_reddit = db.query(DataSource).filter(
+            DataSource.name.ilike("%Reddit%"),
+            DataSource.is_active == 1
+        ).all()
+
         consecutive_blocks = 0
-        for sub in SUBREDDITS:
+        for src in active_reddit:
+            sub = src.url.rstrip("/").split("/")[-1]
             url = f"https://www.reddit.com/r/{sub}/hot.json?limit={limit_per_sub}"
             try:
                 resp = await client.get(url)
                 if resp.status_code == 403:
                     consecutive_blocks += 1
+                    try:
+                        db.add(SourceLog(data_source_id=src.id, error_message="HTTP 403 (Rate limit/Cloud IP block)", http_status=403))
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+
                     if consecutive_blocks >= 2:
                         logger.info("Reddit cloud IP blocks detected on consecutive subreddits. Skipping remaining Reddit requests.")
                         break
@@ -180,7 +206,7 @@ async def scrape_reddit_discussions(db, source_id: int = None, limit_per_sub: in
 
                     post_url = f"https://reddit.com{permalink}" if permalink else ""
                     raw_entry = RawScrapeData(
-                        source_id=source_id,
+                        source_id=src.id,
                         country_code="GLOBAL",
                         raw_text=formatted_discussion,
                         extracted_urls=[post_url] if post_url else [],
@@ -193,7 +219,12 @@ async def scrape_reddit_discussions(db, source_id: int = None, limit_per_sub: in
                 saved_count += sub_saved
             except Exception as e:
                 db.rollback()
-                logger.debug(f"Reddit r/{sub} skipped: {e}")
+                logger.debug(f"Reddit r/{sub} error: {e}")
+                try:
+                    db.add(SourceLog(data_source_id=src.id, error_message=str(e)[:500]))
+                    db.commit()
+                except Exception:
+                    db.rollback()
 
     logger.info(f"Social sweep completed. Total discussions saved: {saved_count}")
     return saved_count

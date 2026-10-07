@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 from typing import List, Tuple, Optional
 
-from database.models import RawScrapeData, SourceLog, JobPosting, ATSCompany
+from database.models import RawScrapeData, SourceLog, JobPosting, ATSCompany, DataSource
 from utils.logger import get_centralized_logger
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -122,17 +122,24 @@ def calculate_match_score(title: str, description: str, tech_category: str) -> T
 
 async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
     """
-    Parses public RSS feeds of registered Teamtailor companies.
+    Parses public RSS feeds of active job data sources registered in data_sources.
     Filters for genuine tech/IT positions, extracts location & seniority,
     discovers salary disclosures, and saves structured JobPostings and RawScrapeData.
     """
-    seed_ats_companies(db)
-    companies = db.query(ATSCompany).filter(ATSCompany.ats_type == "teamtailor").all()
+    active_sources = db.query(DataSource).filter(
+        DataSource.category == "jobs",
+        DataSource.is_active == 1
+    ).all()
+
+    if not active_sources:
+        logger.info("No active job data sources found in database. Skipping jobs sweep.")
+        return 0
+
     saved_count = 0
     
-    for company in companies:
-        rss_url = f"https://{company.domain}.teamtailor.com/jobs.rss"
-        logger.info(f"Fetching Teamtailor RSS: {rss_url}")
+    for src in active_sources:
+        rss_url = src.url
+        logger.info(f"Fetching job RSS [{src.name}]: {rss_url}")
         
         try:
             feed = await asyncio.to_thread(feedparser.parse, rss_url)
@@ -140,7 +147,9 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
             if not entries:
                 continue
 
-            company_name = company.domain.capitalize()[:200]
+            domain_match = re.search(r"https?://([^.]+)\.teamtailor\.com", rss_url)
+            company_domain = domain_match.group(1) if domain_match else src.name.lower().replace(" ", "")[:50]
+            company_name = src.name.replace("TeamTailor: ", "").split("(")[0].strip()[:200]
             
             # 1. Filter for tech jobs and exclude irrelevant non-tech roles
             candidate_entries = []
@@ -183,7 +192,7 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 description = entry.get("description", "").strip()
                 tech_category = infer_technology(title)
                 seniority = infer_seniority(title, description)
-                country, city = infer_location(title, description, company.domain)
+                country, city = infer_location(title, description, company_domain)
                 score, reason = calculate_match_score(title, description, tech_category)
                 salary_text = extract_salary(description)
                 
@@ -192,7 +201,7 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                     tags.append("salary_disclosed")
                 
                 formatted_job = (
-                    f"COMPANY: {company.domain}\n"
+                    f"COMPANY: {company_domain}\n"
                     f"JOB_TITLE: {title}\n"
                     f"CATEGORY: {tech_category}\n"
                     f"SENIORITY: {seniority}\n"
@@ -204,7 +213,7 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 formatted_job += f"DESCRIPTION:\n{description[:2500]}"
                 
                 new_raw_entries.append(RawScrapeData(
-                    source_id=source_id,
+                    source_id=src.id,
                     country_code=country,
                     raw_text=formatted_job,
                     extracted_urls=[link],
@@ -247,11 +256,14 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 
             db.commit()
         except Exception as e:
-            logger.error(f"Error scraping ATS {company.domain}: {e}")
+            logger.error(f"Error scraping ATS [{src.name}]: {e}")
             db.rollback()
-            db.add(SourceLog(data_source_id=source_id or 1, error_message=str(e)))
-            db.commit()
+            try:
+                db.add(SourceLog(data_source_id=src.id, error_message=str(e)[:500]))
+                db.commit()
+            except Exception:
+                db.rollback()
 
-    logger.info(f"Teamtailor sweep finished. Saved {saved_count} tech jobs.")
+    logger.info(f"Jobs sweep finished. Saved {saved_count} tech jobs across {len(active_sources)} sources.")
     return saved_count
 

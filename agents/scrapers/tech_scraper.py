@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from bs4 import BeautifulSoup
-from database.models import RawScrapeData, SourceLog
+from database.models import RawScrapeData, SourceLog, DataSource
 from utils.logger import get_centralized_logger
 
 logger = get_centralized_logger("TechScraper")
@@ -13,8 +13,19 @@ logger = get_centralized_logger("TechScraper")
 async def scrape_hackernews(db, source_id: int = None, max_stories: int = 25) -> int:
     """
     Fetches top stories and their top comments from Hacker News via Firebase API.
-    Saves full discussion context into raw_scrape_data.
+    Checks DataSource table to verify it is active.
     """
+    hn_src = db.query(DataSource).filter(
+        DataSource.name.ilike("%HackerNews%"),
+        DataSource.is_active == 1
+    ).first()
+
+    if not hn_src and source_id is None:
+        logger.info("HackerNews is disabled in Admin Panel. Skipping.")
+        return 0
+
+    actual_source_id = hn_src.id if hn_src else source_id
+
     saved_count = 0
     base_url = "https://hacker-news.firebaseio.com/v0"
     
@@ -65,7 +76,7 @@ async def scrape_hackernews(db, source_id: int = None, max_stories: int = 25) ->
                             formatted_entry += "TOP COMMENTS:\n" + "\n---\n".join(comments)
 
                         return RawScrapeData(
-                            source_id=source_id,
+                            source_id=actual_source_id,
                             country_code="GLOBAL",
                             raw_text=formatted_entry,
                             extracted_urls=[story_url],
@@ -87,80 +98,101 @@ async def scrape_hackernews(db, source_id: int = None, max_stories: int = 25) ->
         except Exception as e:
             logger.error(f"Failed to scrape HackerNews: {e}")
             db.rollback()
-            db.add(SourceLog(data_source_id=source_id or 1, error_message=str(e)))
-            db.commit()
+            try:
+                db.add(SourceLog(data_source_id=actual_source_id or 1, error_message=str(e)[:500]))
+                db.commit()
+            except Exception:
+                db.rollback()
 
     return saved_count
 
 
 async def scrape_github_trending(db, source_id: int = None) -> int:
     """
-    Scrapes GitHub trending repositories via direct HTTP and BeautifulSoup parsing.
+    Scrapes GitHub trending repositories from active GitHub sources in DataSource.
     Saves clean structured repository info and descriptions into raw_scrape_data.
     """
-    saved_count = 0
-    url = "https://github.com/trending"
+    active_sources = db.query(DataSource).filter(
+        DataSource.name.ilike("%GitHub%"),
+        DataSource.is_active == 1
+    ).all()
+
+    if not active_sources and source_id is None:
+        logger.info("GitHub Trending sources disabled in Admin Panel.")
+        return 0
+
+    if not active_sources:
+        active_sources = [type("DummyGH", (), {"id": source_id or 1, "name": "GitHub Trending", "url": "https://github.com/trending"})()]
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }
 
-    try:
-        logger.info(f"Scraping GitHub Trending: {url}")
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code != 200:
-                logger.warning(f"GitHub Trending returned status {resp.status_code}")
-                return 0
+    total_saved = 0
 
-            soup = BeautifulSoup(resp.text, "html.parser")
-            articles = soup.find_all("article", class_="Box-row")
-            if not articles:
-                logger.warning("No trending repo articles found on GitHub Trending page.")
-                return 0
+    for src in active_sources:
+        url = src.url
+        try:
+            logger.info(f"Scraping GitHub Trending [{src.name}]: {url}")
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code != 200:
+                    logger.warning(f"GitHub Trending ({url}) returned status {resp.status_code}")
+                    continue
 
-            trending_summaries = []
-            extracted_urls = [url]
+                soup = BeautifulSoup(resp.text, "html.parser")
+                articles = soup.find_all("article", class_="Box-row")
+                if not articles:
+                    logger.warning(f"No trending repo articles found on {url}")
+                    continue
 
-            for a in articles:
-                h2 = a.find("h2")
-                link_tag = h2.find("a") if h2 else None
-                repo_name = link_tag.text.strip().replace(" ", "").replace("\n", "") if link_tag else "Unknown"
-                repo_href = f"https://github.com/{repo_name}" if repo_name != "Unknown" else url
+                trending_summaries = []
+                extracted_urls = [url]
 
-                p_tag = a.find("p")
-                desc = p_tag.text.strip() if p_tag else "No description"
+                for a in articles:
+                    h2 = a.find("h2")
+                    link_tag = h2.find("a") if h2 else None
+                    repo_name = link_tag.text.strip().replace(" ", "").replace("\n", "") if link_tag else "Unknown"
+                    repo_href = f"https://github.com/{repo_name}" if repo_name != "Unknown" else url
 
-                lang_tag = a.find("span", itemprop="programmingLanguage")
-                lang = lang_tag.text.strip() if lang_tag else "General"
+                    p_tag = a.find("p")
+                    desc = p_tag.text.strip() if p_tag else "No description"
 
-                stars_el = a.find("span", class_="d-inline-block float-sm-right")
-                stars_today = stars_el.text.strip() if stars_el else ""
+                    lang_tag = a.find("span", itemprop="programmingLanguage")
+                    lang = lang_tag.text.strip() if lang_tag else "General"
 
-                entry_text = f"REPO: {repo_name}\nLANGUAGE: {lang}\nSTARS_TODAY: {stars_today}\nDESCRIPTION: {desc}\nURL: {repo_href}"
-                trending_summaries.append(entry_text)
-                extracted_urls.append(repo_href)
+                    stars_el = a.find("span", class_="d-inline-block float-sm-right")
+                    stars_today = stars_el.text.strip() if stars_el else ""
 
-            formatted_entry = f"SOURCE: GitHub Trending\nDATE: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\nTOTAL_REPOS: {len(trending_summaries)}\n\n"
-            formatted_entry += "\n\n---\n\n".join(trending_summaries)
+                    entry_text = f"REPO: {repo_name}\nLANGUAGE: {lang}\nSTARS_TODAY: {stars_today}\nDESCRIPTION: {desc}\nURL: {repo_href}"
+                    trending_summaries.append(entry_text)
+                    extracted_urls.append(repo_href)
 
-            raw_entry = RawScrapeData(
-                source_id=source_id,
-                country_code="GLOBAL",
-                raw_text=formatted_entry[:15000],
-                extracted_urls=extracted_urls[:25],
-                processed=0,
-                created_at=datetime.now(timezone.utc)
-            )
-            db.add(raw_entry)
-            db.commit()
-            saved_count = len(trending_summaries)
-            logger.info(f"Saved {saved_count} GitHub Trending repos into raw_scrape_data.")
-    except Exception as e:
-        logger.error(f"Failed to scrape GitHub Trending: {e}")
-        db.rollback()
-        db.add(SourceLog(data_source_id=source_id or 1, error_message=str(e)))
-        db.commit()
+                formatted_entry = f"SOURCE: {src.name}\nDATE: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\nTOTAL_REPOS: {len(trending_summaries)}\n\n"
+                formatted_entry += "\n\n---\n\n".join(trending_summaries)
 
-    return saved_count
+                raw_entry = RawScrapeData(
+                    source_id=src.id,
+                    country_code="GLOBAL",
+                    raw_text=formatted_entry[:15000],
+                    extracted_urls=extracted_urls[:25],
+                    processed=0,
+                    created_at=datetime.now(timezone.utc)
+                )
+                db.add(raw_entry)
+                db.commit()
+                saved_count = len(trending_summaries)
+                total_saved += saved_count
+                logger.info(f"Saved {saved_count} GitHub repos from [{src.name}].")
+        except Exception as e:
+            logger.error(f"Failed to scrape GitHub [{src.name}]: {e}")
+            db.rollback()
+            try:
+                db.add(SourceLog(data_source_id=src.id, error_message=str(e)[:500]))
+                db.commit()
+            except Exception:
+                db.rollback()
+
+    return total_saved
