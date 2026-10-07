@@ -15,6 +15,11 @@ from agents.synthesizer import run_mathematical_synthesis
 
 logger = get_centralized_logger("Orchestrator")
 
+DEPRECATED_MODELS = {
+    "gemini-2.5-pro", "gemini-2.0-flash", "gemini-1.5-pro",
+    "gemini-1.5-flash", "gemini-3.5-flash", "models/gemini-2.5-pro", "models/gemini-1.5-pro"
+}
+
 def get_active_model(db, task_type: str):
     """
     Fetches the active primary model configuration for a specific task.
@@ -24,19 +29,32 @@ def get_active_model(db, task_type: str):
         AIModelConfig.task_type == task_type,
         AIModelConfig.is_active == 1
     ).first()
-    
+
+    # Reject deprecated models if still marked active in DB
+    if model_config and (model_config.model_name in DEPRECATED_MODELS or "2.5-pro" in model_config.model_name):
+        logger.warning(f"Active model '{model_config.model_name}' for task '{task_type}' is deprecated. Finding replacement.")
+        model_config = None
+
     if not model_config:
-        # Check fallback model
+        # Check active or fallback gemini-3.8-flash first
         model_config = db.query(AIModelConfig).filter(
             AIModelConfig.task_type == task_type,
-            AIModelConfig.is_fallback == 1
+            AIModelConfig.model_name == "gemini-3.8-flash"
+        ).first()
+
+    if not model_config:
+        # Check any fallback model that is not deprecated
+        model_config = db.query(AIModelConfig).filter(
+            AIModelConfig.task_type == task_type,
+            AIModelConfig.is_fallback == 1,
+            ~AIModelConfig.model_name.in_(list(DEPRECATED_MODELS))
         ).first()
 
     if not model_config:
         default_model = "gemini-3.8-flash"
         logger.warning(f"No active or fallback model found for {task_type}. Falling back to default: {default_model}")
         return {"provider": "google", "model_name": default_model}
-        
+
     return {
         "provider": model_config.provider,
         "model_name": model_config.model_name,

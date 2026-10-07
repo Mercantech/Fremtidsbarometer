@@ -48,8 +48,12 @@ def get_ai_models(
     except Exception:
         db.rollback()
 
-    if db.query(AIModelConfig).count() == 0:
-        from database.seeds.ai_models import seed_ai_models
+    from database.seeds.ai_models import seed_ai_models, DEPRECATED_MODELS
+    has_deprecated_active = db.query(AIModelConfig).filter(
+        AIModelConfig.is_active == 1,
+        AIModelConfig.model_name.in_(list(DEPRECATED_MODELS))
+    ).first()
+    if db.query(AIModelConfig).count() == 0 or has_deprecated_active:
         seed_ai_models(db)
 
     query = db.query(AIModelConfig)

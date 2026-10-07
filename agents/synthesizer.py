@@ -5,8 +5,8 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
-from database.models import RawScrapeData, HypeAnalysis, Era, SystemLog, TechTrend
-from agents.ai_provider import get_ai_provider, AIProviderError
+from database.models import RawScrapeData, HypeAnalysis, Era, SystemLog, TechTrend, AIModelConfig
+from agents.ai_provider import get_ai_provider, AIProviderError, analyze_with_fallback
 from utils.logger import get_centralized_logger
 
 logger = get_centralized_logger("Synthesizer")
@@ -80,14 +80,36 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
     }
     """
 
-    provider_name = model_config.get("provider", "google") if model_config else "google"
-    model_name = model_config.get("model_name", "gemini-3.8-flash") if model_config else "gemini-3.8-flash"
-    ai = get_ai_provider(provider=provider_name, model_name=model_name)
-    
+    # 3. Resolve AI model candidates (primary from model_config + fallbacks from DB)
+    candidates = []
+    if model_config:
+        candidates.append(model_config)
+
+    # Fetch registered fallback models from DB for final_synthesis
     try:
-        result = await ai.analyze_json(prompt, schema)
+        fallback_recs = db.query(AIModelConfig).filter(
+            AIModelConfig.task_type == "final_synthesis",
+            AIModelConfig.is_fallback == 1,
+            AIModelConfig.is_active == 0
+        ).all()
+        for fb in fallback_recs:
+            if not any(c.get("model_name") == fb.model_name and c.get("provider") == fb.provider for c in candidates):
+                candidates.append({
+                    "provider": fb.provider,
+                    "model_name": fb.model_name,
+                    "api_key": getattr(fb, "api_key", None),
+                })
+    except Exception as e:
+        logger.warning(f"Could not load fallback models from DB: {e}")
+
+    # Ensure gemini-3.8-flash is always present in candidate list as a safety net
+    if not any(c.get("model_name") == "gemini-3.8-flash" for c in candidates):
+        candidates.append({"provider": "google", "model_name": "gemini-3.8-flash"})
+
+    try:
+        result = await analyze_with_fallback(candidates, prompt, schema)
     except AIProviderError as e:
-        logger.error(f"Synthesizer AI clustering failed: {e}")
+        logger.error(f"Synthesizer AI clustering failed across all candidate models: {e}")
         raise e
 
     clusters = result.get("clusters", [])
