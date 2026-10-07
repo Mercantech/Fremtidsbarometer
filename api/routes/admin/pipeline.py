@@ -4,7 +4,7 @@ import traceback
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -18,6 +18,10 @@ logger = logging.getLogger("AdminPipeline")
 
 # Global pipeline concurrency lock to prevent overlapping runs and race conditions
 pipeline_lock = asyncio.Lock()
+
+# Track active pipeline execution tasks by execution_id for cancellation support
+# Maps execution_id (str) → asyncio.Task
+_active_pipeline_tasks: Dict[str, asyncio.Task] = {}
 
 SCHEDULED_JOBS_METADATA = {
     "live_news_feed_job": {
@@ -243,12 +247,21 @@ def abort_pipeline_execution(
     db: Session = Depends(get_db)
 ):
     """
-    Aborts an active or stuck execution and clears concurrency locks.
+    Aborts an active or stuck execution by cancelling the asyncio.Task and clearing locks.
+    This ensures the background task stops gracefully and pipeline_lock is freed.
     """
     rec = db.query(PipelineExecution).filter(PipelineExecution.id == execution_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="Execution record not found")
 
+    # Attempt to cancel the running task if it exists
+    if execution_id in _active_pipeline_tasks:
+        task = _active_pipeline_tasks[execution_id]
+        if not task.done():
+            task.cancel()
+            logger.info(f"Cancelled asyncio.Task for execution {execution_id}")
+
+    # Update database record
     now = datetime.now(timezone.utc)
     rec.status = "aborted"
     rec.current_step = "Manually aborted by Admin"
@@ -260,14 +273,13 @@ def abort_pipeline_execution(
     return {
         "status": "aborted",
         "id": execution_id,
-        "message": f"Execution {execution_id} was successfully marked as aborted."
+        "message": f"Execution {execution_id} was successfully aborted and task cancelled."
     }
 
 
 # ── 3. Manual Pipeline Trigger ─────────────────────────────────────
 @router.post("/trigger-pipeline")
 async def trigger_pipeline(
-    background_tasks: BackgroundTasks,
     force: bool = Query(False, description="Set to true to force scraping and AI synthesis even if data is fresh"),
     sweep: Optional[str] = Query("all", description="Sweep type: 'all', 'social', 'tech', 'jobs', 'salary', 'synthesis', 'news'"),
     db: Session = Depends(get_db)
@@ -275,6 +287,7 @@ async def trigger_pipeline(
     """
     Manual trigger for scraping and AI processing.
     Records PipelineExecution in PostgreSQL so status persists across page reloads.
+    Creates an asyncio.Task that can be cancelled via the abort endpoint.
     """
     if pipeline_lock.locked():
         raise HTTPException(
@@ -315,6 +328,10 @@ async def trigger_pipeline(
     from agents.news_agent import NewsAgent
 
     async def _execute_pipeline():
+        """
+        Executes the pipeline with proper handling of task cancellation.
+        Ensures pipeline_lock is always released and database state is updated.
+        """
         async with pipeline_lock:
             start_t = datetime.now(timezone.utc)
             try:
@@ -349,6 +366,14 @@ async def trigger_pipeline(
                 end_t = datetime.now(timezone.utc)
                 dur = round((end_t - start_t).total_seconds(), 1)
                 _mark_done_in_db(run_id, "completed", dur)
+            except asyncio.CancelledError:
+                # Task was cancelled via abort endpoint
+                end_t = datetime.now(timezone.utc)
+                dur = round((end_t - start_t).total_seconds(), 1)
+                logger.info(f"Pipeline run '{run_id}' was cancelled by user (duration: {dur}s)")
+                _mark_done_in_db(run_id, "aborted", dur, error_val="Cancelled by admin")
+                # Re-raise to propagate cancellation
+                raise
             except Exception as e:
                 err_tb = traceback.format_exc()
                 end_t = datetime.now(timezone.utc)
@@ -369,8 +394,14 @@ async def trigger_pipeline(
                     db_s.rollback()
                 finally:
                     db_s.close()
+            finally:
+                # Clean up task reference from dictionary
+                _active_pipeline_tasks.pop(run_id, None)
+                logger.debug(f"Cleaned up task reference for execution {run_id}")
 
-    background_tasks.add_task(_execute_pipeline)
+    # Create task and store reference for potential cancellation
+    task = asyncio.create_task(_execute_pipeline())
+    _active_pipeline_tasks[run_id] = task
 
     return {
         "status": "dispatched",
@@ -508,7 +539,6 @@ async def update_scheduled_job_interval(job_id: str, payload: UpdateIntervalRequ
 @router.post("/scheduler/jobs/{job_id}/run-now")
 async def run_scheduled_job_now(
     job_id: str,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
@@ -534,7 +564,7 @@ async def run_scheduled_job_now(
     if sweep_type == "cleanup":
         return trigger_db_cleanup(days=14, db=db)
 
-    return await trigger_pipeline(background_tasks=background_tasks, force=True, sweep=sweep_type, db=db)
+    return await trigger_pipeline(force=True, sweep=sweep_type, db=db)
 
 
 @router.post("/scheduler/toggle")
