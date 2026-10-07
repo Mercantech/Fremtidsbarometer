@@ -162,6 +162,9 @@ class DataSourceUpdateSchema(BaseModel):
 class SourceLogSchema(BaseModel):
     id: int
     data_source_id: int
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    source_category: Optional[str] = None
     error_message: str
     http_status: Optional[int] = None
     created_at: Optional[datetime] = None

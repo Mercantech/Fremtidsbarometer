@@ -30,9 +30,16 @@ def init_db():
 
         Base.metadata.create_all(engine)
 
+        # Ensure schema migrations for existing tables
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);"))
+            conn.commit()
+            print("   🔧 Schema columns verified (api_key in ai_model_configs).")
+
         # Show created tables
         table_names = list(Base.metadata.tables.keys())
-        print(f"✅ Created {len(table_names)} tables:")
+        print(f"✅ Created/Verified {len(table_names)} tables:")
         for name in sorted(table_names):
             print(f"   📋 {name}")
 

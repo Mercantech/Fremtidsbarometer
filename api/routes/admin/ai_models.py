@@ -41,6 +41,13 @@ def get_ai_models(
     db: Session = Depends(get_db)
 ):
     """Get all configured AI models with optional filtering."""
+    try:
+        from sqlalchemy import text
+        db.execute(text("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);"))
+        db.commit()
+    except Exception:
+        db.rollback()
+
     if db.query(AIModelConfig).count() == 0:
         from database.seeds.ai_models import seed_ai_models
         seed_ai_models(db)

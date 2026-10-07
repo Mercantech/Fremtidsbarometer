@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from sqlalchemy import func
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone, timedelta
 
 from database.session import get_db
-from database.models import SystemLog, SourceLog
+from database.models import SystemLog, SourceLog, DataSource
 from api.schemas import SystemLogSchema, SourceLogSchema
 
 router = APIRouter()
@@ -39,12 +41,99 @@ def get_log_components(db: Session = Depends(get_db)):
 @router.get("/source-logs", response_model=List[SourceLogSchema])
 def get_source_logs(
     data_source_id: Optional[int] = Query(None),
+    status_code: Optional[int] = Query(None),
     limit: int = Query(50, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
 ):
-    """Get source error logs."""
-    query = db.query(SourceLog)
+    """Get source error and telemetry logs with channel names, URLs, and HTTP statuses."""
+    query = db.query(
+        SourceLog,
+        DataSource.name.label("source_name"),
+        DataSource.url.label("source_url"),
+        DataSource.category.label("source_category")
+    ).outerjoin(DataSource, SourceLog.data_source_id == DataSource.id)
+
     if data_source_id:
         query = query.filter(SourceLog.data_source_id == data_source_id)
-    return query.order_by(SourceLog.created_at.desc()).offset(offset).limit(limit).all()
+    if status_code:
+        query = query.filter(SourceLog.http_status == status_code)
+
+    results = query.order_by(SourceLog.created_at.desc()).offset(offset).limit(limit).all()
+
+    logs = []
+    for log, s_name, s_url, s_cat in results:
+        logs.append({
+            "id": log.id,
+            "data_source_id": log.data_source_id,
+            "source_name": s_name or f"Source #{log.data_source_id}",
+            "source_url": s_url or "",
+            "source_category": s_cat or "unknown",
+            "error_message": log.error_message,
+            "http_status": log.http_status,
+            "created_at": log.created_at
+        })
+    return logs
+
+@router.get("/sources/telemetry")
+def get_sources_telemetry(db: Session = Depends(get_db)):
+    """
+    Returns channel telemetry: operational health, recent errors, and rate limits (403/timeout).
+    """
+    now = datetime.now(timezone.utc)
+    since_24h = now - timedelta(hours=24)
+
+    sources = db.query(DataSource).all()
+    total_count = len(sources)
+    active_count = sum(1 for s in sources if s.is_active == 1)
+
+    # Get recent error logs from last 24h
+    recent_errors = db.query(SourceLog).filter(SourceLog.created_at >= since_24h).all()
+    error_by_source: Dict[int, List[SourceLog]] = {}
+    for err in recent_errors:
+        error_by_source.setdefault(err.data_source_id, []).append(err)
+
+    # Compile telemetry per source
+    sources_data = []
+    healthy_count = 0
+    blocked_count = 0
+    failing_count = 0
+
+    for s in sources:
+        s_errs = error_by_source.get(s.id, [])
+        last_err = s_errs[0] if s_errs else None
+        
+        status = "healthy"
+        if last_err:
+            if last_err.http_status == 403 or "403" in (last_err.error_message or ""):
+                status = "blocked_403"
+                blocked_count += 1
+            else:
+                status = "error"
+                failing_count += 1
+        else:
+            healthy_count += 1
+
+        sources_data.append({
+            "id": s.id,
+            "name": s.name,
+            "url": s.url,
+            "category": s.category,
+            "source_type": s.source_type,
+            "is_active": s.is_active,
+            "status": status,
+            "last_http_status": last_err.http_status if last_err else None,
+            "last_error": last_err.error_message if last_err else None,
+            "last_error_at": last_err.created_at if last_err else None,
+            "errors_24h": len(s_errs)
+        })
+
+    return {
+        "total_sources": total_count,
+        "active_sources": active_count,
+        "healthy_sources": healthy_count,
+        "blocked_403_sources": blocked_count,
+        "failing_sources": failing_count,
+        "recent_errors_24h": len(recent_errors),
+        "sources": sources_data
+    }

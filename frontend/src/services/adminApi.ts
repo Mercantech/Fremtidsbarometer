@@ -224,23 +224,56 @@ export const deleteDataSource = async (sourceId: number): Promise<void> => {
   await adminApi.delete(`/api/admin/data-sources/${sourceId}`);
 };
 
-// ── Source Logs ──────────────────────────────────────
+// ── Source Logs & Telemetry ──────────────────────────
 export interface SourceLog {
   id: number;
   data_source_id: number;
+  source_name?: string;
+  source_url?: string;
+  source_category?: string;
   error_message: string;
   http_status?: number;
   created_at: string;
 }
 
+export interface SourceTelemetryItem {
+  id: number;
+  name: string;
+  url: string;
+  category: string;
+  source_type: string;
+  is_active: number;
+  status: 'healthy' | 'blocked_403' | 'error';
+  last_http_status?: number | null;
+  last_error?: string | null;
+  last_error_at?: string | null;
+  errors_24h: number;
+}
+
+export interface SourceTelemetry {
+  total_sources: number;
+  active_sources: number;
+  healthy_sources: number;
+  blocked_403_sources: number;
+  failing_sources: number;
+  recent_errors_24h: number;
+  sources: SourceTelemetryItem[];
+}
+
 export const fetchSourceLogs = async (
   dataSourceId?: number,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
+  statusCode?: number
 ): Promise<SourceLog[]> => {
   const response = await adminApi.get('/api/admin/source-logs', {
-    params: { data_source_id: dataSourceId, limit, offset },
+    params: { data_source_id: dataSourceId, limit, offset, status_code: statusCode },
   });
+  return response.data;
+};
+
+export const fetchSourceTelemetry = async (): Promise<SourceTelemetry> => {
+  const response = await adminApi.get('/api/admin/sources/telemetry');
   return response.data;
 };
 

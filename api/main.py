@@ -20,6 +20,16 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure database columns exist on startup
+    try:
+        from database.session import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);"))
+            conn.commit()
+    except Exception as mig_err:
+        logger.warning(f"Startup DB column verification: {mig_err}")
+
     enable_scheduler = os.getenv("ENABLE_SCHEDULER", "true").lower() in ("true", "1", "yes")
     scheduler = None
     if enable_scheduler:

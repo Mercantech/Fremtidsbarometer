@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { SystemStatusDisplay } from '../components/SystemStatusDisplay';
 import { PipelineControl } from '../components/PipelineControl';
 import { AIModelManager } from '../components/AIModelManager';
@@ -7,11 +7,45 @@ import { DataSourceManager } from '../components/DataSourceManager';
 import { LogsViewer } from '../components/LogsViewer';
 import '../styles/admin.css';
 
+type SectionType = 'overview' | 'pipeline' | 'ai-models' | 'data-sources' | 'logs';
+const VALID_SECTIONS: SectionType[] = ['overview', 'pipeline', 'ai-models', 'data-sources', 'logs'];
+
 export default function Admin() {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState<
-    'overview' | 'pipeline' | 'ai-models' | 'data-sources' | 'logs'
-  >('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const getInitialSection = (): SectionType => {
+    const tabParam = searchParams.get('tab') as SectionType;
+    if (tabParam && VALID_SECTIONS.includes(tabParam)) {
+      return tabParam;
+    }
+    const hash = window.location.hash.replace('#', '') as SectionType;
+    if (hash && VALID_SECTIONS.includes(hash)) {
+      return hash;
+    }
+    const saved = localStorage.getItem('admin_active_section') as SectionType;
+    if (saved && VALID_SECTIONS.includes(saved)) {
+      return saved;
+    }
+    return 'overview';
+  };
+
+  const [activeSection, setActiveSectionState] = useState<SectionType>(getInitialSection);
+
+  const setActiveSection = (section: SectionType) => {
+    setActiveSectionState(section);
+    setSearchParams({ tab: section }, { replace: true });
+    localStorage.setItem('admin_active_section', section);
+  };
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as SectionType;
+    if (tabParam && VALID_SECTIONS.includes(tabParam) && tabParam !== activeSection) {
+      setActiveSectionState(tabParam);
+      localStorage.setItem('admin_active_section', tabParam);
+    }
+  }, [searchParams, activeSection]);
+
 
   return (
     <div className="admin-panel">

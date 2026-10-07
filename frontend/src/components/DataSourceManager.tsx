@@ -6,6 +6,8 @@ import {
   deleteDataSource,
   type DataSource,
   type CreateDataSource,
+  fetchSourceTelemetry,
+  type SourceTelemetry,
 } from '../services/adminApi';
 import '../styles/admin.css';
 
@@ -14,6 +16,7 @@ const SOURCE_TYPES = ['rss', 'api', 'html_scrape'];
 
 export const DataSourceManager: React.FC = () => {
   const [sources, setSources] = useState<DataSource[]>([]);
+  const [telemetry, setTelemetry] = useState<SourceTelemetry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -30,8 +33,14 @@ export const DataSourceManager: React.FC = () => {
   const loadSources = React.useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchDataSources(selectedCategory);
-      setSources(data);
+      const [sourcesData, telemetryData] = await Promise.all([
+        fetchDataSources(selectedCategory),
+        fetchSourceTelemetry().catch(() => null),
+      ]);
+      setSources(sourcesData);
+      if (telemetryData) {
+        setTelemetry(telemetryData);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data sources');
@@ -257,19 +266,37 @@ export const DataSourceManager: React.FC = () => {
         {filteredSources.length === 0 ? (
           <p className="no-data">No data sources matched your filter</p>
         ) : (
-          filteredSources.map((source) => (
-            <div key={source.id} className="source-item">
-              <div className="source-info">
-                <div className="source-name font-semibold text-slate-900">{source.name}</div>
-                <div className="source-meta flex items-center gap-2 mt-1">
-                  <span className="category-badge uppercase font-bold text-[10px]">{source.category}</span>
-                  <span className="type-badge uppercase font-bold text-[10px]">{source.source_type}</span>
-                  {source.is_active === 1 ? (
-                    <span className="active-badge">✓ Active</span>
-                  ) : (
-                    <span className="inactive-badge">✗ Inactive</span>
-                  )}
-                </div>
+          filteredSources.map((source) => {
+            const tel = telemetry?.sources.find((t) => t.id === source.id);
+            return (
+              <div key={source.id} className="source-item">
+                <div className="source-info">
+                  <div className="source-name font-semibold text-slate-900">{source.name}</div>
+                  <div className="source-meta flex items-center gap-2 mt-1">
+                    <span className="category-badge uppercase font-bold text-[10px]">{source.category}</span>
+                    <span className="type-badge uppercase font-bold text-[10px]">{source.source_type}</span>
+                    {source.is_active === 1 ? (
+                      <span className="active-badge">✓ Active</span>
+                    ) : (
+                      <span className="inactive-badge">✗ Inactive</span>
+                    )}
+
+                    {tel && (
+                      tel.status === 'healthy' ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200" title="Channel is operating normally without errors">
+                          🟢 Operational
+                        </span>
+                      ) : tel.status === 'blocked_403' ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300" title={`HTTP 403 Rate Limited: ${tel.last_error || ''}`}>
+                          ⚠️ 403 Rate Limited
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-200" title={`Error: ${tel.last_error || ''}`}>
+                          🔴 Failing ({tel.last_http_status ? `HTTP ${tel.last_http_status}` : 'Err'})
+                        </span>
+                      )
+                    )}
+                  </div>
                 <div className="source-url mt-1">
                   <a
                     href={source.url}
@@ -299,8 +326,9 @@ export const DataSourceManager: React.FC = () => {
                 </button>
               </div>
             </div>
-          ))
-        )}
+          );
+        })
+      )}
       </div>
     </div>
   );

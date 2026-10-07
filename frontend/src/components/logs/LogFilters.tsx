@@ -64,41 +64,64 @@ export function SystemLogFilters({
 
 interface SourceLogFiltersProps {
   selectedSource?: number;
+  statusCode?: number;
   dataSources: DataSource[];
   onSourceChange: (sourceId: number | undefined) => void;
+  onStatusChange: (status: number | undefined) => void;
+  onReset: () => void;
 }
 
 export function SourceLogFilters({
   selectedSource,
+  statusCode,
   dataSources,
   onSourceChange,
+  onStatusChange,
+  onReset,
 }: SourceLogFiltersProps) {
   return (
-    <div className="filter-section">
+    <div className="filter-section flex flex-wrap items-center gap-3">
       <div className="filter-group">
-        <label>Data Source:</label>
+        <label>Channel / Data Source:</label>
         <select
           value={selectedSource ?? ''}
           onChange={(e) =>
             onSourceChange(e.target.value ? parseInt(e.target.value, 10) : undefined)
           }
-          className="form-input"
+          className="form-input text-xs"
         >
-          <option value="">All Sources</option>
+          <option value="">All Channels ({dataSources.length})</option>
           {dataSources.map((source) => (
             <option key={source.id} value={source.id}>
-              {source.name} ({source.category})
+              {source.name} [{source.category.toUpperCase()}]
             </option>
           ))}
         </select>
       </div>
 
-      {selectedSource !== undefined && (
+      <div className="filter-group">
+        <label>HTTP Response / Outcome:</label>
+        <select
+          value={statusCode ?? ''}
+          onChange={(e) =>
+            onStatusChange(e.target.value ? parseInt(e.target.value, 10) : undefined)
+          }
+          className="form-input text-xs"
+        >
+          <option value="">All Response Statuses</option>
+          <option value="403">HTTP 403 (Forbidden / Rate Limited)</option>
+          <option value="404">HTTP 404 (Not Found)</option>
+          <option value="500">HTTP 500 (Internal Server Error)</option>
+          <option value="502">HTTP 502 / 503 (Gateway Error)</option>
+        </select>
+      </div>
+
+      {(selectedSource !== undefined || statusCode !== undefined) && (
         <button
-          onClick={() => onSourceChange(undefined)}
+          onClick={onReset}
           className="btn-secondary text-xs px-2.5 py-1 text-slate-500 hover:text-slate-700"
         >
-          Reset Filter
+          Reset Filters
         </button>
       )}
     </div>

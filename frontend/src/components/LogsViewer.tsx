@@ -7,6 +7,8 @@ import {
   type DataSource,
   fetchDataSources,
   fetchLogComponents,
+  fetchSourceTelemetry,
+  type SourceTelemetry,
 } from '../services/adminApi';
 import { SystemLogFilters, SourceLogFilters } from './logs/LogFilters';
 import { SystemLogItem } from './logs/SystemLogItem';
@@ -22,6 +24,7 @@ export const LogsViewer: React.FC = () => {
   const [sourceLogs, setSourceLogs] = useState<SourceLog[]>([]);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [availableComponents, setAvailableComponents] = useState<string[]>([]);
+  const [telemetry, setTelemetry] = useState<SourceTelemetry | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +32,7 @@ export const LogsViewer: React.FC = () => {
   const [logLevel, setLogLevel] = useState<string | undefined>(undefined);
   const [component, setComponent] = useState<string | undefined>(undefined);
   const [selectedSource, setSelectedSource] = useState<number | undefined>(undefined);
+  const [statusCode, setStatusCode] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -56,8 +60,14 @@ export const LogsViewer: React.FC = () => {
           return Array.from(merged).sort();
         });
       } else {
-        const data = await fetchSourceLogs(selectedSource, PAGE_SIZE, offset);
-        setSourceLogs(data);
+        const [logsData, telemetryData] = await Promise.all([
+          fetchSourceLogs(selectedSource, PAGE_SIZE, offset, statusCode),
+          fetchSourceTelemetry().catch(() => null),
+        ]);
+        setSourceLogs(logsData);
+        if (telemetryData) {
+          setTelemetry(telemetryData);
+        }
         if (dataSources.length === 0) {
           const sources = await fetchDataSources();
           setDataSources(sources);
@@ -68,7 +78,7 @@ export const LogsViewer: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, logLevel, component, selectedSource, page, dataSources.length]);
+  }, [activeTab, logLevel, component, selectedSource, statusCode, page, dataSources.length]);
 
   useEffect(() => {
     loadLogs();
@@ -123,7 +133,7 @@ export const LogsViewer: React.FC = () => {
           className={`tab-button ${activeTab === 'source' ? 'active' : ''}`}
           onClick={() => handleTabChange('source')}
         >
-          Source Logs
+          Source Logs & Telemetry
         </button>
       </div>
 
@@ -150,17 +160,57 @@ export const LogsViewer: React.FC = () => {
         </>
       ) : (
         <>
+          {/* Telemetry Summary Cards */}
+          {telemetry && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Channels</div>
+                <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
+                  {telemetry.total_sources} <span className="text-xs font-normal text-slate-500">({telemetry.active_sources} active)</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                <div className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Operational</div>
+                <div className="text-xl font-bold text-emerald-700 dark:text-emerald-200 mt-1">
+                  {telemetry.healthy_sources} <span className="text-xs font-normal text-emerald-600">healthy</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-wider">Rate Limited / 403</div>
+                <div className="text-xl font-bold text-amber-700 dark:text-amber-200 mt-1">
+                  {telemetry.blocked_403_sources} <span className="text-xs font-normal text-amber-600">channels</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30">
+                <div className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 uppercase tracking-wider">Errors in 24h</div>
+                <div className="text-xl font-bold text-rose-700 dark:text-rose-200 mt-1">
+                  {telemetry.recent_errors_24h} <span className="text-xs font-normal text-rose-600">events</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <SourceLogFilters
             selectedSource={selectedSource}
+            statusCode={statusCode}
             dataSources={dataSources}
             onSourceChange={(src) => { setSelectedSource(src); setPage(1); }}
+            onStatusChange={(status) => { setStatusCode(status); setPage(1); }}
+            onReset={() => { setSelectedSource(undefined); setStatusCode(undefined); setPage(1); }}
           />
 
-          <div className="logs-container relative min-h-[220px]">
+          <div className="logs-container relative min-h-[220px] space-y-2 mt-3">
             {loading && sourceLogs.length === 0 ? (
-              <div className="admin-section-loading">Loading source logs...</div>
+              <div className="admin-section-loading">Loading source error & telemetry logs...</div>
             ) : sourceLogs.length === 0 ? (
-              <p className="no-data">No source logs found</p>
+              <div className="p-6 text-center text-slate-500 border border-dashed rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
+                <div className="text-2xl mb-1">🎉</div>
+                <div className="font-semibold text-sm">No source errors recorded for these filters</div>
+                <div className="text-xs mt-0.5">All monitored endpoints and channels operated cleanly.</div>
+              </div>
             ) : (
               sourceLogs.map((log) => (
                 <SourceLogItem key={log.id} log={log} dataSources={dataSources} />
