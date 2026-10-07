@@ -211,7 +211,7 @@ export const useStore = create<AppState>()(
             const coords = resolveCoordinates(hub.country, hub.city);
             newLiveTopics.push({
               id: `hype-${idCounter++}`,
-              country: hub.city,
+              country: hub.country,
               city: hub.city,
               lat: coords.lat,
               lng: coords.lng,
@@ -226,25 +226,83 @@ export const useStore = create<AppState>()(
             });
           });
 
-          // Map salary data to live topics
-          salaryData.forEach(s => {
-            const coords = resolveCoordinates(s.country || 'DK');
-            newLiveTopics.push({
-              id: `salary-${idCounter++}`,
-              country: s.country || 'DK',
-              lat: coords.lat,
-              lng: coords.lng,
-              type: 'salary',
-              topic: s.role || s.technology,
-              details: `${s.source}\nMedian: ${s.median ?? 'N/A'} ${s.currency || 'USD'}`,
-              color: SEMANTIC_COLORS.salary,
-              meta: {
-                source: s.source,
-                medianSalary: s.median,
-                currency: s.currency || 'USD',
-                tech: s.technology,
-              }
-            });
+          // European & Global Tech Hubs for clear, non-overlapping regional salary radar markers
+          const REGIONAL_SALARY_HUBS: { country: string; city: string; tech: string }[] = [
+            // Nordics
+            { country: 'DK', city: 'Copenhagen', tech: 'Data & AI' },
+            { country: 'DK', city: 'Aarhus', tech: 'Rust' },
+            { country: 'SE', city: 'Stockholm', tech: 'Cybersecurity' },
+            { country: 'NO', city: 'Oslo', tech: 'Cloud & DevOps' },
+            { country: 'FI', city: 'Helsinki', tech: 'Software Engineering' },
+            // Western Europe
+            { country: 'UK', city: 'London', tech: 'Rust' },
+            { country: 'DE', city: 'Berlin', tech: 'Data & AI' },
+            { country: 'DE', city: 'Munich', tech: 'Cloud & DevOps' },
+            { country: 'NL', city: 'Amsterdam', tech: 'Go' },
+            { country: 'FR', city: 'Paris', tech: 'Python' },
+            { country: 'CH', city: 'Zurich', tech: 'Backend' },
+            { country: 'IE', city: 'Dublin', tech: 'Frontend' },
+            // Southern & Eastern Europe
+            { country: 'PL', city: 'Warsaw', tech: 'Python' },
+            { country: 'ES', city: 'Madrid', tech: 'Software Engineering' },
+            { country: 'ES', city: 'Barcelona', tech: 'Frontend' },
+            // North America
+            { country: 'US', city: 'San Francisco', tech: 'Data & AI' },
+            { country: 'US', city: 'New York', tech: 'Backend' },
+          ];
+
+          const mappedSalaryCountries = new Set<string>();
+
+          REGIONAL_SALARY_HUBS.forEach((hub) => {
+            const s = salaryData.find(
+              (item) => item.country === hub.country && (item.technology === hub.tech || item.role?.includes(hub.tech))
+            ) || salaryData.find((item) => item.country === hub.country);
+
+            if (s) {
+              mappedSalaryCountries.add(hub.country);
+              const coords = resolveCoordinates(hub.country, hub.city);
+              newLiveTopics.push({
+                id: `salary-${hub.country}-${hub.city}`,
+                country: hub.country,
+                city: hub.city,
+                lat: coords.lat,
+                lng: coords.lng,
+                type: 'salary',
+                topic: s.role || s.technology,
+                details: `${hub.city}, ${hub.country} • ${s.source}\nMedian: $${s.median?.toLocaleString() ?? 'N/A'} ${s.currency || 'USD'}`,
+                color: SEMANTIC_COLORS.salary,
+                meta: {
+                  source: s.source,
+                  medianSalary: s.median,
+                  currency: s.currency || 'USD',
+                  tech: s.technology,
+                }
+              });
+            }
+          });
+
+          // Fallback for any other countries in salaryData not in predefined hubs
+          salaryData.forEach((s) => {
+            if (s.country && !mappedSalaryCountries.has(s.country)) {
+              mappedSalaryCountries.add(s.country);
+              const coords = resolveCoordinates(s.country);
+              newLiveTopics.push({
+                id: `salary-${s.country}`,
+                country: s.country,
+                lat: coords.lat,
+                lng: coords.lng,
+                type: 'salary',
+                topic: s.role || s.technology,
+                details: `${s.country} • ${s.source}\nMedian: $${s.median?.toLocaleString() ?? 'N/A'} ${s.currency || 'USD'}`,
+                color: SEMANTIC_COLORS.salary,
+                meta: {
+                  source: s.source,
+                  medianSalary: s.median,
+                  currency: s.currency || 'USD',
+                  tech: s.technology,
+                }
+              });
+            }
           });
 
           set({

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import * as L from 'leaflet';
 import { useStore } from '../store/useStore';
@@ -62,10 +62,11 @@ export const FlatMapView: React.FC = () => {
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
         />
 
-        {/* This handles the heavy lifting of clustering overlapping markers */}
+        {/* This handles clustering overlapping markers cleanly */}
         <MarkerClusterGroup 
           chunkedLoading 
-          maxClusterRadius={20} 
+          maxClusterRadius={35} 
+          spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
         >
           {liveTopics.filter(t => activeFilters.includes(t.type)).map((t) => (
@@ -78,44 +79,31 @@ export const FlatMapView: React.FC = () => {
               }}
             >
               <Tooltip
-                direction="auto"
-                offset={[0, -5]}
-                permanent={true}
-                interactive={true}
+                direction="top"
+                offset={[0, -8]}
+                permanent={false}
+                interactive={false}
                 className="custom-leaflet-tooltip"
               >
-                {t.topic}
-              </Tooltip>
-              <Popup>
-                <div style={{ fontFamily: 'Inter, sans-serif', minWidth: '180px' }}>
-                  <div style={{
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    color: t.color,
-                    marginBottom: '4px'
-                  }}>
-                    {t.type} — {t.country}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', minWidth: '120px' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#64748b' }}>
+                    {t.city ? `${t.city}, ${t.country}` : t.country} • {t.type}
                   </div>
-                  <div style={{
-                    fontSize: '14px',
-                    fontWeight: 800,
-                    color: '#111',
-                    marginBottom: '6px'
-                  }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
                     {t.topic}
                   </div>
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#555',
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: '1.5'
-                  }}>
-                    {t.details}
-                  </div>
+                  {t.meta?.medianSalary && (
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#059669', marginTop: '2px' }}>
+                      ${t.meta.medianSalary.toLocaleString()} USD
+                    </div>
+                  )}
+                  {t.meta?.company && (
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#0284c7' }}>
+                      {t.meta.company}
+                    </div>
+                  )}
                 </div>
-              </Popup>
+              </Tooltip>
             </Marker>
           ))}
         </MarkerClusterGroup>

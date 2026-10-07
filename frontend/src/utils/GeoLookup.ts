@@ -175,22 +175,22 @@ const COUNTRY_CENTROIDS: Record<string, GeoPoint> = {
  * Adds small jitter (±0.5°) to prevent markers from stacking on the exact same pixel.
  */
 export function resolveCoordinates(country?: string, city?: string): GeoPoint {
-  const jitter = () => (Math.random() - 0.5) * 1.0;
+  const jitter = (amount = 0.06) => (Math.random() - 0.5) * amount;
 
   // Try city match first
   if (city) {
     const normalized = city.trim();
     if (CITY_COORDS[normalized]) {
       return {
-        lat: CITY_COORDS[normalized].lat + jitter(),
-        lng: CITY_COORDS[normalized].lng + jitter(),
+        lat: CITY_COORDS[normalized].lat + jitter(0.05),
+        lng: CITY_COORDS[normalized].lng + jitter(0.05),
       };
     }
     // Try case-insensitive search
     const lowerCity = normalized.toLowerCase();
     for (const [key, val] of Object.entries(CITY_COORDS)) {
       if (key.toLowerCase() === lowerCity) {
-        return { lat: val.lat + jitter(), lng: val.lng + jitter() };
+        return { lat: val.lat + jitter(0.05), lng: val.lng + jitter(0.05) };
       }
     }
   }
@@ -200,8 +200,8 @@ export function resolveCoordinates(country?: string, city?: string): GeoPoint {
     const normalized = country.trim();
     if (COUNTRY_CENTROIDS[normalized]) {
       return {
-        lat: COUNTRY_CENTROIDS[normalized].lat + jitter() * 3,
-        lng: COUNTRY_CENTROIDS[normalized].lng + jitter() * 3,
+        lat: COUNTRY_CENTROIDS[normalized].lat + jitter(0.35),
+        lng: COUNTRY_CENTROIDS[normalized].lng + jitter(0.35),
       };
     }
   }
@@ -209,7 +209,7 @@ export function resolveCoordinates(country?: string, city?: string): GeoPoint {
   // Deterministic fallback: global coordinates with subtle jitter
   const globalCentroid = COUNTRY_CENTROIDS['GLOBAL'] || { lat: 20.0, lng: 0.0 };
   return {
-    lat: globalCentroid.lat + jitter() * 2,
-    lng: globalCentroid.lng + jitter() * 2,
+    lat: globalCentroid.lat + jitter(0.5),
+    lng: globalCentroid.lng + jitter(0.5),
   };
 }
