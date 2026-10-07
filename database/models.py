@@ -258,9 +258,39 @@ class AIModelConfig(Base):
         return f"<AIModelConfig {self.task_type}: {self.model_name}>"
 
 
+# ── 14. Pipeline Executions (Process Tracking & History) ──────
+class PipelineExecution(Base):
+    """
+    Tracks real-time and historical executions of data harvesting and AI synthesis tasks.
+    Persists across browser reloads so admins always see current processes and history.
+    """
+    __tablename__ = "pipeline_executions"
+    __table_args__ = (
+        Index("idx_pipe_exec_created", "created_at"),
+        Index("idx_pipe_exec_status", "status"),
+    )
+
+    id            = Column(String(64), primary_key=True)
+    sweep         = Column(String(50), nullable=False)   # "all", "social", "tech", "jobs", "salary", "synthesis", "news"
+    trigger_type  = Column(String(20), default="manual") # "manual", "scheduled"
+    status        = Column(String(20), default="running")# "running", "completed", "failed", "aborted"
+    current_step  = Column(String(200), default="Initialized")
+    force         = Column(Integer, default=0)
+    started_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    finished_at   = Column(DateTime(timezone=True), nullable=True)
+    duration_sec  = Column(Float, nullable=True)
+    error_message = Column(Text, nullable=True)
+    summary       = Column(JSONB, nullable=True)
+    created_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<PipelineExecution {self.id} [{self.sweep}] {self.status}>"
+
+
 # ── Engine & Session Factory ─────────────────────────────────
 from database.session import engine, get_session
 
 def get_engine():
     """Returns global engine singleton"""
     return engine
+

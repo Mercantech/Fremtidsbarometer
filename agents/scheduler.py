@@ -5,6 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from dotenv import load_dotenv
 import pytz
+from typing import Optional
 
 # Import orchestrator & news agent
 from agents.orchestrator import (
@@ -78,11 +79,22 @@ def job_listener(event):
         logger.info(msg)
         log_to_db("INFO", "Scheduler", msg)
 
+_global_scheduler: Optional[AsyncIOScheduler] = None
+
+def get_scheduler() -> Optional[AsyncIOScheduler]:
+    """Returns the global AsyncIOScheduler instance if created."""
+    global _global_scheduler
+    return _global_scheduler
+
 def create_configured_scheduler() -> AsyncIOScheduler:
     """
     Creates and configures the AsyncIOScheduler instance with all recurring jobs.
     Does not start the scheduler, allowing external lifecycle management (e.g., FastAPI lifespan).
     """
+    global _global_scheduler
+    if _global_scheduler is not None and _global_scheduler.running:
+        return _global_scheduler
+
     scheduler = AsyncIOScheduler(timezone=pytz.UTC)
 
     # Add event listener for DB logging
@@ -92,46 +104,47 @@ def create_configured_scheduler() -> AsyncIOScheduler:
     news_agent = NewsAgent()
     scheduler.add_job(
         news_agent.fetch_news, 'interval', minutes=15,
-        id='live_news_feed_job', replace_existing=True
+        id='live_news_feed_job', name='Live Real-Time IT News Feed', replace_existing=True
     )
 
     # ── Mon/Thu Partitioned Sweeps ──
     # 09:00 UTC - Partition 1: Social Sweep
     scheduler.add_job(
         run_social_sweep, 'cron', day_of_week='mon,thu', hour=9, minute=0,
-        id='social_sweep_job', replace_existing=True
+        id='social_sweep_job', name='Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)', replace_existing=True
     )
     
     # 10:00 UTC - Partition 2: Technical Sweep
     scheduler.add_job(
         run_tech_sweep, 'cron', day_of_week='mon,thu', hour=10, minute=0,
-        id='tech_sweep_job', replace_existing=True
+        id='tech_sweep_job', name='Partition 2: Technical Trends (HackerNews, GitHub)', replace_existing=True
     )
 
     # 11:00 UTC - Partition 3: Jobs Sweep
     scheduler.add_job(
         run_jobs_sweep, 'cron', day_of_week='mon,thu', hour=11, minute=0,
-        id='jobs_sweep_job', replace_existing=True
+        id='jobs_sweep_job', name='Partition 3: ATS Tech Jobs (Teamtailor)', replace_existing=True
     )
 
     # 12:00 UTC - Partition 4: Final Synthesis
     scheduler.add_job(
         run_synthesis, 'cron', day_of_week='mon,thu', hour=12, minute=0,
-        id='synthesis_job', replace_existing=True
+        id='synthesis_job', name='Partition 4: AI Mathematical Synthesis (Clustering & Eras)', replace_existing=True
     )
 
     # 03:00 UTC Daily - Database Retention Cleanup (prevent storage exhaustion)
     scheduler.add_job(
         cleanup_stale_data, 'cron', hour=3, minute=0,
-        id='db_cleanup_job', replace_existing=True
+        id='db_cleanup_job', name='PostgreSQL Retention & Disk Cleanup', replace_existing=True
     )
 
     # ── Weekly Developer Salary Benchmark Sweep (Sundays at 02:00 UTC) ──
     scheduler.add_job(
         run_salary_sweep, 'cron', day_of_week='sun', hour=2, minute=0,
-        id='salary_sweep_job', replace_existing=True
+        id='salary_sweep_job', name='Developer Salary Benchmark Sweep', replace_existing=True
     )
 
+    _global_scheduler = scheduler
     return scheduler
 
 
