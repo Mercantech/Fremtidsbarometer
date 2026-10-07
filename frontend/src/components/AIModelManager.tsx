@@ -184,15 +184,15 @@ export const AIModelManager: React.FC = () => {
             />
 
             {/* Сноска по API токенам */}
-            <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1.5">
-              <div className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+            <div className="token-footnote">
+              <div className="token-footnote-title">
                 <span>ℹ️</span>
                 <span>Сноска / Примечание по токенам:</span>
               </div>
-              <p className="m-0 text-slate-700 dark:text-slate-300">
+              <p>
                 • <strong>Пустое</strong> — модель автоматически использует системный ключ из <code>.env</code> (удобно, не надо дублировать).
               </p>
-              <p className="m-0 text-slate-700 dark:text-slate-300">
+              <p>
                 • <strong>Заполненное</strong> — модель использует свой собственный персональный токен (сохраняется в зашифрованном виде в БД). Это позволяет подключать чужие ключи, отдельные лимиты или сторонние шлюзы (Groq, Together AI, OpenRouter).
               </p>
             </div>

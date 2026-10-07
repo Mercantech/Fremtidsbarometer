@@ -315,3 +315,40 @@ select {
   color: #721c24;
   border: 1px solid #f5c6cb;
 }
+
+/* ── Footnote / Callout ──────────────────────────────────── */
+
+.token-footnote {
+  margin-top: 0.65rem;
+  padding: 0.75rem 1rem;
+  background-color: #fefce8;
+  border: 1px solid #fef08a;
+  border-left: 4px solid #ca8a04;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #713f12;
+}
+
+.token-footnote-title {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  color: #854d0e;
+}
+
+.token-footnote p {
+  margin: 0.25rem 0 0 0;
+  color: #451a03;
+}
+
+.token-footnote code {
+  background-color: rgba(0, 0, 0, 0.06);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.9em;
+}
