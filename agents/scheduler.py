@@ -1,6 +1,8 @@
 import os
 import asyncio
 import logging
+import uuid
+import traceback
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
 from dotenv import load_dotenv
@@ -18,7 +20,7 @@ from agents.orchestrator import (
 )
 from agents.news_agent import NewsAgent
 from datetime import datetime, timedelta, timezone
-from database.models import SystemLog, RawScrapeData, SourceLog
+from database.models import SystemLog, RawScrapeData, SourceLog, PipelineExecution
 from database.session import get_session
 
 # Logging setup
@@ -79,6 +81,140 @@ def job_listener(event):
         logger.info(msg)
         log_to_db("INFO", "Scheduler", msg)
 
+
+def _create_execution_record(run_id: str, sweep: str, initial_step: str, started_at: datetime) -> None:
+    db = get_session()
+    try:
+        exec_record = PipelineExecution(
+            id=run_id,
+            sweep=sweep,
+            trigger_type="scheduled",
+            status="running",
+            current_step=initial_step,
+            force=0,
+            started_at=started_at,
+        )
+        db.add(exec_record)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to record scheduled start for {run_id}: {e}")
+    finally:
+        db.close()
+
+
+def _update_execution_success(run_id: str, finished_at: datetime, duration_sec: float) -> None:
+    db = get_session()
+    try:
+        rec = db.query(PipelineExecution).filter(PipelineExecution.id == run_id).first()
+        if rec:
+            rec.status = "completed"
+            rec.current_step = "Completed successfully"
+            rec.finished_at = finished_at
+            rec.duration_sec = duration_sec
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to record scheduled completion for {run_id}: {e}")
+    finally:
+        db.close()
+
+
+def _update_execution_failure(
+    run_id: str,
+    sweep: str,
+    finished_at: datetime,
+    duration_sec: float,
+    error: Exception,
+    tb_str: str,
+) -> None:
+    db = get_session()
+    try:
+        err_msg = str(error)
+        rec = db.query(PipelineExecution).filter(PipelineExecution.id == run_id).first()
+        if rec:
+            rec.status = "failed"
+            rec.finished_at = finished_at
+            rec.duration_sec = duration_sec
+            rec.error_message = err_msg
+            rec.current_step = f"Failed: {err_msg[:180]}"
+
+        # Save error into SystemLog table
+        sys_log = SystemLog(
+            level="ERROR",
+            component=f"Scheduler-{sweep}",
+            message=f"Scheduled sweep '{sweep}' ({run_id}) failed: {err_msg}",
+            traceback=tb_str,
+        )
+        db.add(sys_log)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to record scheduled failure for {run_id}: {e}")
+    finally:
+        db.close()
+
+
+def _update_execution_aborted(run_id: str, finished_at: datetime, duration_sec: float) -> None:
+    db = get_session()
+    try:
+        rec = db.query(PipelineExecution).filter(PipelineExecution.id == run_id).first()
+        if rec:
+            rec.status = "aborted"
+            rec.finished_at = finished_at
+            rec.duration_sec = duration_sec
+            rec.current_step = "Aborted or cancelled"
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to record scheduled abort for {run_id}: {e}")
+    finally:
+        db.close()
+
+
+def tracked_scheduled_job(sweep: str, initial_step: str, func):
+    """
+    Wraps a scheduled task function (sync or async) to record execution lifecycle
+    into the PipelineExecution table and handle error logging.
+    """
+    is_coroutine = asyncio.iscoroutinefunction(func)
+
+    async def async_wrapper(*args, **kwargs):
+        start_t = datetime.now(timezone.utc)
+        run_id = f"pipe-sched-{sweep}-{start_t.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}"
+        logger.info(f"Starting scheduled execution '{run_id}' for sweep '{sweep}'")
+        _create_execution_record(run_id, sweep, initial_step, start_t)
+
+        try:
+            if is_coroutine:
+                result = await func(*args, **kwargs)
+            else:
+                result = func(*args, **kwargs)
+
+            end_t = datetime.now(timezone.utc)
+            dur = round((end_t - start_t).total_seconds(), 1)
+            _update_execution_success(run_id, end_t, dur)
+            logger.info(f"Completed scheduled execution '{run_id}' (duration: {dur}s)")
+            return result
+        except asyncio.CancelledError:
+            end_t = datetime.now(timezone.utc)
+            dur = round((end_t - start_t).total_seconds(), 1)
+            _update_execution_aborted(run_id, end_t, dur)
+            logger.warning(f"Scheduled execution '{run_id}' was cancelled (duration: {dur}s)")
+            raise
+        except Exception as e:
+            end_t = datetime.now(timezone.utc)
+            dur = round((end_t - start_t).total_seconds(), 1)
+            tb_str = traceback.format_exc()
+            _update_execution_failure(run_id, sweep, end_t, dur, e, tb_str)
+            logger.error(f"Scheduled execution '{run_id}' failed: {e}\n{tb_str}")
+            raise
+
+    async_wrapper.__name__ = getattr(func, '__name__', f"scheduled_{sweep}")
+    async_wrapper.__doc__ = getattr(func, '__doc__', None)
+    return async_wrapper
+
+
 _global_scheduler: Optional[AsyncIOScheduler] = None
 
 def get_scheduler() -> Optional[AsyncIOScheduler]:
@@ -109,44 +245,51 @@ def create_configured_scheduler(loop=None) -> AsyncIOScheduler:
     # ── Live Real-Time IT News Feed (Every 15 minutes) ──
     news_agent = NewsAgent()
     scheduler.add_job(
-        news_agent.fetch_news, 'interval', minutes=15,
+        tracked_scheduled_job("news", "Fetching Live Real-Time News (RSS feeds)", news_agent.fetch_news),
+        'interval', minutes=15,
         id='live_news_feed_job', name='Live Real-Time IT News Feed', replace_existing=True
     )
 
     # ── Mon/Thu Partitioned Sweeps ──
     # 09:00 UTC - Partition 1: Social Sweep
     scheduler.add_job(
-        run_social_sweep, 'cron', day_of_week='mon,thu', hour=9, minute=0,
+        tracked_scheduled_job("social", "Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)", run_social_sweep),
+        'cron', day_of_week='mon,thu', hour=9, minute=0,
         id='social_sweep_job', name='Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)', replace_existing=True
     )
     
     # 10:00 UTC - Partition 2: Technical Sweep
     scheduler.add_job(
-        run_tech_sweep, 'cron', day_of_week='mon,thu', hour=10, minute=0,
+        tracked_scheduled_job("tech", "Partition 2: Technical Trends (HackerNews, GitHub)", run_tech_sweep),
+        'cron', day_of_week='mon,thu', hour=10, minute=0,
         id='tech_sweep_job', name='Partition 2: Technical Trends (HackerNews, GitHub)', replace_existing=True
     )
 
     # 11:00 UTC - Partition 3: Jobs Sweep
     scheduler.add_job(
-        run_jobs_sweep, 'cron', day_of_week='mon,thu', hour=11, minute=0,
+        tracked_scheduled_job("jobs", "Partition 3: ATS Tech Jobs (Teamtailor)", run_jobs_sweep),
+        'cron', day_of_week='mon,thu', hour=11, minute=0,
         id='jobs_sweep_job', name='Partition 3: ATS Tech Jobs (Teamtailor)', replace_existing=True
     )
 
     # 12:00 UTC - Partition 4: Final Synthesis
     scheduler.add_job(
-        run_synthesis, 'cron', day_of_week='mon,thu', hour=12, minute=0,
+        tracked_scheduled_job("synthesis", "Partition 4: AI Mathematical Synthesis (Clustering & Eras)", run_synthesis),
+        'cron', day_of_week='mon,thu', hour=12, minute=0,
         id='synthesis_job', name='Partition 4: AI Mathematical Synthesis (Clustering & Eras)', replace_existing=True
     )
 
     # 03:00 UTC Daily - Database Retention Cleanup (prevent storage exhaustion)
     scheduler.add_job(
-        cleanup_stale_data, 'cron', hour=3, minute=0,
+        tracked_scheduled_job("cleanup", "PostgreSQL Retention & Disk Cleanup", cleanup_stale_data),
+        'cron', hour=3, minute=0,
         id='db_cleanup_job', name='PostgreSQL Retention & Disk Cleanup', replace_existing=True
     )
 
     # ── Weekly Developer Salary Benchmark Sweep (Sundays at 02:00 UTC) ──
     scheduler.add_job(
-        run_salary_sweep, 'cron', day_of_week='sun', hour=2, minute=0,
+        tracked_scheduled_job("salary", "Developer Salary Benchmark Sweep", run_salary_sweep),
+        'cron', day_of_week='sun', hour=2, minute=0,
         id='salary_sweep_job', name='Developer Salary Benchmark Sweep', replace_existing=True
     )
 

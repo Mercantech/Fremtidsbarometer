@@ -72,22 +72,66 @@ export const PipelineControl: React.FC = () => {
     }
   }, []);
 
-  // Initial load and periodic polling (every 3s when active, 6s when idle)
+  // Optimized polling intervals: 10s when active, 25s when idle
+  const POLL_INTERVAL_ACTIVE = 10000;
+  const POLL_INTERVAL_IDLE = 25000;
+
+  // Initial load, periodic polling and tab visibility synchronization
   useEffect(() => {
     loadData();
-    const intervalTime = activeExecution ? 3000 : 6000;
-    const interval = setInterval(loadData, intervalTime);
-    return () => clearInterval(interval);
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const intervalTime = activeExecution ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+
+    const startPolling = () => {
+      if (timer !== null) return;
+      timer = setInterval(() => {
+        if (!document.hidden) {
+          loadData();
+        }
+      }, intervalTime);
+    };
+
+    const stopPolling = () => {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Tab restored: immediately sync with backend and restart polling interval
+        loadData();
+        startPolling();
+      }
+    };
+
+    // Only start polling interval if tab is currently visible
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [loadData, activeExecution]);
 
-  // Live timer tick for active process
+  // Live timer tick for active process (pauses if tab is hidden)
   useEffect(() => {
     if (!activeExecution) {
       setElapsedTimer(0);
       return;
     }
     const timer = setInterval(() => {
-      setElapsedTimer((prev) => prev + 1);
+      if (!document.hidden) {
+        setElapsedTimer((prev) => prev + 1);
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, [activeExecution]);
@@ -103,10 +147,11 @@ export const PipelineControl: React.FC = () => {
 
       if (result.status === 'dispatched') {
         setSuccess(result.message);
-        await loadData();
       } else {
         setError('Failed to dispatch pipeline');
       }
+      // Immediate fetch after triggering
+      await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to trigger pipeline');
     } finally {
@@ -120,10 +165,13 @@ export const PipelineControl: React.FC = () => {
       return;
     }
     try {
+      // Optimistic update: immediately drop active execution in UI
+      setActiveExecution((prev) => (prev?.id === executionId ? null : prev));
       await abortPipelineExecution(executionId);
       await loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to abort execution');
+      await loadData();
     }
   };
 
@@ -131,6 +179,10 @@ export const PipelineControl: React.FC = () => {
   const handleToggleJobPause = async (job: ScheduledJob) => {
     try {
       setActionJobId(job.id);
+      // Optimistic update of job pause status
+      setScheduledJobs((prev) =>
+        prev.map((j) => (j.id === job.id ? { ...j, is_paused: !job.is_paused } : j))
+      );
       if (job.is_paused) {
         await resumeScheduledJob(job.id);
       } else {
@@ -139,6 +191,7 @@ export const PipelineControl: React.FC = () => {
       await loadData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update job status');
+      await loadData();
     } finally {
       setActionJobId(null);
     }
