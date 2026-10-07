@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 
@@ -137,3 +137,66 @@ def get_sources_telemetry(db: Session = Depends(get_db)):
         "recent_errors_24h": len(recent_errors),
         "sources": sources_data
     }
+
+
+@router.get("/sources/telemetry/history")
+def get_sources_telemetry_history(
+    hours: int = Query(24, ge=1, le=168, description="History window in hours (1-168)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns hourly error buckets for the requested time window.
+    Used to power the telemetry bar/area chart in the Admin UI.
+    Response: list of { hour: ISO string, total_errors, blocked_403, other_errors, sources_affected }
+    """
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(hours=hours)
+
+    rows = db.query(SourceLog).filter(SourceLog.created_at >= since).all()
+
+    # Build hourly buckets
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for h in range(hours):
+        bucket_time = now - timedelta(hours=hours - h - 1)
+        key = bucket_time.strftime("%Y-%m-%dT%H:00:00Z")
+        buckets[key] = {
+            "hour": key,
+            "label": bucket_time.strftime("%H:%M"),
+            "total_errors": 0,
+            "blocked_403": 0,
+            "other_errors": 0,
+            "sources_affected": set(),
+        }
+
+    for log in rows:
+        if log.created_at is None:
+            continue
+        log_dt = log.created_at
+        if log_dt.tzinfo is None:
+            log_dt = log_dt.replace(tzinfo=timezone.utc)
+        key = log_dt.strftime("%Y-%m-%dT%H:00:00Z")
+        if key not in buckets:
+            continue
+        b = buckets[key]
+        b["total_errors"] += 1
+        if log.http_status == 403 or "403" in (log.error_message or ""):
+            b["blocked_403"] += 1
+        else:
+            b["other_errors"] += 1
+        if log.data_source_id:
+            b["sources_affected"].add(log.data_source_id)
+
+    result = []
+    for key in sorted(buckets.keys()):
+        b = buckets[key]
+        result.append({
+            "hour": b["hour"],
+            "label": b["label"],
+            "total_errors": b["total_errors"],
+            "blocked_403": b["blocked_403"],
+            "other_errors": b["other_errors"],
+            "sources_affected": len(b["sources_affected"]),
+        })
+
+    return {"history": result, "window_hours": hours}
+

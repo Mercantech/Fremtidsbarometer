@@ -277,6 +277,29 @@ export const fetchSourceTelemetry = async (): Promise<SourceTelemetry> => {
   return response.data;
 };
 
+// ── Source Telemetry History (time-series) ───────────────────
+export interface TelemetryHistoryBucket {
+  hour: string;       // ISO string "2024-01-01T14:00:00Z"
+  label: string;      // "14:00"
+  total_errors: number;
+  blocked_403: number;
+  other_errors: number;
+  sources_affected: number;
+}
+
+export interface TelemetryHistory {
+  history: TelemetryHistoryBucket[];
+  window_hours: number;
+}
+
+export const fetchSourceTelemetryHistory = async (hours: number = 24): Promise<TelemetryHistory> => {
+  const response = await adminApi.get('/api/admin/sources/telemetry/history', {
+    params: { hours },
+  });
+  return response.data;
+};
+
+
 // ── Pipeline Control ────────────────────────────────
 export interface PipelineResponse {
   status: 'dispatched' | 'error';
