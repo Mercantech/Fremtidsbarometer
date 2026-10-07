@@ -10,7 +10,7 @@ import {
 import '../styles/admin.css';
 
 const TASK_TYPES = ['social_extraction', 'tech_extraction', 'jobs_extraction', 'final_synthesis'];
-const PROVIDERS = ['google', 'openai', 'mistral', 'azure', 'custom'];
+const PROVIDERS = ['google', 'openai', 'anthropic', 'mistral', 'groq', 'custom'];
 
 export const AIModelManager: React.FC = () => {
   const [models, setModels] = useState<AIModelConfig[]>([]);
@@ -21,6 +21,7 @@ export const AIModelManager: React.FC = () => {
     task_type: TASK_TYPES[0],
     model_name: '',
     provider: PROVIDERS[0],
+    api_key: '',
     is_active: 0,
     is_fallback: 0,
   });
@@ -45,7 +46,7 @@ export const AIModelManager: React.FC = () => {
   const handleCreate = async () => {
     try {
       if (!formData.model_name.trim()) {
-        setError('Model name is required');
+        setError('Model name / ID is required');
         return;
       }
 
@@ -55,6 +56,7 @@ export const AIModelManager: React.FC = () => {
         task_type: TASK_TYPES[0],
         model_name: '',
         provider: PROVIDERS[0],
+        api_key: '',
         is_active: 0,
         is_fallback: 0,
       });
@@ -142,14 +144,17 @@ export const AIModelManager: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label>Model Name:</label>
+            <label>Model Identifier (Exact Model ID):</label>
             <input
               type="text"
-              placeholder="e.g., gemini-3.6-flash"
+              placeholder="e.g., gemini-3.8-flash, gpt-4o-mini, claude-3-5-sonnet"
               value={formData.model_name}
               onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
               className="form-input"
             />
+            <span className="text-[11px] text-slate-500 mt-1 block">
+              Specify the exact API model version ID (e.g. <code>gemini-3.8-flash</code> or <code>gpt-4o-mini</code>) to be utilized by the pipeline engine.
+            </span>
           </div>
 
           <div className="form-group">
@@ -157,37 +162,63 @@ export const AIModelManager: React.FC = () => {
             <select
               value={formData.provider}
               onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-              className="form-input"
+              className="form-input uppercase text-xs font-semibold"
             >
               {PROVIDERS.map((provider) => (
                 <option key={provider} value={provider}>
-                  {provider}
+                  {provider.toUpperCase()}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label>
+            <label>API Key (Optional / Кастомный токен):</label>
+            <input
+              type="password"
+              placeholder="Leave empty to use .env key, or enter custom token..."
+              value={formData.api_key || ''}
+              onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+              className="form-input"
+              autoComplete="new-password"
+            />
+
+            {/* Сноска по API токенам */}
+            <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-900 dark:text-amber-200 leading-relaxed space-y-1.5">
+              <div className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                <span>ℹ️</span>
+                <span>Сноска / Примечание по токенам:</span>
+              </div>
+              <p className="m-0 text-slate-700 dark:text-slate-300">
+                • <strong>Пустое</strong> — модель автоматически использует системный ключ из <code>.env</code> (удобно, не надо дублировать).
+              </p>
+              <p className="m-0 text-slate-700 dark:text-slate-300">
+                • <strong>Заполненное</strong> — модель использует свой собственный персональный токен (сохраняется в зашифрованном виде в БД). Это позволяет подключать чужие ключи, отдельные лимиты или сторонние шлюзы (Groq, Together AI, OpenRouter).
+              </p>
+            </div>
+          </div>
+
+          <div className="form-group flex items-center gap-6 mt-3">
+            <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
               <input
                 type="checkbox"
                 checked={formData.is_active === 1}
                 onChange={(e) => setFormData({ ...formData, is_active: e.target.checked ? 1 : 0 })}
               />
-              Active
+              Set as Primary Active Model
             </label>
-            <label>
+            <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
               <input
                 type="checkbox"
                 checked={formData.is_fallback === 1}
                 onChange={(e) => setFormData({ ...formData, is_fallback: e.target.checked ? 1 : 0 })}
               />
-              Fallback
+              Set as Fallback Model
             </label>
           </div>
 
-          <button onClick={handleCreate} className="btn-primary">
-            Create Model
+          <button onClick={handleCreate} className="btn-primary mt-3">
+            + Register & Save Model
           </button>
         </div>
       )}
@@ -195,7 +226,7 @@ export const AIModelManager: React.FC = () => {
       <div className="models-section">
         {TASK_TYPES.map((taskType) => (
           <div key={taskType} className="task-group">
-            <h3 className="task-title">{taskType}</h3>
+            <h3 className="task-title capitalize">{taskType.replace('_', ' ')}</h3>
             {modelsByTask[taskType].length === 0 ? (
               <p className="no-data">No models configured for this task</p>
             ) : (
@@ -203,9 +234,18 @@ export const AIModelManager: React.FC = () => {
                 {modelsByTask[taskType].map((model) => (
                   <div key={model.id} className="model-item">
                     <div className="model-info">
-                      <div className="model-name">{model.model_name}</div>
-                      <div className="model-meta">
-                        <span className="provider-badge">{model.provider}</span>
+                      <div className="model-name font-mono font-bold text-sm text-slate-900">{model.model_name}</div>
+                      <div className="model-meta flex flex-wrap items-center gap-2 mt-1">
+                        <span className="provider-badge uppercase font-bold text-[10px]">{model.provider}</span>
+                        {model.has_custom_key ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200" title="Custom Token configured in database">
+                            🔑 Custom Token {model.masked_key ? `(${model.masked_key})` : ''}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200" title="Uses shared system key from .env">
+                            ⚙️ System (.env)
+                          </span>
+                        )}
                         {model.is_active === 1 && <span className="active-badge">✓ Active</span>}
                         {model.is_fallback === 1 && <span className="fallback-badge">⚡ Fallback</span>}
                       </div>

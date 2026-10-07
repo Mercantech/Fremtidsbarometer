@@ -108,6 +108,9 @@ export interface AIModelConfig {
   task_type: string;
   model_name: string;
   provider: string;
+  api_key?: string;
+  has_custom_key?: boolean;
+  masked_key?: string;
   is_active: number;
   is_fallback: number;
   created_at: string;
@@ -118,6 +121,7 @@ export interface CreateAIModelConfig {
   task_type: string;
   model_name: string;
   provider: string;
+  api_key?: string;
   is_active?: number;
   is_fallback?: number;
 }
@@ -125,6 +129,7 @@ export interface CreateAIModelConfig {
 export interface UpdateAIModelConfig {
   is_active?: number;
   is_fallback?: number;
+  api_key?: string;
 }
 
 export const fetchAIModels = async (

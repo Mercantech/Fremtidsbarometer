@@ -106,6 +106,8 @@ class AIModelConfigSchema(BaseModel):
     provider: str
     is_active: int
     is_fallback: int
+    has_custom_key: Optional[bool] = False
+    masked_key: Optional[str] = None
     created_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
@@ -115,6 +117,7 @@ class AIModelConfigCreateSchema(BaseModel):
     task_type: str
     model_name: str
     provider: str
+    api_key: Optional[str] = None
     is_active: int = 0
     is_fallback: int = 0
 
@@ -122,6 +125,7 @@ class AIModelConfigCreateSchema(BaseModel):
 class AIModelConfigUpdateSchema(BaseModel):
     is_active: Optional[int] = None
     is_fallback: Optional[int] = None
+    api_key: Optional[str] = None
 
 
 # --- Data Sources ---

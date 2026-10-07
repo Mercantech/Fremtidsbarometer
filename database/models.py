@@ -249,7 +249,8 @@ class AIModelConfig(Base):
     id          = Column(Integer, primary_key=True, autoincrement=True)
     task_type   = Column(String(50), nullable=False)   # "spam_filter", "synthesis", "translation"
     model_name  = Column(String(100), nullable=False)  # "gpt-4o-mini", "claude-3-haiku-20240307"
-    provider    = Column(String(50), nullable=False)   # "openai", "anthropic"
+    provider    = Column(String(50), nullable=False)   # "openai", "anthropic", "google"
+    api_key     = Column(String(500), nullable=True)   # Custom token (optional, falls back to .env if empty)
     is_active   = Column(Integer, default=1)           # 1=Primary, 0=Disabled
     is_fallback = Column(Integer, default=0)           # 1=Fallback if primary fails
     created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

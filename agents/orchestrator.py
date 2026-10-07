@@ -37,7 +37,11 @@ def get_active_model(db, task_type: str):
         logger.warning(f"No active or fallback model found for {task_type}. Falling back to default: {default_model}")
         return {"provider": "google", "model_name": default_model}
         
-    return {"provider": model_config.provider, "model_name": model_config.model_name}
+    return {
+        "provider": model_config.provider,
+        "model_name": model_config.model_name,
+        "api_key": getattr(model_config, "api_key", None),
+    }
 
 def get_data_source_status(db, keyword: str):
     """
