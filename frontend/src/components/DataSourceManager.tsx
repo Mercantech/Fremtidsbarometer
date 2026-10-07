@@ -231,17 +231,17 @@ export const DataSourceManager: React.FC = () => {
             </div>
           </div>
 
-          {/* Сноска по источникам */}
+          {/* Sources Footnote */}
           <div className="token-footnote">
             <div className="token-footnote-title">
               <span>ℹ️</span>
-              <span>Сноска / Примечание по источникам:</span>
+              <span>Source Notes & Guidelines:</span>
             </div>
             <p>
-              • <strong>RSS / Atom ленты</strong> (вакансии TeamTailor, новости Google News, блоги) считываются напрямую по XML URL без авторизации.
+              • <strong>RSS / Atom feeds</strong> (TeamTailor jobs, Google News, blogs) are parsed directly via XML URL without authentication.
             </p>
             <p>
-              • <strong>API и Скраперы</strong> (Reddit, GitHub, Lobste.rs, Dev.to) используют платформенные адаптеры. Указывайте прямые ссылки на сабреддиты или теги (например, <code>https://www.reddit.com/r/reactjs</code> или <code>https://dev.to/t/rust</code>).
+              • <strong>APIs & Scrapers</strong> (Reddit, GitHub, Lobste.rs, Dev.to) use platform adapters. Provide direct links to subreddits or tags (e.g., <code>https://www.reddit.com/r/reactjs</code> or <code>https://dev.to/t/rust</code>).
             </p>
           </div>
 
