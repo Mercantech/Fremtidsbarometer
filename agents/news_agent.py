@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import feedparser
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from dotenv import load_dotenv
 
 from database.models import NewsItem, DataSource
@@ -45,8 +46,18 @@ class NewsAgent:
             if not rss_candidates:
                 rss_candidates = [("Google News", self.primary_rss)] + self.fallback_rss
 
+            # Load existing keys into memory for fast deduplication before DB insert
+            existing_ids = set(r[0] for r in db.query(NewsItem.id).all())
+            existing_urls = set(r[0] for r in db.query(NewsItem.url).all() if r[0])
+            existing_title_sources = set(
+                (r[0].strip(), (r[1] or '').strip())
+                for r in db.query(NewsItem.title, NewsItem.source).all()
+                if r[0]
+            )
+
             new_items = 0
             successful_sources = 0
+            is_pg = getattr(db.bind, 'dialect', None) and db.bind.dialect.name == "postgresql"
 
             for candidate_name, candidate_url in rss_candidates:
                 try:
@@ -55,30 +66,52 @@ class NewsAgent:
                         successful_sources += 1
                         self.logger.info(f"Fetched {len(parsed.entries)} entries from {candidate_name} ({candidate_url})")
                         for entry in parsed.entries[:50]:
-                            url = entry.get("link", "")
+                            url = entry.get("link", "").strip()
                             if not url:
                                 continue
                                 
                             item_id = hashlib.sha256(url.encode('utf-8')).hexdigest()[:16]
-                            existing = db.query(NewsItem).filter(NewsItem.id == item_id).first()
-                            if existing:
+                            title = entry.get("title", "").strip()[:500]
+                            source = (entry.get("source", {}).get("title") or candidate_name).strip()[:100]
+
+                            if not title:
                                 continue
-                                
-                            title = entry.get("title", "")[:500]
+
+                            # Strict deduplication by ID, URL, and (title, source) pair
+                            if item_id in existing_ids or url in existing_urls or (title, source) in existing_title_sources:
+                                continue
+
+                            existing_ids.add(item_id)
+                            existing_urls.add(url)
+                            existing_title_sources.add((title, source))
+
                             pub_date = datetime.now(timezone.utc)
                             if hasattr(entry, 'published_parsed') and entry.published_parsed:
                                 pub_date = datetime.fromtimestamp(time.mktime(entry.published_parsed), tz=timezone.utc)
-                            
-                            new_item = NewsItem(
-                                id=item_id,
-                                title=title,
-                                url=url,
-                                source=entry.get("source", {}).get("title") or candidate_name,
-                                country="GLOBAL",
-                                score=0,
-                                created_at=pub_date
-                            )
-                            db.add(new_item)
+
+                            if is_pg:
+                                stmt = pg_insert(NewsItem).values(
+                                    id=item_id,
+                                    title=title,
+                                    url=url,
+                                    source=source,
+                                    country="GLOBAL",
+                                    score=0,
+                                    created_at=pub_date
+                                ).on_conflict_do_nothing()
+                                db.execute(stmt)
+                            else:
+                                new_item = NewsItem(
+                                    id=item_id,
+                                    title=title,
+                                    url=url,
+                                    source=source,
+                                    country="GLOBAL",
+                                    score=0,
+                                    created_at=pub_date
+                                )
+                                db.add(new_item)
+
                             new_items += 1
                 except Exception as ex:
                     self.logger.warning(f"Failed to fetch RSS from {candidate_name} ({candidate_url}): {ex}")
@@ -91,6 +124,9 @@ class NewsAgent:
                 db.commit()
                 self.logger.info(f"Added {new_items} new news items from {successful_sources} sources. News database updated successfully.")
             except IntegrityError as e:
+                db.rollback()
+                self.logger.warning(f"Integrity warning on news commit: {e}.")
+            except Exception as e:
                 db.rollback()
                 self.logger.error(f"Commit failed: {e}")
                 raise e
