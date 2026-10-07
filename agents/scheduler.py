@@ -86,16 +86,22 @@ def get_scheduler() -> Optional[AsyncIOScheduler]:
     global _global_scheduler
     return _global_scheduler
 
-def create_configured_scheduler() -> AsyncIOScheduler:
+def create_configured_scheduler(loop=None) -> AsyncIOScheduler:
     """
     Creates and configures the AsyncIOScheduler instance with all recurring jobs.
     Does not start the scheduler, allowing external lifecycle management (e.g., FastAPI lifespan).
     """
     global _global_scheduler
-    if _global_scheduler is not None and _global_scheduler.running:
+    if _global_scheduler is not None and getattr(_global_scheduler, "running", False):
         return _global_scheduler
 
-    scheduler = AsyncIOScheduler(timezone=pytz.UTC)
+    if loop is None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+    scheduler = AsyncIOScheduler(timezone=pytz.UTC, event_loop=loop)
 
     # Add event listener for DB logging
     scheduler.add_listener(job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)

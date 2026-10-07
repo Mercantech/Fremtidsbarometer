@@ -66,3 +66,11 @@ def test_scheduler_jobs_management():
     )
     assert res_interval.status_code == 200
     assert res_interval.json()["interval_minutes"] == 30
+
+    # 5. Toggle scheduler pause & resume
+    res_toggle1 = client.post("/api/admin/scheduler/toggle", headers=ADMIN_HEADERS)
+    assert res_toggle1.status_code == 200
+    assert res_toggle1.json()["status"] in ["started", "paused", "resumed"]
+
+    res_toggle2 = client.post("/api/admin/scheduler/toggle", headers=ADMIN_HEADERS)
+    assert res_toggle2.status_code == 200

@@ -67,8 +67,16 @@ SCHEDULED_JOBS_METADATA = {
 
 def _get_active_scheduler():
     sched = get_scheduler()
-    if sched is None:
-        sched = create_configured_scheduler()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if sched is None or not getattr(sched, "running", False):
+        sched = create_configured_scheduler(loop=loop)
+    elif loop is not None and (getattr(sched, "_eventloop", None) is None or getattr(sched._eventloop, "is_closed", lambda: False)()):
+        sched._eventloop = loop
+
     return sched
 
 
@@ -375,7 +383,7 @@ async def trigger_pipeline(
 
 # ── 4. Scheduler Management ────────────────────────────────────────
 @router.get("/scheduler/jobs")
-def get_scheduled_jobs():
+async def get_scheduled_jobs():
     """
     Returns list of all automated recurring pipeline jobs, their next execution times,
     schedules, and paused/active statuses.
@@ -422,7 +430,7 @@ def get_scheduled_jobs():
 
 
 @router.post("/scheduler/jobs/{job_id}/pause")
-def pause_scheduled_job(job_id: str):
+async def pause_scheduled_job(job_id: str):
     """
     Pauses a recurring scheduled job.
     """
@@ -441,11 +449,19 @@ def pause_scheduled_job(job_id: str):
 
 
 @router.post("/scheduler/jobs/{job_id}/resume")
-def resume_scheduled_job(job_id: str):
+async def resume_scheduled_job(job_id: str):
     """
     Resumes a paused recurring scheduled job.
     """
     sched = _get_active_scheduler()
+    if not getattr(sched, "running", False):
+        try:
+            loop = asyncio.get_running_loop()
+            sched = create_configured_scheduler(loop=loop)
+            sched.start()
+        except Exception as e:
+            logger.error(f"Failed to start scheduler on job resume: {e}")
+
     job = sched.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
@@ -465,7 +481,7 @@ class UpdateIntervalRequest(BaseModel):
 
 
 @router.post("/scheduler/jobs/{job_id}/update-interval")
-def update_scheduled_job_interval(job_id: str, payload: UpdateIntervalRequest):
+async def update_scheduled_job_interval(job_id: str, payload: UpdateIntervalRequest):
     """
     Updates the interval frequency (in minutes) for an interval-based job.
     """
@@ -522,16 +538,19 @@ async def run_scheduled_job_now(
 
 
 @router.post("/scheduler/toggle")
-def toggle_scheduler():
+async def toggle_scheduler():
     """
     Toggles the entire background scheduler (starts if stopped, pauses/resumes if running).
     """
     sched = _get_active_scheduler()
     if not getattr(sched, "running", False):
         try:
+            loop = asyncio.get_running_loop()
+            sched._eventloop = loop
             sched.start()
             return {"status": "started", "scheduler_running": True, "message": "Scheduler started successfully."}
         except Exception as e:
+            logger.error(f"Failed to start scheduler: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Failed to start scheduler: {e}")
     else:
         # Pause or resume jobs
@@ -539,12 +558,18 @@ def toggle_scheduler():
         any_paused = any(getattr(j, "next_run_time", None) is None for j in all_jobs)
         if any_paused:
             for j in all_jobs:
-                j.resume()
+                try:
+                    j.resume()
+                except Exception as e:
+                    logger.warning(f"Error resuming job {j.id}: {e}")
             return {"status": "resumed", "scheduler_running": True, "message": "All scheduled jobs resumed."}
         else:
             for j in all_jobs:
-                j.pause()
-            return {"status": "paused", "scheduler_running": True, "message": "All scheduled jobs paused."}
+                try:
+                    j.pause()
+                except Exception as e:
+                    logger.warning(f"Error pausing job {j.id}: {e}")
+            return {"status": "paused", "scheduler_running": False, "message": "All scheduled jobs paused."}
 
 
 # ── 5. Retention Cleanup & Seeding ─────────────────────────────────
