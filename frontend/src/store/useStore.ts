@@ -19,6 +19,14 @@ export interface LiveTopic {
   topic: string;
   details: string;
   color: string;
+  meta?: {
+    company?: string;
+    source?: string;
+    medianSalary?: number;
+    currency?: string;
+    url?: string;
+    tech?: string;
+  };
 }
 
 interface AppState {
@@ -187,7 +195,13 @@ export const useStore = create<AppState>()(
               type: 'job',
               topic: j.title,
               details: `${j.company || 'Unknown'} — ${j.city || 'Remote'} (${country})`,
-              color: SEMANTIC_COLORS.job
+              color: SEMANTIC_COLORS.job,
+              meta: {
+                company: j.company,
+                source: j.source,
+                url: j.url,
+                tech: j.technology,
+              }
             });
           });
 
@@ -204,7 +218,11 @@ export const useStore = create<AppState>()(
               type: 'hype',
               topic: h.topic,
               details: `${h.summary || 'No details'}\nTrend Score: ${h.score ?? 'N/A'}%`,
-              color: SEMANTIC_COLORS.hype
+              color: SEMANTIC_COLORS.hype,
+              meta: {
+                source: 'Community Discussions',
+                tech: h.topic,
+              }
             });
           });
 
@@ -219,7 +237,13 @@ export const useStore = create<AppState>()(
               type: 'salary',
               topic: s.role || s.technology,
               details: `${s.source}\nMedian: ${s.median ?? 'N/A'} ${s.currency || 'USD'}`,
-              color: SEMANTIC_COLORS.salary
+              color: SEMANTIC_COLORS.salary,
+              meta: {
+                source: s.source,
+                medianSalary: s.median,
+                currency: s.currency || 'USD',
+                tech: s.technology,
+              }
             });
           });
 
