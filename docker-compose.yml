@@ -38,7 +38,10 @@ services:
       retries: 12
       start_period: 40s
     networks:
-      - default
+      default:
+        # Unikt alias: hostname "api" kolliderer med andre apps på dokploy-network
+        aliases:
+          - fremtidsbarometer-api
 
   scheduler:
     build:
