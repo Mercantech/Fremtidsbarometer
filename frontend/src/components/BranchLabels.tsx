@@ -17,41 +17,15 @@ export const BranchLabels: React.FC = () => {
   const activeFilters = useStore((s) => s.activeFilters);
   const setSelectedTopic = useStore((s) => s.setSelectedTopic);
 
-  // Curate prominent diverse labels for the 3D globe to avoid visual crowding
+  // Filter all live topics matching active filters (unified with FlatMapView)
   const filteredTopics = React.useMemo(() => {
-    const active = liveTopics.filter(t => activeFilters.includes(t.type));
-    const hypes = active.filter(t => t.type === 'hype');
-    
-    // Select diverse jobs across different countries (up to 3)
-    const jobs = active.filter(t => t.type === 'job');
-    const selectedJobs: typeof jobs = [];
-    const seenJobCountries = new Set<string>();
-    for (const j of jobs) {
-      if (!seenJobCountries.has(j.country) || selectedJobs.length < 2) {
-        selectedJobs.push(j);
-        seenJobCountries.add(j.country);
-        if (selectedJobs.length >= 3) break;
-      }
-    }
-
-    // Select diverse salaries across different regions (up to 3)
-    const salaries = active.filter(t => t.type === 'salary');
-    const selectedSalaries: typeof salaries = [];
-    const seenSalaryCountries = new Set<string>();
-    for (const s of salaries) {
-      if (!seenSalaryCountries.has(s.country) || selectedSalaries.length < 2) {
-        selectedSalaries.push(s);
-        seenSalaryCountries.add(s.country);
-        if (selectedSalaries.length >= 3) break;
-      }
-    }
-
-    return [...hypes, ...selectedJobs, ...selectedSalaries];
+    return liveTopics.filter((t) => activeFilters.includes(t.type));
   }, [liveTopics, activeFilters]);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const labelEls = useRef<HTMLDivElement[]>([]);
+  const pillEls = useRef<HTMLDivElement[]>([]);
   const lineEls = useRef<SVGLineElement[]>([]);
   const currentPosRef = useRef<{x: number, y: number}[]>([]);
   const animRef = useRef<number>(0);
@@ -101,26 +75,33 @@ export const BranchLabels: React.FC = () => {
     svg.innerHTML = '';
     wrap.innerHTML = '';
     labelEls.current = [];
+    pillEls.current = [];
     lineEls.current = [];
     currentPosRef.current = [];
     const timers: number[] = [];
 
     filteredTopics.forEach((t, i) => {
       const div = document.createElement('div');
-      div.className = 'branch-label';
+      div.className = 'branch-label pointer-events-none select-none max-w-[200px] sm:max-w-[240px]';
       div.style.opacity = '0';
-      div.style.pointerEvents = 'auto';
-      div.style.cursor = 'pointer';
+      div.style.pointerEvents = 'none';
       
       div.innerHTML = `
-        <div class="branch-pill hover:scale-105 transition-transform" style="border: 1px solid ${escapeHtml(t.color)}40; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);">
+        <div class="branch-pill pointer-events-auto cursor-pointer max-w-[180px] sm:max-w-[220px] overflow-hidden hover:scale-105 transition-transform" style="border: 1px solid ${escapeHtml(t.color)}40; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);">
           <div class="branch-dot" style="background:${escapeHtml(t.color)}; box-shadow: 0 0 8px ${escapeHtml(t.color)}"></div>
-          <span style="color: #111; font-weight: 600;">${escapeHtml(t.topic)}</span>
+          <span class="truncate min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" style="color: #111; font-weight: 600;" title="${escapeHtml(t.topic)}">${escapeHtml(t.topic)}</span>
         </div>
-        <div class="branch-country" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1)">${escapeHtml(t.country)}</div>
+        <div class="branch-country truncate max-w-[160px] overflow-hidden mx-auto" style="text-shadow: 0 2px 4px rgba(0,0,0,0.1)">${escapeHtml(t.country || '')}</div>
       `;
       
-      div.onclick = () => setSelectedTopic(t);
+      const pill = div.querySelector('.branch-pill') as HTMLDivElement | null;
+      if (pill) {
+        pill.onclick = (e) => {
+          e.stopPropagation();
+          setSelectedTopic(t);
+        };
+        pillEls.current.push(pill);
+      }
       
       wrap.appendChild(div);
       labelEls.current.push(div);
@@ -136,7 +117,7 @@ export const BranchLabels: React.FC = () => {
       const tid = window.setTimeout(() => {
         div.style.opacity = '1';
         line.setAttribute('opacity', '0.6');
-      }, 60 + i * 40);
+      }, Math.min(50 + i * 20, 600));
       timers.push(tid);
     });
 
@@ -197,6 +178,7 @@ export const BranchLabels: React.FC = () => {
       filteredTopics.forEach((_, i) => {
         const label = labelEls.current[i];
         const line = lineEls.current[i];
+        const pill = pillEls.current[i];
         if (!label || !line) return;
 
         const pos = positions[i];
@@ -205,6 +187,7 @@ export const BranchLabels: React.FC = () => {
           label.style.opacity = '0';
           line.setAttribute('opacity', '0');
           label.style.pointerEvents = 'none';
+          if (pill) pill.style.pointerEvents = 'none';
           return;
         }
 
@@ -238,7 +221,11 @@ export const BranchLabels: React.FC = () => {
         }
         
         label.style.opacity = String(fade);
-        label.style.pointerEvents = fade > 0.5 ? 'auto' : 'none';
+        label.style.pointerEvents = 'none';
+        if (pill) {
+          pill.style.pointerEvents = fade > 0.5 ? 'auto' : 'none';
+          pill.style.cursor = fade > 0.5 ? 'pointer' : 'default';
+        }
 
         line.setAttribute('x1', String(pos.x));
         line.setAttribute('y1', String(pos.y));
