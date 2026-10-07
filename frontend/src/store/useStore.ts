@@ -19,6 +19,7 @@ export interface LiveTopic {
   topic: string;
   details: string;
   color: string;
+  isInferred?: boolean;
   meta?: {
     company?: string;
     source?: string;
@@ -26,8 +27,17 @@ export interface LiveTopic {
     currency?: string;
     url?: string;
     tech?: string;
+    isInferred?: boolean;
   };
 }
+
+export type HypeTopicInput = HypeTopic & {
+  city?: string;
+  country?: string;
+  location_name?: string;
+  lat?: number;
+  lng?: number;
+};
 
 interface AppState {
   currentYear: number;
@@ -98,6 +108,93 @@ function resolveHypeLocation(topic: string, summary: string = ''): { city: strin
     return { city: 'San Francisco', country: 'US' };
   }
   return null;
+}
+
+// Key global tech hubs used for deterministic fallback distribution of hype topics
+const GLOBAL_TECH_HUBS: { city: string; country: string }[] = [
+  { city: 'London', country: 'UK' },
+  { city: 'Berlin', country: 'DE' },
+  { city: 'San Francisco', country: 'US' },
+  { city: 'Tokyo', country: 'JP' },
+  { city: 'Singapore', country: 'SG' },
+  { city: 'Stockholm', country: 'SE' },
+  { city: 'New York', country: 'US' },
+  { city: 'Copenhagen', country: 'DK' },
+  { city: 'Amsterdam', country: 'NL' },
+  { city: 'Paris', country: 'FR' },
+  { city: 'Zurich', country: 'CH' },
+  { city: 'Dublin', country: 'IE' },
+];
+
+/**
+ * Deterministic string hashing (djb2-style) to consistently map a topic to a stable tech hub.
+ */
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+interface ResolvedHypeLocation {
+  city?: string;
+  country: string;
+  lat: number;
+  lng: number;
+  isInferred: boolean;
+}
+
+function resolveHypeItemLocation(h: HypeTopicInput): ResolvedHypeLocation {
+  // 1. Explicit geographic coordinates provided by backend
+  if (typeof h.lat === 'number' && typeof h.lng === 'number' && !Number.isNaN(h.lat) && !Number.isNaN(h.lng)) {
+    return {
+      city: h.city || h.location_name,
+      country: h.country || 'GLOBAL',
+      lat: h.lat,
+      lng: h.lng,
+      isInferred: false,
+    };
+  }
+
+  // 2. Explicit city / country / location_name provided by backend
+  if (h.city || h.country || h.location_name) {
+    const country = h.country || 'GLOBAL';
+    const city = h.city || h.location_name;
+    const coords = resolveCoordinates(country, city);
+    return {
+      city,
+      country,
+      lat: coords.lat,
+      lng: coords.lng,
+      isInferred: false,
+    };
+  }
+
+  // 3. Keyword / semantic regex heuristic
+  const keywordHub = resolveHypeLocation(h.topic, h.summary || '');
+  if (keywordHub) {
+    const coords = resolveCoordinates(keywordHub.country, keywordHub.city);
+    return {
+      city: keywordHub.city,
+      country: keywordHub.country,
+      lat: coords.lat,
+      lng: coords.lng,
+      isInferred: true,
+    };
+  }
+
+  // 4. Deterministic fallback across key global tech hubs (guarantees zero dropped topics)
+  const hubIdx = hashString(h.topic || '') % GLOBAL_TECH_HUBS.length;
+  const fallback = GLOBAL_TECH_HUBS[hubIdx];
+  const coords = resolveCoordinates(fallback.country, fallback.city);
+  return {
+    city: fallback.city,
+    country: fallback.country,
+    lat: coords.lat,
+    lng: coords.lng,
+    isInferred: true,
+  };
 }
 
 // Fair job sampling: drop jobs without a real location, give every country at least one slot,
@@ -227,24 +324,24 @@ export const useStore = create<AppState>()(
             });
           });
 
-          // Map hype topics to live topics (topic-aware regional tech hubs)
-          hypeData.forEach((h) => {
-            const hub = resolveHypeLocation(h.topic, h.summary || '');
-            if (!hub) return;
-            const coords = resolveCoordinates(hub.country, hub.city);
+          // Map hype topics to live topics (backend geo -> semantic heuristic -> deterministic fallback)
+          hypeData.forEach((h: HypeTopicInput) => {
+            const loc = resolveHypeItemLocation(h);
             newLiveTopics.push({
               id: `hype-${idCounter++}`,
-              country: hub.country,
-              city: hub.city,
-              lat: coords.lat,
-              lng: coords.lng,
+              country: loc.country,
+              city: loc.city,
+              lat: loc.lat,
+              lng: loc.lng,
               type: 'hype',
               topic: h.topic,
               details: `${h.summary || 'No details'}\nTrend Score: ${h.score ?? 'N/A'}%`,
               color: SEMANTIC_COLORS.hype,
+              isInferred: loc.isInferred,
               meta: {
                 source: 'Community Discussions',
                 tech: h.topic,
+                isInferred: loc.isInferred,
               }
             });
           });
