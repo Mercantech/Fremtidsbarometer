@@ -34,6 +34,29 @@ adminApi.interceptors.response.use(
   }
 );
 
+export const getAdminErrorMessage = (error: unknown, fallback: string = 'Operation failed'): string => {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+    }
+    if (detail && typeof detail === 'object') {
+      return JSON.stringify(detail);
+    }
+    if (error.response?.data?.message) {
+      return String(error.response.data.message);
+    }
+    if (error.message) {
+      return error.message;
+    }
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return fallback;
+};
+
 // ── System Logs ──────────────────────────────────────
 export interface SystemLog {
   id: number;

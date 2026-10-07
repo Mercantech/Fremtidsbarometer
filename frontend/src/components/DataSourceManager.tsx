@@ -8,6 +8,7 @@ import {
   type CreateDataSource,
   fetchSourceTelemetry,
   type SourceTelemetry,
+  getAdminErrorMessage,
 } from '../services/adminApi';
 import '../styles/admin.css';
 
@@ -43,7 +44,7 @@ export const DataSourceManager: React.FC = () => {
       }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data sources');
+      setError(getAdminErrorMessage(err, 'Failed to load data sources'));
     } finally {
       setLoading(false);
     }
@@ -70,23 +71,31 @@ export const DataSourceManager: React.FC = () => {
 
   const handleCreate = async () => {
     try {
-      if (!formData.name.trim() || !formData.url.trim()) {
+      const trimmedName = formData.name.trim();
+      const trimmedUrl = formData.url.trim();
+
+      if (!trimmedName || !trimmedUrl) {
         setError('Name and URL are required');
         return;
       }
 
-      await createDataSource(formData);
+      await createDataSource({
+        ...formData,
+        name: trimmedName,
+        url: trimmedUrl,
+      });
       setShowForm(false);
       setFormData({
         name: '',
         url: '',
-        category: CATEGORIES[0],
+        category: selectedCategory || CATEGORIES[0],
         source_type: SOURCE_TYPES[0],
         is_active: 1,
       });
+      setError(null);
       await loadSources();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create data source');
+      setError(getAdminErrorMessage(err, 'Failed to create data source'));
     }
   };
 
@@ -95,7 +104,7 @@ export const DataSourceManager: React.FC = () => {
       await updateDataSource(sourceId, { is_active: currentActive === 1 ? 0 : 1 });
       await loadSources();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update data source');
+      setError(getAdminErrorMessage(err, 'Failed to update data source'));
     }
   };
 
@@ -105,7 +114,7 @@ export const DataSourceManager: React.FC = () => {
         await deleteDataSource(sourceId);
         await loadSources();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to delete data source');
+        setError(getAdminErrorMessage(err, 'Failed to delete data source'));
       }
     }
   };
@@ -134,7 +143,19 @@ export const DataSourceManager: React.FC = () => {
               Updating...
             </span>
           )}
-          <button onClick={() => setShowForm(!showForm)} className="btn-secondary">
+          <button
+            onClick={() => {
+              if (!showForm) {
+                setFormData((prev) => ({
+                  ...prev,
+                  category: selectedCategory || prev.category,
+                }));
+              }
+              setShowForm(!showForm);
+              setError(null);
+            }}
+            className="btn-secondary"
+          >
             {showForm ? '✕ Cancel' : '+ Add Source'}
           </button>
         </div>
@@ -241,7 +262,7 @@ export const DataSourceManager: React.FC = () => {
               • <strong>RSS / Atom feeds</strong> (TeamTailor jobs, Google News, blogs) are parsed directly via XML URL without authentication.
             </p>
             <p>
-              • <strong>APIs & Scrapers</strong> (Reddit, GitHub, Lobste.rs, Dev.to) use platform adapters. Provide direct links to subreddits or tags (e.g., <code>https://www.reddit.com/r/reactjs</code> or <code>https://dev.to/t/rust</code>).
+              • <strong>APIs & Scrapers</strong> (Reddit, GitHub, Lobste.rs, Dev.to, RemoteOK, Salary APIs) use platform adapters. For Salary APIs, provide REST endpoints that return developer compensation or job listings (e.g., <code>https://remoteok.com/api</code>).
             </p>
           </div>
 

@@ -173,7 +173,7 @@ async def run_jobs_sweep(db=None):
 
 async def run_salary_sweep(db=None):
     """
-    Run Salary Sweep: Aggregates real developer salary benchmarks from RemoteOK API.
+    Run Salary Sweep: Aggregates real developer salary benchmarks from registered Salary sources.
     """
     should_close = False
     if db is None:
@@ -182,12 +182,15 @@ async def run_salary_sweep(db=None):
 
     try:
         logger.info("=== Partition Salary: Developer Compensation Sweep ===")
-        is_active, source_id = get_data_source_status(db, "RemoteOK")
-        if not is_active:
-            logger.info("⏩ Salary sweep skipped: RemoteOK salary source is disabled in Admin Panel.")
+        active_sources = db.query(DataSource).filter(
+            DataSource.category == "salary",
+            DataSource.is_active == 1
+        ).all()
+        if not active_sources:
+            logger.info("⏩ Salary sweep skipped: All Salary data sources are disabled in Admin Panel.")
             return 0
         
-        count = await scrape_developer_salaries(db, source_id=source_id)
+        count = await scrape_developer_salaries(db)
         logger.info(f"Salary Sweep Complete: Updated {count} benchmarks.")
         return count
     except Exception as e:

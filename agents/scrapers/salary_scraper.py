@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from dotenv import load_dotenv
 load_dotenv()
 
-from database.models import SalaryData, JobPosting, RawScrapeData
+from database.models import SalaryData, JobPosting, RawScrapeData, DataSource, SourceLog
 from database.session import get_session
 from utils.logger import get_centralized_logger
 
@@ -77,34 +77,87 @@ async def scrape_developer_salaries(db=None, source_id: Optional[int] = None) ->
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Fremtidsbarometer/1.0"
     }
 
-    # 1. Fetch remote dev vacancies from RemoteOK API
-    try:
-        async with httpx.AsyncClient(headers=headers, timeout=20.0) as client:
-            resp = await client.get("https://remoteok.com/api")
-            if resp.status_code == 200:
-                jobs = resp.json()
-                # Skip first legal disclaimer object
-                for job in jobs[1:]:
-                    s_min = job.get("salary_min")
-                    s_max = job.get("salary_max")
-                    pos = job.get("position") or ""
-                    tags = [t.lower() for t in job.get("tags", []) if isinstance(t, str)]
+    # 1. Fetch remote dev vacancies from registered dynamic Salary data sources
+    active_sources = []
+    if source_id:
+        active_sources = db.query(DataSource).filter(DataSource.id == source_id, DataSource.is_active == 1).all()
+    else:
+        active_sources = db.query(DataSource).filter(DataSource.category == "salary", DataSource.is_active == 1).all()
 
-                    salary = None
-                    if s_min and s_max:
-                        salary = (float(s_min) + float(s_max)) / 2
-                    elif s_min:
-                        salary = float(s_min)
-                    elif s_max:
-                        salary = float(s_max)
+    # Fallback to default RemoteOK endpoint if no sources exist yet
+    if not active_sources:
+        logger.info("No active salary data sources found in database. Using default RemoteOK endpoint.")
+        active_sources = [DataSource(id=0, name="RemoteOK API Default", url="https://remoteok.com/api", source_type="api", category="salary", is_active=1)]
 
-                    if salary and 35000 <= salary <= 450000:
-                        cat = _classify_job(pos, tags)
-                        if cat:
-                            empirical_salaries[cat].append(salary)
-                logger.info(f"Collected {sum(len(v) for v in empirical_salaries.values())} empirical salary points from RemoteOK.")
-    except Exception as e:
-        logger.warning(f"RemoteOK salary fetch failed: {e}")
+    for src in active_sources:
+        if src.source_type == "api":
+            try:
+                async with httpx.AsyncClient(headers=headers, timeout=20.0, follow_redirects=True) as client:
+                    resp = await client.get(src.url)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        job_list = []
+                        if isinstance(data, list):
+                            job_list = data
+                        elif isinstance(data, dict):
+                            for key in ("jobs", "data", "results", "vacancies", "items"):
+                                if isinstance(data.get(key), list):
+                                    job_list = data[key]
+                                    break
+
+                        source_points = 0
+                        for job in job_list:
+                            if not isinstance(job, dict):
+                                continue
+                            s_min = job.get("salary_min") or job.get("min_salary") or job.get("salary_from")
+                            s_max = job.get("salary_max") or job.get("max_salary") or job.get("salary_to")
+                            pos = job.get("position") or job.get("title") or job.get("role") or ""
+                            raw_tags = job.get("tags") or job.get("skills") or job.get("keywords") or []
+                            if isinstance(raw_tags, list):
+                                tags = [str(t).lower() for t in raw_tags]
+                            elif isinstance(raw_tags, str):
+                                tags = [t.strip().lower() for t in raw_tags.split(",")]
+                            else:
+                                tags = []
+
+                            salary = None
+                            try:
+                                if s_min is not None and s_max is not None:
+                                    salary = (float(s_min) + float(s_max)) / 2
+                                elif s_min is not None:
+                                    salary = float(s_min)
+                                elif s_max is not None:
+                                    salary = float(s_max)
+                            except (ValueError, TypeError):
+                                salary = None
+
+                            if salary and 35000 <= salary <= 450000:
+                                cat = _classify_job(pos, tags)
+                                if cat:
+                                    empirical_salaries[cat].append(salary)
+                                    source_points += 1
+                        logger.info(f"Collected {source_points} salary points from [{src.name}] ({src.url}).")
+                    else:
+                        logger.warning(f"Salary API [{src.name}] returned HTTP status {resp.status_code}")
+                        if src.id and src.id > 0:
+                            db.add(SourceLog(
+                                data_source_id=src.id,
+                                error_message=f"HTTP {resp.status_code}: {resp.text[:200]}",
+                                http_status=resp.status_code
+                            ))
+                            db.commit()
+            except Exception as e:
+                logger.warning(f"Salary API fetch failed for [{src.name}]: {e}")
+                if src.id and src.id > 0:
+                    try:
+                        db.add(SourceLog(
+                            data_source_id=src.id,
+                            error_message=str(e)[:500],
+                            http_status=getattr(getattr(e, 'response', None), 'status_code', None)
+                        ))
+                        db.commit()
+                    except Exception:
+                        db.rollback()
 
     # 2. Also incorporate local JobPostings from DB with salary data if available
     try:

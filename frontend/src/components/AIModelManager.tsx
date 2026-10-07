@@ -6,6 +6,7 @@ import {
     deleteAIModel,
     type AIModelConfig,
     type CreateAIModelConfig,
+    getAdminErrorMessage,
 } from '../services/adminApi';
 import '../styles/admin.css';
 
@@ -37,7 +38,7 @@ export const AIModelManager: React.FC = () => {
       setModels(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load AI models');
+      setError(getAdminErrorMessage(err, 'Failed to load AI models'));
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export const AIModelManager: React.FC = () => {
       });
       await loadModels();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create AI model');
+      setError(getAdminErrorMessage(err, 'Failed to create AI model'));
     }
   };
 
@@ -71,7 +72,7 @@ export const AIModelManager: React.FC = () => {
       await updateAIModel(modelId, { is_active: currentActive === 1 ? 0 : 1 });
       await loadModels();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update AI model');
+      setError(getAdminErrorMessage(err, 'Failed to update AI model'));
     }
   };
 
@@ -80,7 +81,7 @@ export const AIModelManager: React.FC = () => {
       await updateAIModel(modelId, { is_fallback: currentFallback === 1 ? 0 : 1 });
       await loadModels();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update fallback status');
+      setError(getAdminErrorMessage(err, 'Failed to update fallback status'));
     }
   };
 
@@ -90,7 +91,7 @@ export const AIModelManager: React.FC = () => {
         await deleteAIModel(modelId);
         await loadModels();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to delete AI model');
+        setError(getAdminErrorMessage(err, 'Failed to delete AI model'));
       }
     }
   };
