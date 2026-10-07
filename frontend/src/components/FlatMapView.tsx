@@ -65,7 +65,8 @@ export const FlatMapView: React.FC = () => {
         {/* This handles clustering overlapping markers cleanly */}
         <MarkerClusterGroup 
           chunkedLoading 
-          maxClusterRadius={35} 
+          maxClusterRadius={25}
+          disableClusteringAtZoom={6}
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
         >

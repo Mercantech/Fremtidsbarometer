@@ -70,24 +70,16 @@ const SEMANTIC_COLORS = {
   salary: '#ffd000'  // Yellow: Money, stats, gold
 };
 
-const GLOBAL_TECH_HUBS = [
-  { city: 'San Francisco', country: 'US' },
-  { city: 'London', country: 'GB' },
-  { city: 'Tokyo', country: 'JP' },
-  { city: 'Berlin', country: 'DE' },
-  { city: 'New York', country: 'US' },
-  { city: 'Copenhagen', country: 'DK' },
-  { city: 'Singapore', country: 'SG' },
-  { city: 'Stockholm', country: 'SE' },
-  { city: 'Amsterdam', country: 'NL' },
-  { city: 'Seoul', country: 'KR' },
-  { city: 'Zurich', country: 'CH' },
-  { city: 'Sydney', country: 'AU' }
-];
-
-function resolveHypeLocation(topic: string, summary: string = ''): { city: string; country: string } {
+// Returns null when a topic has no real geographic anchor, so we never invent a location.
+function resolveHypeLocation(topic: string, summary: string = ''): { city: string; country: string } | null {
   const combined = (topic + ' ' + summary).toLowerCase();
-  if (/mistral|gdpr|eu |european|berlin|paris|asml/.test(combined)) {
+  if (/mistral|paris|france|french/.test(combined)) {
+    return { city: 'Paris', country: 'FR' };
+  }
+  if (/asml|netherlands|dutch|amsterdam/.test(combined)) {
+    return { city: 'Amsterdam', country: 'NL' };
+  }
+  if (/gdpr|eu |european|berlin|germany|german/.test(combined)) {
     return { city: 'Berlin', country: 'DE' };
   }
   if (/nordic|denmark|danish|sweden|scandinavia|copenhagen|stockholm/.test(combined)) {
@@ -105,8 +97,38 @@ function resolveHypeLocation(topic: string, summary: string = ''): { city: strin
   if (/openai|anthropic|google|silicon valley|meta|apple|ai |agent|llm/.test(combined)) {
     return { city: 'San Francisco', country: 'US' };
   }
-  const charCodeSum = topic.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return GLOBAL_TECH_HUBS[charCodeSum % GLOBAL_TECH_HUBS.length];
+  return null;
+}
+
+// Fair job sampling: drop jobs without a real location, give every country at least one slot,
+// scale slots by its real share of postings, and cap per country / per city to avoid clutter.
+function sampleJobsFairly<T extends { country?: string | null; city?: string | null }>(
+  jobs: T[], budget = 45, maxPerCountry = 8, maxPerCity = 3
+): T[] {
+  const located = jobs.filter((j) => j.country && j.country !== 'GLOBAL' && j.city && j.city !== 'Remote');
+  const byCountry = new Map<string, T[]>();
+  located.forEach((j) => {
+    const list = byCountry.get(j.country as string) ?? [];
+    list.push(j);
+    byCountry.set(j.country as string, list);
+  });
+
+  const result: T[] = [];
+  byCountry.forEach((list) => {
+    const quota = Math.min(maxPerCountry, Math.max(1, Math.round((list.length / located.length) * budget)));
+    const perCity = new Map<string, number>();
+    let taken = 0;
+    for (const j of list) {
+      if (taken >= quota) break;
+      const key = j.city as string;
+      const n = perCity.get(key) ?? 0;
+      if (n >= maxPerCity) continue;
+      perCity.set(key, n + 1);
+      result.push(j);
+      taken++;
+    }
+  });
+  return result;
 }
 
 import { persist } from 'zustand/middleware';
@@ -164,8 +186,8 @@ export const useStore = create<AppState>()(
             fetchNews(15),
             fetchTrends('GLOBAL', 10),
             fetchTrendsHistory('GLOBAL', 1960, 2034),
-            fetchJobs(20),
-            fetchHype(5),
+            fetchJobs(300),
+            fetchHype(15),
             fetchSalary(),
             fetchEras(),
             fetchCountries()
@@ -183,7 +205,7 @@ export const useStore = create<AppState>()(
           let idCounter = 0;
 
           // Map jobs to live topics
-          jobsData.forEach(j => {
+          sampleJobsFairly(jobsData).forEach(j => {
             const country = j.country || 'DK';
             const coords = resolveCoordinates(country, j.city);
             newLiveTopics.push({
@@ -208,6 +230,7 @@ export const useStore = create<AppState>()(
           // Map hype topics to live topics (topic-aware regional tech hubs)
           hypeData.forEach((h) => {
             const hub = resolveHypeLocation(h.topic, h.summary || '');
+            if (!hub) return;
             const coords = resolveCoordinates(hub.country, hub.city);
             newLiveTopics.push({
               id: `hype-${idCounter++}`,
