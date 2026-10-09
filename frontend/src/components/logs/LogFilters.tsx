@@ -1,4 +1,5 @@
 import type { DataSource } from '../../services/adminApi';
+import { RotateCcw } from 'lucide-react';
 
 interface SystemLogFiltersProps {
   logLevel?: string;
@@ -24,7 +25,7 @@ export function SystemLogFilters({
         <select
           value={logLevel || ''}
           onChange={(e) => onLevelChange(e.target.value || undefined)}
-          className="form-input"
+          className="form-input text-xs"
         >
           <option value="">All Levels</option>
           <option value="INFO">INFO</option>
@@ -39,7 +40,7 @@ export function SystemLogFilters({
         <select
           value={component || ''}
           onChange={(e) => onComponentChange(e.target.value || undefined)}
-          className="form-input"
+          className="form-input text-xs"
         >
           <option value="">All Components ({availableComponents.length})</option>
           {availableComponents.map((comp) => (
@@ -53,9 +54,11 @@ export function SystemLogFilters({
       {(logLevel || component) && (
         <button
           onClick={onReset}
-          className="btn-secondary text-xs px-2.5 py-1 text-slate-500 hover:text-slate-700"
+          className="btn-secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer self-end"
+          title="Reset filter values"
         >
-          Reset Filters
+          <RotateCcw className="w-3 h-3" />
+          <span>Reset</span>
         </button>
       )}
     </div>
@@ -119,9 +122,11 @@ export function SourceLogFilters({
       {(selectedSource !== undefined || statusCode !== undefined) && (
         <button
           onClick={onReset}
-          className="btn-secondary text-xs px-2.5 py-1 text-slate-500 hover:text-slate-700"
+          className="btn-secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer self-end"
+          title="Reset filter values"
         >
-          Reset Filters
+          <RotateCcw className="w-3 h-3" />
+          <span>Reset</span>
         </button>
       )}
     </div>

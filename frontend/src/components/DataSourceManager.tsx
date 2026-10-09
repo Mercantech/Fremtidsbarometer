@@ -10,6 +10,22 @@ import {
   type SourceTelemetry,
   getAdminErrorMessage,
 } from '../services/adminApi';
+import {
+  Radio,
+  Plus,
+  X,
+  Search,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  AlertOctagon,
+  Info,
+  Trash2,
+  Loader2,
+  Power,
+  Globe,
+} from 'lucide-react';
 import '../styles/admin.css';
 
 const CATEGORIES = ['jobs', 'social', 'tech', 'news', 'salary'];
@@ -128,18 +144,20 @@ export const DataSourceManager: React.FC = () => {
       <div className="card-header flex justify-between items-center">
         <div>
           <div className="flex items-center gap-3">
+            <Radio className="w-5 h-5 text-cyan-400" />
             <h2>Data Sources Management</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
               {sources.length} Channels ({activeCount} Active)
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-400 mt-1">
             Single Source of Truth: All scrapers and background agents query active feeds dynamically from this table.
           </p>
         </div>
         <div className="flex items-center gap-2">
           {loading && (
-            <span className="text-xs text-blue-600 font-medium animate-pulse">
+            <span className="text-xs text-cyan-400 font-medium animate-pulse flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Updating...
             </span>
           )}
@@ -156,26 +174,37 @@ export const DataSourceManager: React.FC = () => {
             }}
             className="btn-secondary"
           >
-            {showForm ? '✕ Cancel' : '+ Add Source'}
+            {showForm ? (
+              <>
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Plus className="w-3.5 h-3.5" />
+                Add Source
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="filter-section flex flex-wrap gap-4 items-center mb-4">
-        <div className="flex-1 min-w-[200px]">
+      <div className="filter-section flex flex-wrap gap-4 items-center mb-5">
+        <div className="flex-1 min-w-[220px] relative">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Search channels by name, URL, or keyword..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="form-input text-xs"
+            className="form-input text-xs pl-9!"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-600 whitespace-nowrap">Category:</label>
+          <label className="text-xs font-semibold text-slate-300 whitespace-nowrap">Category:</label>
           <select
             value={selectedCategory || ''}
             onChange={(e) => {
@@ -255,7 +284,7 @@ export const DataSourceManager: React.FC = () => {
           {/* Sources Footnote */}
           <div className="token-footnote">
             <div className="token-footnote-title">
-              <span>ℹ️</span>
+              <Info className="w-4 h-4 text-amber-400" />
               <span>Source Notes & Guidelines:</span>
             </div>
             <p>
@@ -267,7 +296,7 @@ export const DataSourceManager: React.FC = () => {
           </div>
 
           <div className="form-group mt-3">
-            <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
+            <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-300">
               <input
                 type="checkbox"
                 checked={formData.is_active === 1}
@@ -278,7 +307,8 @@ export const DataSourceManager: React.FC = () => {
           </div>
 
           <button onClick={handleCreate} className="btn-primary mt-2">
-            + Register & Save Source
+            <Plus className="w-3.5 h-3.5" />
+            Register & Save Source
           </button>
         </div>
       )}
@@ -292,64 +322,79 @@ export const DataSourceManager: React.FC = () => {
             return (
               <div key={source.id} className="source-item">
                 <div className="source-info">
-                  <div className="source-name font-semibold text-slate-900">{source.name}</div>
-                  <div className="source-meta flex items-center gap-2 mt-1">
+                  <div className="source-name font-semibold text-slate-100 flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-slate-400" />
+                    <span>{source.name}</span>
+                  </div>
+                  <div className="source-meta flex items-center gap-2 mt-1.5">
                     <span className="category-badge uppercase font-bold text-[10px]">{source.category}</span>
                     <span className="type-badge uppercase font-bold text-[10px]">{source.source_type}</span>
                     {source.is_active === 1 ? (
-                      <span className="active-badge">✓ Active</span>
+                      <span className="active-badge">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        Active
+                      </span>
                     ) : (
-                      <span className="inactive-badge">✗ Inactive</span>
+                      <span className="inactive-badge">
+                        <XCircle className="w-3 h-3 text-slate-400" />
+                        Inactive
+                      </span>
                     )}
 
                     {tel && (
                       tel.status === 'healthy' ? (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200" title="Channel is operating normally without errors">
-                          🟢 Operational
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1" title="Channel is operating normally without errors">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          Operational
                         </span>
                       ) : tel.status === 'blocked_403' ? (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300" title={`HTTP 403 Rate Limited: ${tel.last_error || ''}`}>
-                          ⚠️ 403 Rate Limited
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1" title={`HTTP 403 Rate Limited: ${tel.last_error || ''}`}>
+                          <AlertTriangle className="w-3 h-3 text-amber-400" />
+                          403 Rate Limited
                         </span>
                       ) : (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-200" title={`Error: ${tel.last_error || ''}`}>
-                          🔴 Failing ({tel.last_http_status ? `HTTP ${tel.last_http_status}` : 'Err'})
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-1" title={`Error: ${tel.last_error || ''}`}>
+                          <AlertOctagon className="w-3 h-3 text-rose-400" />
+                          Failing ({tel.last_http_status ? `HTTP ${tel.last_http_status}` : 'Err'})
                         </span>
                       )
                     )}
                   </div>
-                <div className="source-url mt-1">
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1"
-                    title="Open live source URL in new tab"
+                  <div className="source-url mt-1">
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 underline inline-flex items-center gap-1 transition"
+                      title="Open live source URL in new tab"
+                    >
+                      <span>{source.url}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                <div className="source-actions">
+                  <button
+                    onClick={() => handleToggleActive(source.id, source.is_active)}
+                    className={`btn-toggle ${source.is_active === 1 ? 'active' : 'inactive'}`}
                   >
-                    <span>{source.url}</span>
-                    <span className="text-[10px]">↗</span>
-                  </a>
+                    <Power className="w-3 h-3" />
+                    {source.is_active === 1 ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(source.id)}
+                    className="btn-danger"
+                    title="Delete data source"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
+                  </button>
                 </div>
               </div>
-
-              <div className="source-actions">
-                <button
-                  onClick={() => handleToggleActive(source.id, source.is_active)}
-                  className={`btn-toggle ${source.is_active === 1 ? 'active' : 'inactive'}`}
-                >
-                  {source.is_active === 1 ? 'Disable' : 'Enable'}
-                </button>
-                <button
-                  onClick={() => handleDelete(source.id)}
-                  className="btn-danger"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          );
-        })
-      )}
+            );
+          })
+        )}
       </div>
     </div>
   );

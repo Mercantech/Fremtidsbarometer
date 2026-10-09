@@ -13,6 +13,15 @@ import { SystemLogItem } from './logs/SystemLogItem';
 import { SourceLogItem } from './logs/SourceLogItem';
 import { LogsPagination } from './logs/LogsPagination';
 import { SourceTelemetryChart } from './logs/SourceTelemetryChart';
+import {
+  ScrollText,
+  RefreshCw,
+  Terminal,
+  Activity,
+  CheckCircle2,
+  FileText,
+  Loader2,
+} from 'lucide-react';
 import '../styles/admin.css';
 
 const PAGE_SIZE = 50;
@@ -88,25 +97,28 @@ export const LogsViewer: React.FC = () => {
     <div className="admin-card">
       <div className="card-header flex justify-between items-center">
         <div>
-          <h2>System & Source Logs</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <div className="flex items-center gap-2.5">
+            <ScrollText className="w-5 h-5 text-cyan-400" />
+            <h2>System & Source Logs</h2>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
             Real-time execution diagnostics, orchestrator logs, and error traces
           </p>
         </div>
         <div className="flex items-center gap-2">
           {loading && (
-            <span className="text-xs text-blue-600 font-medium animate-pulse flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+            <span className="text-xs text-cyan-400 font-medium animate-pulse flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Updating...
             </span>
           )}
           <button
             onClick={() => loadLogs()}
             disabled={loading}
-            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1 cursor-pointer"
+            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 cursor-pointer"
             title="Refresh logs from database"
           >
-            <span>🔄</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
@@ -119,13 +131,15 @@ export const LogsViewer: React.FC = () => {
           className={`tab-button ${activeTab === 'system' ? 'active' : ''}`}
           onClick={() => handleTabChange('system')}
         >
-          System Logs
+          <Terminal className="w-4 h-4" />
+          <span>System Logs</span>
         </button>
         <button
           className={`tab-button ${activeTab === 'source' ? 'active' : ''}`}
           onClick={() => handleTabChange('source')}
         >
-          Source Logs & Telemetry
+          <Activity className="w-4 h-4" />
+          <span>Source Logs & Telemetry</span>
         </button>
       </div>
 
@@ -142,7 +156,10 @@ export const LogsViewer: React.FC = () => {
 
           <div className="logs-container relative min-h-[220px]">
             {loading && systemLogs.length === 0 ? (
-              <div className="admin-section-loading">Loading system logs...</div>
+              <div className="admin-section-loading flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                <span>Loading system logs...</span>
+              </div>
             ) : systemLogs.length === 0 ? (
               <p className="no-data">No logs found for current filters</p>
             ) : (
@@ -158,9 +175,10 @@ export const LogsViewer: React.FC = () => {
           </div>
 
           {/* Raw Source Error Log Stream */}
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid rgba(99,102,241,0.12)' }}>
-              🗒 Raw Error Log Stream
+          <div className="mt-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 pb-2 border-b border-slate-800 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-cyan-400" />
+              <span>Raw Error Log Stream</span>
             </div>
             <SourceLogFilters
               selectedSource={selectedSource}
@@ -173,12 +191,15 @@ export const LogsViewer: React.FC = () => {
 
             <div className="logs-container relative min-h-[220px] space-y-2 mt-3">
               {loading && sourceLogs.length === 0 ? (
-                <div className="admin-section-loading">Loading source error & telemetry logs...</div>
+                <div className="admin-section-loading flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                  <span>Loading source error & telemetry logs...</span>
+                </div>
               ) : sourceLogs.length === 0 ? (
-                <div className="p-6 text-center text-slate-500 border border-dashed rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
-                  <div className="text-2xl mb-1">🎉</div>
-                  <div className="font-semibold text-sm">No source errors recorded for these filters</div>
-                  <div className="text-xs mt-0.5">All monitored endpoints and channels operated cleanly.</div>
+                <div className="p-8 text-center border border-dashed rounded-xl border-slate-800 bg-slate-900/30">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <div className="font-semibold text-sm text-slate-200">No source errors recorded for these filters</div>
+                  <div className="text-xs text-slate-400 mt-0.5">All monitored endpoints and channels operated cleanly.</div>
                 </div>
               ) : (
                 sourceLogs.map((log) => (
