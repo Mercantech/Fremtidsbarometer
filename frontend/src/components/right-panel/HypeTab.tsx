@@ -5,14 +5,18 @@ import type { HypeTopic } from '../../services/api';
 interface HypeTabProps {
   era: EraInfo;
   hypeList: HypeTopic[];
+  lang?: 'en' | 'da';
 }
 
-export const HypeTab: React.FC<HypeTabProps> = ({ era, hypeList }) => {
+export const HypeTab: React.FC<HypeTabProps> = ({ era, hypeList, lang = 'en' }) => {
+  const hypeTopic = lang === 'da' ? (era.stats?.hypeTopic_da as string || era.stats?.hypeTopic) : era.stats?.hypeTopic;
+  const hypeDesc = lang === 'da' ? (era.stats?.hypeDesc_da as string || era.stats?.hypeDesc) : era.stats?.hypeDesc;
+
   return (
     <div className="rp-block rp-block--stats rp-tab-content active" key="tab-hype">
       <div className="hype-content">
-        <div className="hype-topic" id="hype-topic">{era.stats?.hypeTopic}</div>
-        <div className="hype-desc" id="hype-desc">{era.stats?.hypeDesc}</div>
+        <div className="hype-topic" id="hype-topic">{hypeTopic}</div>
+        <div className="hype-desc" id="hype-desc">{hypeDesc}</div>
       </div>
       {hypeList.length > 0 && (
         <div className="hype-content mt-4" style={{ borderLeftColor: '#ff2a85' }}>

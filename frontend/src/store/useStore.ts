@@ -84,6 +84,9 @@ interface AppState {
   activeFilters: ('job' | 'salary' | 'hype')[];
   toggleFilter: (filter: 'job' | 'salary' | 'hype') => void;
 
+  isDossierOpen: boolean;
+  setIsDossierOpen: (open: boolean) => void;
+
   setCurrentYear: (year: number) => void;
   setViewMode: (mode: 'globe' | 'map') => void;
   setLang: (lang: 'en' | 'da') => void;
@@ -304,6 +307,8 @@ export const useStore = create<AppState>()(
       setGlobeConfig: (cfg) => set((s) => ({ globeConfig: { ...s.globeConfig, ...cfg } })),
 
       isLoadingNews: false,
+      isDossierOpen: false,
+      setIsDossierOpen: (open) => set({ isDossierOpen: open }),
 
       clearApiError: () => set({ apiError: null }),
       clearApiWarning: () => set({ apiWarning: null }),

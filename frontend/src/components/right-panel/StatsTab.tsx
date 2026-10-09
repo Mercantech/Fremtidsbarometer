@@ -29,26 +29,32 @@ export const StatsTab: React.FC<StatsTabProps> = ({ era, lang }) => {
       
       {statsSubTab === 'roles' && (
         <div className="rp-tab-content active">
-          {era.stats?.roles?.map((r: string[], i: number) => (
-            <div key={i} className="rp-item">
-              <div className="rp-row">
-                <span>{r[0]}</span> <span>{r[1]}</span>
+          {era.stats?.roles?.map((r: string[], i: number) => {
+            const desc = lang === 'da' ? r[3] || r[2] : r[2];
+            return (
+              <div key={i} className="rp-item">
+                <div className="rp-row">
+                  <span>{r[0]}</span> <span>{r[1]}</span>
+                </div>
+                {desc && <div className="rp-desc">{desc}</div>}
               </div>
-              {r[2] && <div className="rp-desc">{r[2]}</div>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {statsSubTab === 'stack' && (
         <div className="rp-tab-content active">
-          {era.stats?.stack?.map((s: string[], i: number) => (
-            <div key={i} className="rp-item">
-              <div className="rp-row">
-                <span>{s[0]}</span> <span>{s[1]}</span>
+          {era.stats?.stack?.map((s: string[], i: number) => {
+            const desc = lang === 'da' ? s[3] || s[2] : s[2];
+            return (
+              <div key={i} className="rp-item">
+                <div className="rp-row">
+                  <span>{s[0]}</span> <span>{s[1]}</span>
+                </div>
+                {desc && <div className="rp-desc">{desc}</div>}
               </div>
-              {s[2] && <div className="rp-desc">{s[2]}</div>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

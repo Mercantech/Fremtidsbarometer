@@ -113,7 +113,7 @@ export const RightPanel: React.FC = () => {
         {/* ── Scrollable Tab Content Container ── */}
         <div className="rp-scroll-content">
           {panelTab === 'stats' && <StatsTab era={era} lang={lang} />}
-          {panelTab === 'hype' && <HypeTab era={era} hypeList={hypeList} />}
+          {panelTab === 'hype' && <HypeTab era={era} hypeList={hypeList} lang={lang} />}
           {panelTab === 'compare' && <CompareTab />}
         </div>
 

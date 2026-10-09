@@ -19,6 +19,19 @@ export interface TranslationDict {
   medianSalary: string;
   viewDetails: string;
   close: string;
+  returnToPresent: string;
+  archiveMode: string;
+  archiveNotice: string;
+  eraDossier: string;
+  closeDossier: string;
+  playTour: string;
+  pauseTour: string;
+  keyMilestones: string;
+  hardwareMedia: string;
+  leadingTech: string;
+  yearIndicator: string;
+  prevYear: string;
+  nextYear: string;
 }
 
 export const translations: Record<'en' | 'da', TranslationDict> = {
@@ -43,6 +56,19 @@ export const translations: Record<'en' | 'da', TranslationDict> = {
     medianSalary: 'Median Salary',
     viewDetails: 'View Details',
     close: 'Close',
+    returnToPresent: 'Back to Present (2026)',
+    archiveMode: 'Chronicle Archive',
+    archiveNotice: 'Viewing historical breakthroughs & news from this era',
+    eraDossier: 'Era Dossier',
+    closeDossier: 'Close Dossier',
+    playTour: 'Auto-Play Timeline',
+    pauseTour: 'Pause',
+    keyMilestones: 'Key Breakthroughs',
+    hardwareMedia: 'Hardware & Media',
+    leadingTech: 'Top Stack',
+    yearIndicator: 'Year',
+    prevYear: 'Previous Year',
+    nextYear: 'Next Year',
   },
   da: {
     appTitle: 'Fremtidsbarometer',
@@ -65,6 +91,19 @@ export const translations: Record<'en' | 'da', TranslationDict> = {
     medianSalary: 'Medianløn',
     viewDetails: 'Se detaljer',
     close: 'Luk',
+    returnToPresent: 'Tilbage til nutiden (2026)',
+    archiveMode: 'Historisk Arkiv',
+    archiveNotice: 'Viser historiske gennembrud og nyheder fra denne æra',
+    eraDossier: 'Tidsalder Akt',
+    closeDossier: 'Luk Akt',
+    playTour: 'Afspil Tidsrejse',
+    pauseTour: 'Pause',
+    keyMilestones: 'Vigtigste Gennembrud',
+    hardwareMedia: 'Hardware & Medier',
+    leadingTech: 'Top Teknologi',
+    yearIndicator: 'År',
+    prevYear: 'Forrige År',
+    nextYear: 'Næste År',
   },
 };
 

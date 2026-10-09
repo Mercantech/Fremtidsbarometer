@@ -6,6 +6,8 @@ from sqlalchemy.dialects.postgresql import insert
 LANGUAGES_HISTORY = {
     "COBOL": {"start": 1960, "peak": 1975, "current": 2},
     "Fortran": {"start": 1960, "peak": 1980, "current": 3},
+    "LISP": {"start": 1960, "peak": 1972, "current": 1},
+    "Pascal": {"start": 1970, "peak": 1985, "current": 2},
     "C": {"start": 1972, "peak": 1995, "current": 40},
     "C++": {"start": 1985, "peak": 2005, "current": 60},
     "Python": {"start": 1991, "peak": 2025, "current": 100},
@@ -15,6 +17,7 @@ LANGUAGES_HISTORY = {
     "Go": {"start": 2009, "peak": 2025, "current": 65},
     "Rust": {"start": 2010, "peak": 2026, "current": 75},
     "TypeScript": {"start": 2012, "peak": 2025, "current": 85},
+    "Q#": {"start": 2025, "peak": 2035, "current": 45},
 }
 
 def calculate_popularity(lang, year):
@@ -36,13 +39,13 @@ def calculate_popularity(lang, year):
     return min(100.0, max(1.0, 100.0 * decay_factor * (target / 100.0)))
 
 def seed_historical_data(session):
-    """Seeds historical data (1960 - 2034) into tech_trends table."""
-    print("🌱 Starting generation of historical data (1960 - 2034)...")
+    """Seeds historical data (1960 - 2035) into tech_trends table."""
+    print("🌱 Starting generation of historical data (1960 - 2035)...")
     
     records_to_insert = []
     target_countries = ["GLOBAL", "DK", "US", "DE", "SE", "NO"]
     
-    for year in range(1960, 2035):
+    for year in range(1960, 2036):
         date_obj = datetime(year, 1, 1, tzinfo=timezone.utc)
         
         for country in target_countries:

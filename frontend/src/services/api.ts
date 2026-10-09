@@ -157,17 +157,46 @@ export const fetchSalary = async (country?: string): Promise<SalaryData[]> => {
   }
 };
 
+export interface EraMilestone {
+  year?: number;
+  title: string;
+  title_da?: string;
+  desc: string;
+  desc_da?: string;
+}
+
+export interface EraChronicleItem {
+  year: number;
+  headline: string;
+  headline_da?: string;
+  snippet: string;
+  snippet_da?: string;
+  tag: string;
+}
+
 export interface EraInfo {
   id: number;
   year: number;
   title: string;
+  title_da?: string;
   subtitle?: string;
+  subtitle_da?: string;
   stats?: {
-    roles?: [string, string][];
-    stack?: [string, string][];
+    title_da?: string;
+    subtitle_da?: string;
+    tagline?: string;
+    tagline_da?: string;
+    icon?: string;
+    moodColor?: string;
+    roles?: string[][];
+    stack?: string[][];
     hypeTopic?: string;
+    hypeTopic_da?: string;
     hypeDesc?: string;
-    [key: string]: unknown; // Flexible for AI-generated fields
+    hypeDesc_da?: string;
+    milestones?: EraMilestone[];
+    chronicle?: EraChronicleItem[];
+    [key: string]: unknown;
   };
 }
 
