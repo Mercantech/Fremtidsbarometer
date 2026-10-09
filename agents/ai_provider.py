@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import httpx
-from typing import Dict, Any, Optional, List, Tuple, Union
+from typing import Dict, Any, Optional, List, Tuple, Union, overload, Literal
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -299,6 +299,26 @@ def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.8-flas
         logger.warning(f"Provider '{provider}' requested, but OPENAI_API_KEY not found. Falling back to Gemini.")
 
     return GeminiProvider(model_name=model_name or "gemini-3.8-flash", api_key=api_key)
+
+
+@overload
+async def analyze_with_fallback(
+    candidates: List[Dict[str, Any]],
+    prompt: str,
+    schema: str = "",
+    return_meta: Literal[False] = False,
+) -> Dict[str, Any]:
+    ...
+
+
+@overload
+async def analyze_with_fallback(
+    candidates: List[Dict[str, Any]],
+    prompt: str,
+    schema: str = "",
+    return_meta: Literal[True] = ...,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ...
 
 
 async def analyze_with_fallback(

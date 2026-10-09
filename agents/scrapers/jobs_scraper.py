@@ -606,6 +606,9 @@ async def extract_jobs_with_ai(
 
         try:
             result, meta = await analyze_with_fallback(candidates, prompt, schema_instruction, return_meta=True)
+            if not isinstance(result, dict):
+                logger.warning(f"AI jobs_extraction: Expected dict from AI model, got {type(result)}")
+                return []
             payload = JobExtractionPayload(**result)
 
             # Grounding & citation verification: verify that quote and source_url exist in raw text

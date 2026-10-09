@@ -345,6 +345,9 @@ async def extract_tech_signals_with_ai(
 
         try:
             result, meta = await analyze_with_fallback(candidates, prompt, schema_instruction, return_meta=True)
+            if not isinstance(result, dict):
+                logger.warning(f"AI tech_extraction: Expected dict from AI model, got {type(result)}")
+                return []
             payload = TechExtractionPayload(**result)
 
             grounded_signals = []
