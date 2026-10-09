@@ -334,17 +334,17 @@ export const DataSourceManager: React.FC = () => {
                 onClick={handleTestUrl}
                 disabled={testLoading || !formData.url.trim()}
                 className="px-3.5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0"
-                title="Проверить ответ сервера и распарсить превью записей"
+                title="Test server response and parse preview entries"
               >
                 {testLoading ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Проверка...</span>
+                    <span>Testing...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-3.5 h-3.5 text-blue-200" />
-                    <span>Проверить URL</span>
+                    <span>Test URL</span>
                   </>
                 )}
               </button>
@@ -367,8 +367,8 @@ export const DataSourceManager: React.FC = () => {
                     )}
                     <span>
                       {testResult.is_valid
-                        ? `HTTP 200 OK — Обнаружен формат ${testResult.detected_type.toUpperCase()} (${testResult.item_count} записей)`
-                        : `Сбой проверки (${testResult.error || `HTTP ${testResult.status_code}`})`}
+                        ? `HTTP 200 OK — Detected format ${testResult.detected_type.toUpperCase()} (${testResult.item_count} items)`
+                        : `Validation failed (${testResult.error || `HTTP ${testResult.status_code}`})`}
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-white/10 text-slate-300">
@@ -377,7 +377,7 @@ export const DataSourceManager: React.FC = () => {
                 </div>
                 {testResult.sample_titles.length > 0 && (
                   <div className="mt-2.5 pt-2 border-t border-white/10">
-                    <div className="text-[11px] text-slate-400 mb-1 font-medium">Превью обнаруженных заголовков:</div>
+                    <div className="text-[11px] text-slate-400 mb-1 font-medium">Sample Titles Preview:</div>
                     <ul className="space-y-1 text-slate-200">
                       {testResult.sample_titles.map((title, i) => (
                         <li key={i} className="truncate flex items-center gap-1.5">
@@ -424,7 +424,7 @@ export const DataSourceManager: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label>Country / Region (Страна):</label>
+              <label>Country / Region:</label>
               <select
                 value={formData.country_code || 'GLOBAL'}
                 onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
@@ -551,17 +551,17 @@ export const DataSourceManager: React.FC = () => {
                     onClick={() => handleInstantIngest(source.id)}
                     disabled={ingestingId === source.id}
                     className="px-2.5 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-500/30 text-xs font-medium transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                    title="Запустить сбор данных по этому источнику прямо сейчас"
+                    title="Run data collection for this source now"
                   >
                     {ingestingId === source.id ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
-                        <span>Сбор...</span>
+                        <span>Fetching...</span>
                       </>
                     ) : (
                       <>
                         <Zap className="w-3 h-3 text-amber-400" />
-                        <span>Собрать</span>
+                        <span>Fetch</span>
                       </>
                     )}
                   </button>
