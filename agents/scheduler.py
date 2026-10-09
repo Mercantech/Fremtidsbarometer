@@ -321,10 +321,10 @@ async def main():
         except Exception as e:
             logger.error(f"Startup task '{name}' failed: {e}")
 
-    news_agent = NewsAgent()
+    # Run initial non-blocking cleanup and news fetch on startup
     cleanup_stale_data()
+    news_agent = NewsAgent()
     asyncio.create_task(safe_startup_task("fetch_news", news_agent.fetch_news()))
-    asyncio.create_task(safe_startup_task("full_cycle", run_full_cycle()))
 
     logger.info("Scheduler started with data retention cleaner. Press Ctrl+C to exit.")
 

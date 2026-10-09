@@ -32,30 +32,8 @@ def get_jobs(
         results = query.order_by(JobPosting.date.desc()).limit(limit).all()
         return results
     except Exception as e:
-        logger.warning(f"Error executing get_jobs query: {e}")
-        err_msg = str(e).lower()
-        # Auto-heal: If schema columns are missing in un-migrated DB, apply DDL and retry
-        if "salary_min" in err_msg or "undefinedcolumn" in err_msg or "does not exist" in err_msg:
-            try:
-                db.rollback()
-                from sqlalchemy import text
-                db.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;"))
-                db.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;"))
-                db.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);"))
-                db.execute(text("CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);"))
-                db.commit()
-                logger.info("Auto-healed job_postings schema. Retrying get_jobs query...")
-                
-                retry_query = db.query(JobPosting).filter(JobPosting.status == 'published')
-                if country:
-                    retry_query = retry_query.filter(JobPosting.country == country)
-                if technology:
-                    retry_query = retry_query.filter(JobPosting.technology.ilike(f"%{technology}%"))
-                return retry_query.order_by(JobPosting.date.desc()).limit(limit).all()
-            except Exception as heal_err:
-                logger.error(f"Auto-heal schema failed: {heal_err}")
-                db.rollback()
-
-        # Graceful degradation: never crash server with 500, return empty list
+        logger.error(f"Error executing get_jobs query: {e}")
+        db.rollback()
+        # Graceful degradation: return empty list on query failure without crashing or blocking
         return []
 

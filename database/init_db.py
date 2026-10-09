@@ -36,14 +36,15 @@ def ensure_database_schema(engine=None):
     import logging
     logger = logging.getLogger("DatabaseMigration")
 
+    # Set short lock timeout to avoid blocking active queries during DDL checks
     statements = [
-        ("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);", "ai_model_configs.api_key"),
-        ("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;", "job_postings.salary_min"),
-        ("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;", "job_postings.salary_max"),
-        ("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);", "job_postings.salary_currency"),
-        ("CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);", "job_postings.idx_job_salary"),
-        ("ALTER TABLE pipeline_executions ADD COLUMN IF NOT EXISTS force INTEGER DEFAULT 0;", "pipeline_executions.force"),
-        ("ALTER TABLE data_sources ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"),
+        ("SET lock_timeout = '3s'; ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);", "ai_model_configs.api_key"),
+        ("SET lock_timeout = '3s'; ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;", "job_postings.salary_min"),
+        ("SET lock_timeout = '3s'; ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;", "job_postings.salary_max"),
+        ("SET lock_timeout = '3s'; ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);", "job_postings.salary_currency"),
+        ("SET lock_timeout = '3s'; CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);", "job_postings.idx_job_salary"),
+        ("SET lock_timeout = '3s'; ALTER TABLE pipeline_executions ADD COLUMN IF NOT EXISTS force INTEGER DEFAULT 0;", "pipeline_executions.force"),
+        ("SET lock_timeout = '3s'; ALTER TABLE data_sources ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"),
     ]
 
     for stmt, desc in statements:
@@ -55,15 +56,25 @@ def ensure_database_schema(engine=None):
         except Exception as e:
             logger.warning(f"⚠️ Concurrent or non-fatal schema check notice for [{desc}]: {e}")
 
-    # Automatically apply Alembic migrations to head
+    # Synchronize Alembic state without failing on pre-existing tables
     try:
         from alembic.config import Config
         from alembic import command
+        from sqlalchemy import inspect
+        insp = inspect(engine)
+        existing_tables = set(insp.get_table_names())
         alembic_cfg = Config("alembic.ini")
-        command.upgrade(alembic_cfg, "head")
-        logger.info("✅ Alembic migration applied to head.")
+
+        if "ats_companies" in existing_tables or "job_postings" in existing_tables:
+            # Schema already initialized: stamp to head revision so Alembic
+            # does not attempt to rerun CREATE TABLE on existing relations
+            command.stamp(alembic_cfg, "head")
+            logger.info("✅ Database stamped to Alembic head revision.")
+        else:
+            command.upgrade(alembic_cfg, "head")
+            logger.info("✅ Alembic migration applied to head.")
     except Exception as mig_err:
-        logger.info(f"ℹ️ Alembic upgrade notice (safe to continue): {mig_err}")
+        logger.info(f"ℹ️ Alembic upgrade/stamp notice: {mig_err}")
 
 
 def repair_data_sources(session):
