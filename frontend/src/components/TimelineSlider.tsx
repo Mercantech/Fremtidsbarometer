@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { t } from '../utils/translations';
-import { motion } from 'framer-motion';
-import { Play, Pause, ChevronLeft, ChevronRight, RotateCcw, FileText } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Pause, RotateCcw, FileText } from 'lucide-react';
 
 const DECADES = [
   { label: "'60s", anchor: 1964, min: 1960, max: 1969 },
@@ -15,10 +15,12 @@ const DECADES = [
   { label: "'30s+", anchor: 2035, min: 2030, max: 2035 },
 ];
 
-const RULER_YEARS = [1960, 1965, 1970, 1975, 1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2026, 2035];
+const MAJOR_TICKS = [1960, 1970, 1980, 1990, 2000, 2010, 2020, 2035];
+const MINOR_TICKS = [1965, 1975, 1985, 1995, 2005, 2015, 2026];
 
 const MIN_YEAR = 1960;
 const MAX_YEAR = 2035;
+const TOTAL_SPAN = MAX_YEAR - MIN_YEAR;
 
 export const TimelineSlider: React.FC = () => {
   const currentYear = useStore((s) => s.currentYear);
@@ -30,7 +32,7 @@ export const TimelineSlider: React.FC = () => {
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragYear, setDragYear] = useState<number>(currentYear);
+  const [dragRatio, setDragRatio] = useState<number>((currentYear - MIN_YEAR) / TOTAL_SPAN);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const playTimerRef = useRef<number | null>(null);
@@ -38,20 +40,13 @@ export const TimelineSlider: React.FC = () => {
   const era = eras[currentEraIndex];
   const eraTitle = lang === 'da' ? (era?.stats?.title_da as string || era?.title) : era?.title;
 
-  // Sync dragYear when not dragging
-  useEffect(() => {
-    if (!isDragging) {
-      setDragYear(currentYear);
-    }
-  }, [currentYear, isDragging]);
-
-  // Auto-play loop
+  // Auto-Play tour loop
   useEffect(() => {
     if (isPlaying) {
       playTimerRef.current = window.setInterval(() => {
         const next = currentYear >= MAX_YEAR ? MIN_YEAR : currentYear + 1;
         setCurrentYear(next);
-      }, 1100);
+      }, 1200);
     } else {
       if (playTimerRef.current !== null) {
         window.clearInterval(playTimerRef.current);
@@ -65,7 +60,7 @@ export const TimelineSlider: React.FC = () => {
     };
   }, [isPlaying, currentYear, setCurrentYear]);
 
-  // Keyboard navigation
+  // Keyboard navigation (Left / Right / Space)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
@@ -87,27 +82,28 @@ export const TimelineSlider: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentYear, setCurrentYear]);
 
-  // Compute year from clientX
-  const getYearFromPointer = useCallback((clientX: number): number => {
-    if (!trackRef.current) return currentYear;
+  // Compute normalized continuous ratio [0..1] from pointer position
+  const getRatioFromPointer = useCallback((clientX: number): number => {
+    if (!trackRef.current) return (currentYear - MIN_YEAR) / TOTAL_SPAN;
     const rect = trackRef.current.getBoundingClientRect();
     const clampedX = Math.max(0, Math.min(rect.width, clientX - rect.left));
-    const ratio = clampedX / rect.width;
-    return Math.round(MIN_YEAR + ratio * (MAX_YEAR - MIN_YEAR));
+    return rect.width > 0 ? clampedX / rect.width : 0;
   }, [currentYear]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     setIsDragging(true);
-    const yr = getYearFromPointer(e.clientX);
-    setDragYear(yr);
+    const ratio = getRatioFromPointer(e.clientX);
+    setDragRatio(ratio);
+    const yr = Math.round(MIN_YEAR + ratio * TOTAL_SPAN);
     setCurrentYear(yr);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
-    const yr = getYearFromPointer(e.clientX);
-    setDragYear(yr);
+    const ratio = getRatioFromPointer(e.clientX);
+    setDragRatio(ratio);
+    const yr = Math.round(MIN_YEAR + ratio * TOTAL_SPAN);
     if (yr !== currentYear) {
       setCurrentYear(yr);
     }
@@ -117,182 +113,215 @@ export const TimelineSlider: React.FC = () => {
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
-      // Ignored
+      // Ignored if pointer already released
     }
     setIsDragging(false);
   };
 
-  const activeDisplayYear = isDragging ? dragYear : currentYear;
-  const progressPercent = ((activeDisplayYear - MIN_YEAR) / (MAX_YEAR - MIN_YEAR)) * 100;
+  // Continuous floating ratio while dragging for 100% fluid scrubbing; discrete ratio on idle
+  const activePercent = isDragging
+    ? Math.max(0, Math.min(100, dragRatio * 100))
+    : ((currentYear - MIN_YEAR) / TOTAL_SPAN) * 100;
 
   return (
-    <div className="timeline-container">
-      {/* ── Row 1: Header / Navigation Bar ── */}
-      <div className="flex items-center justify-between gap-3">
-        {/* Left Side: Title + Era Badge + Dossier button */}
-        <div className="flex items-center gap-2.5">
-          <span className="timeline-badge text-xl text-[#111]">
+    <div className="timeline-container select-none">
+      {/* ── Tier 1: Header Status Bar & Quick Actions ── */}
+      <div className="flex items-center justify-between gap-3 h-7">
+        {/* Left: Brand + Active Year & Era Subtitle */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="timeline-badge text-xl text-[#111] shrink-0 tracking-widest">
             {t('timeTravel', lang)}
           </span>
-          <span className="text-neutral-400 font-light text-xs">•</span>
-          
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 border border-neutral-200/80 shadow-xs backdrop-blur-sm">
-            <span className="font-mono font-black text-xs text-[#111]">
-              {activeDisplayYear}
+          <span className="text-neutral-300 font-light text-xs shrink-0">•</span>
+
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-mono font-black text-sm text-[#111] shrink-0 tracking-tight">
+              {currentYear}
             </span>
-            <span className="text-xs font-semibold text-neutral-800 uppercase tracking-tight truncate max-w-[200px] lg:max-w-[280px]">
+            <span className="text-xs font-semibold text-neutral-600 uppercase tracking-tight truncate max-w-[180px] sm:max-w-[240px] md:max-w-[320px]">
               {eraTitle || t('loading', lang)}
             </span>
           </div>
-
-          <button
-            onClick={() => setIsDossierOpen(true)}
-            className="px-2 py-0.5 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 text-[10px] font-bold tracking-wide transition-all cursor-pointer shadow-2xs flex items-center gap-1"
-            title={t('eraDossier', lang)}
-          >
-            <FileText size={10} />
-            <span>{t('eraDossier', lang)}</span>
-          </button>
         </div>
 
-        {/* Right Side: Decades segmented capsule + Controls */}
-        <div className="flex items-center gap-2">
-          {/* Segmented Decades Pill Selector */}
-          <div className="flex items-center bg-[#111] p-0.5 rounded-full shadow-sm">
-            {DECADES.map((d) => {
-              const isActive = activeDisplayYear >= d.min && activeDisplayYear <= d.max;
-              return (
-                <button
-                  key={d.label}
-                  onClick={() => setCurrentYear(d.anchor)}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono tracking-tight transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#ffd000] text-[#111] font-extrabold shadow-2xs'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  {d.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Auto-Play Toggle */}
+        {/* Right: Discrete Apple Pill Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Era Dossier Modal Button */}
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-6 h-6 rounded-full bg-[#111] hover:bg-black text-white flex items-center justify-center transition-all cursor-pointer shadow-sm"
-            title={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
+            onClick={() => setIsDossierOpen(true)}
+            className="px-2.5 py-1 rounded-full bg-black/5 hover:bg-black/10 text-[#111] border border-black/10 text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            title={t('eraDossier', lang)}
           >
-            {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
+            <FileText size={11} />
+            <span>{t('eraDossier', lang)}</span>
           </button>
 
           {/* Return to Present (2026) */}
-          {activeDisplayYear !== 2026 && (
+          {currentYear !== 2026 && (
             <button
               onClick={() => setCurrentYear(2026)}
-              className="px-2 py-0.5 rounded-full bg-[#111] hover:bg-black text-[#ffd000] text-[10px] font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1"
+              className="px-2.5 py-1 rounded-full bg-[#111] hover:bg-black text-[#ffd000] text-[11px] font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1"
               title={t('returnToPresent', lang)}
             >
               <RotateCcw size={10} />
               <span>2026</span>
             </button>
           )}
+
+          {/* Auto-Play Tour Toggle */}
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="w-6.5 h-6.5 rounded-full bg-[#111] hover:bg-black text-white flex items-center justify-center transition-all cursor-pointer shadow-xs"
+            title={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
+          >
+            {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
+          </button>
         </div>
       </div>
 
-      {/* ── Row 2: Fluid Spring Scrubber Runway ── */}
-      <div className="flex items-center gap-2 pt-1">
-        {/* Step Back -1Y */}
-        <button
-          onClick={() => setCurrentYear(Math.max(MIN_YEAR, currentYear - 1))}
-          className="w-5 h-5 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 flex items-center justify-center transition cursor-pointer shrink-0"
-          title={t('prevYear', lang)}
-        >
-          <ChevronLeft size={12} />
-        </button>
+      {/* ── Tier 2: Apple Segmented Decades Pill Selector (100% Width, Zero Overflow) ── */}
+      <div className="w-full flex items-center bg-[#111] p-0.5 rounded-full shadow-sm">
+        {DECADES.map((d) => {
+          const isActive = currentYear >= d.min && currentYear <= d.max;
+          return (
+            <button
+              key={d.label}
+              onClick={() => setCurrentYear(d.anchor)}
+              className={`flex-1 py-1 rounded-full text-[11px] font-mono tracking-tight transition-all cursor-pointer text-center ${
+                isActive
+                  ? 'bg-[#ffd000] text-[#111] font-extrabold shadow-2xs'
+                  : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {d.label}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Tactile Gliding Track */}
-        <div
-          ref={trackRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          className="relative flex-1 h-7 flex items-center cursor-pointer select-none touch-none"
-        >
-          {/* Base Track */}
-          <div className="w-full h-1.5 rounded-full bg-neutral-300/80 overflow-hidden relative">
-            {/* Smooth Fill Line */}
-            <motion.div
-              className="h-full bg-[#111] rounded-full"
-              animate={{ width: `${progressPercent}%` }}
-              transition={
-                isDragging
-                  ? { duration: 0 }
-                  : { type: 'spring', stiffness: 350, damping: 30 }
-              }
-            />
-          </div>
-
-          {/* Gliding Thumb */}
+      {/* ── Tier 3: Tactile Fluid Scrubber Runway ── */}
+      <div
+        ref={trackRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="relative w-full h-6 flex items-center cursor-pointer select-none touch-none group"
+      >
+        {/* Slender Track Groove */}
+        <div className="w-full h-1.5 rounded-full bg-[#e4e0d7] overflow-hidden relative">
           <motion.div
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
-            animate={{ left: `${progressPercent}%` }}
+            className="h-full bg-[#111] rounded-full"
+            animate={{ width: `${activePercent}%` }}
             transition={
               isDragging
                 ? { duration: 0 }
-                : { type: 'spring', stiffness: 350, damping: 30 }
+                : { type: 'spring', stiffness: 380, damping: 30, mass: 0.8 }
             }
-          >
-            <div className="w-5 h-5 rounded-full bg-[#ffd000] border-2 border-[#111] shadow-md flex items-center justify-center transition-transform hover:scale-110 active:scale-125">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#111]" />
-            </div>
-
-            {/* Floating Year Tooltip Pill on drag/hover */}
-            {isDragging && (
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-black text-[#ffd000] font-mono text-[10px] font-bold shadow-lg pointer-events-none whitespace-nowrap">
-                {activeDisplayYear}
-              </div>
-            )}
-          </motion.div>
+          />
         </div>
 
-        {/* Step Forward +1Y */}
-        <button
-          onClick={() => setCurrentYear(Math.min(MAX_YEAR, currentYear + 1))}
-          className="w-5 h-5 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 flex items-center justify-center transition cursor-pointer shrink-0"
-          title={t('nextYear', lang)}
+        {/* Subtle Era Anchor Markers on Runway */}
+        {eras.map((e) => {
+          const pct = ((e.year - MIN_YEAR) / TOTAL_SPAN) * 100;
+          return (
+            <div
+              key={e.year}
+              className="absolute top-1/2 -translate-y-1/2 w-0.5 h-2 rounded-full bg-black/15 pointer-events-none"
+              style={{ left: `${pct}%` }}
+            />
+          );
+        })}
+
+        {/* Gliding Apple Tactile Scrubber Thumb */}
+        <motion.div
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
+          animate={{ left: `${activePercent}%` }}
+          transition={
+            isDragging
+              ? { duration: 0 }
+              : { type: 'spring', stiffness: 380, damping: 30, mass: 0.8 }
+          }
         >
-          <ChevronRight size={12} />
-        </button>
+          <div className="w-4.5 h-4.5 rounded-full bg-[#ffd000] border-2 border-[#111] shadow-[0_2px_6px_rgba(0,0,0,0.35)] flex items-center justify-center transition-transform group-hover:scale-110 group-active:scale-125">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#111]" />
+          </div>
+
+          {/* Floating Glass Tooltip Bubble */}
+          <AnimatePresence>
+            {isDragging && (
+              <motion.div
+                initial={{ opacity: 0, y: 4, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.9 }}
+                className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#111] text-[#ffd000] font-mono text-[10px] font-bold shadow-md pointer-events-none whitespace-nowrap border border-white/10"
+              >
+                {currentYear}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
 
-      {/* ── Row 3: Ruler Labels with Smooth Scaling ── */}
-      <div className="flex justify-between items-center px-6 font-['Bebas_Neue',sans-serif] text-sm select-none pt-0.5">
-        {RULER_YEARS.map((y) => {
-          const diff = Math.abs(y - activeDisplayYear);
-          const isExact = y === activeDisplayYear;
+      {/* ── Tier 4: Minimalist Geometric Ruler ── */}
+      <div className="relative w-full h-5 select-none font-['Bebas_Neue',sans-serif]">
+        {/* Major Decade Ticks */}
+        {MAJOR_TICKS.map((tickYear) => {
+          const pct = ((tickYear - MIN_YEAR) / TOTAL_SPAN) * 100;
+          const isExact = tickYear === currentYear;
+          const diff = Math.abs(tickYear - currentYear);
           const isNear = diff <= 2;
+          const transformX = tickYear === MIN_YEAR ? '0%' : tickYear === MAX_YEAR ? '-100%' : '-50%';
 
           return (
-            <span
-              key={y}
-              onClick={() => setCurrentYear(y)}
-              className="relative flex flex-col items-center cursor-pointer transition-all duration-150"
+            <button
+              key={tickYear}
+              onClick={() => setCurrentYear(tickYear)}
+              className="absolute top-0 flex flex-col items-center cursor-pointer transition-all duration-150 group"
               style={{
-                color: isExact ? '#111' : isNear ? '#333' : '#8e887f',
-                transform: isExact ? 'scale(1.25)' : isNear ? 'scale(1.1)' : 'scale(1)',
-                fontWeight: isExact ? 800 : 500,
+                left: `${pct}%`,
+                transform: `translateX(${transformX})`,
+                color: isExact ? '#111' : isNear ? '#333' : '#9c968d',
               }}
             >
               <span
                 className="w-px mb-0.5 transition-all"
                 style={{
-                  height: isExact ? '8px' : '4px',
-                  background: isExact ? '#111' : 'rgba(0,0,0,0.25)',
+                  height: isExact ? '7px' : '4px',
+                  background: isExact ? '#111' : 'rgba(0,0,0,0.22)',
                 }}
               />
-              <span>{y}</span>
-            </span>
+              <span
+                className={`text-xs leading-none transition-transform ${
+                  isExact ? 'scale-110 font-black text-[#111]' : 'group-hover:text-[#111]'
+                }`}
+              >
+                {tickYear}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* Minor Sub-Decade Ticks */}
+        {MINOR_TICKS.map((subYear) => {
+          const pct = ((subYear - MIN_YEAR) / TOTAL_SPAN) * 100;
+          const isExact = subYear === currentYear;
+          return (
+            <button
+              key={subYear}
+              onClick={() => setCurrentYear(subYear)}
+              className="absolute top-0 -translate-x-1/2 flex flex-col items-center cursor-pointer group"
+              style={{ left: `${pct}%` }}
+              title={`${subYear}`}
+            >
+              <span
+                className="w-px transition-all"
+                style={{
+                  height: isExact ? '5px' : '3px',
+                  background: isExact ? '#111' : 'rgba(0,0,0,0.12)',
+                }}
+              />
+            </button>
           );
         })}
       </div>

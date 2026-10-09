@@ -80,11 +80,11 @@ svg.branches {
     position: absolute;
     top: 24px;
     right: 50px;
-    width: clamp(560px, 50vw, 800px);
+    width: clamp(540px, 48vw, 760px);
     z-index: 20;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     pointer-events: auto;
 }
 
