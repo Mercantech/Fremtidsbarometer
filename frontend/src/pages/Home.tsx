@@ -17,6 +17,8 @@ export default function Home() {
   const viewMode = useStore((s) => s.viewMode);
   const apiError = useStore((s) => s.apiError);
   const clearApiError = useStore((s) => s.clearApiError);
+  const apiWarning = useStore((s) => s.apiWarning);
+  const clearApiWarning = useStore((s) => s.clearApiWarning);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -28,7 +30,7 @@ export default function Home() {
 
   return (
     <div className="root">
-      {/* Backend API Error Banner */}
+      {/* Backend API Error Banner (complete failure) */}
       <AnimatePresence>
         {apiError && (
           <motion.div
@@ -49,6 +51,29 @@ export default function Home() {
               className="bg-white/20 hover:bg-white/30 text-white font-bold px-3 py-1.5 rounded-xl transition cursor-pointer"
             >
               Retry
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Partial Degradation Notice (non-blocking notification) */}
+      <AnimatePresence>
+        {apiWarning && !apiError && (
+          <motion.div
+            initial={{ y: -80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-amber-950/90 text-amber-100 backdrop-blur-md border border-amber-500/30 px-5 py-2.5 rounded-2xl shadow-xl flex items-center gap-4 text-xs"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>{apiWarning}</span>
+            </div>
+            <button
+              onClick={() => clearApiWarning()}
+              className="bg-amber-800/40 hover:bg-amber-800/70 text-amber-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+            >
+              Dismiss
             </button>
           </motion.div>
         )}

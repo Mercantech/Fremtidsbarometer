@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import httpx
 import feedparser
 import re
 from datetime import datetime, timezone
@@ -34,7 +35,10 @@ EXCLUDE_KEYWORDS = (
     "driver", "warehouse", "officier", "steward", "stewardess", "chef", "cook",
     "cleaning", "skib", "fragt", "matros", "sailor", "marine engineer",
     "maskinmester", "nurse", "læge", "electrician", "mekaniker", "mechanic",
-    "welder", "painter", "chauffør", "logistiek", "lager", "speditør", "shunter", "catering"
+    "welder", "painter", "chauffør", "logistiek", "lager", "speditør", "shunter", "catering",
+    # German and European non-IT roles
+    "steuerberater", "buchhalter", "vertrieb", "verkäufer", "receptionist",
+    "recruiter", "hr manager", "accountant", "sales manager", "sales rep", "praktikant"
 )
 
 COMPANY_DEFAULT_LOCATIONS = {
@@ -495,10 +499,209 @@ def calculate_match_score(title: str, description: str, tech_category: str) -> T
     reason = f"Identified {tech_category} role (signals: {', '.join(matched[:3])})"
     return score, reason
 
+async def _scrape_job_api_source(src: DataSource, db) -> int:
+    """
+    Parses modern JSON API job endpoints (e.g. Arbeitnow European tech board, RemoteOK).
+    Extracts tech roles, normalizes location across European tech hubs,
+    discovers salary disclosures, and saves structured JobPostings and RawScrapeData.
+    """
+    url = src.url
+    logger.info(f"Fetching job API [{src.name}]: {url}")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Fremtidsbarometer/1.0"
+    }
+    async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                logger.warning(f"Failed to fetch job API [{src.name}]: HTTP {resp.status_code}")
+                return 0
+            data = resp.json()
+        except Exception as e:
+            logger.warning(f"Error requesting job API [{src.name}]: {e}")
+            return 0
+
+    raw_items = []
+    source_slug = "arbeitnow" if "arbeitnow" in url else "job_api"
+    if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+        raw_items = data["data"]
+        source_slug = "arbeitnow"
+    elif isinstance(data, list):
+        raw_items = [i for i in data if isinstance(i, dict)]
+        source_slug = "remoteok" if "remoteok" in url else "job_api"
+
+    if not raw_items:
+        return 0
+
+    candidates = []
+    candidate_links = []
+    for item in raw_items:
+        title = (item.get("title") or item.get("position") or "").strip()
+        link = (item.get("url") or item.get("link") or "").strip()
+        if not title or not link:
+            continue
+
+        t_lower = title.lower()
+        if any(ex in t_lower for ex in EXCLUDE_KEYWORDS):
+            continue
+        if not any(k in t_lower for k in TECH_KEYWORDS):
+            continue
+
+        company = (item.get("company_name") or item.get("company") or "").strip() or "Tech Enterprise"
+        raw_desc = (item.get("description") or "").strip()
+        clean_desc = re.sub(r"<[^>]+>", " ", raw_desc)
+        clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
+        loc_hint = (item.get("location") or "").strip()
+        is_remote = bool(item.get("remote"))
+
+        sal_min_direct = item.get("salary_min")
+        sal_max_direct = item.get("salary_max")
+
+        candidates.append({
+            "title": title,
+            "company": company,
+            "link": link,
+            "description": clean_desc,
+            "loc_hint": loc_hint,
+            "is_remote": is_remote,
+            "tags": item.get("tags") or [],
+            "sal_min_direct": float(sal_min_direct) if isinstance(sal_min_direct, (int, float)) and sal_min_direct > 0 else None,
+            "sal_max_direct": float(sal_max_direct) if isinstance(sal_max_direct, (int, float)) and sal_max_direct > 0 else None,
+        })
+        candidate_links.append(link)
+
+    if not candidate_links:
+        return 0
+
+    existing_job_map = {
+        r[0]: r[1] for r in db.query(JobPosting.url, JobPosting.salary_min).filter(JobPosting.url.in_(candidate_links)).all()
+    }
+
+    new_jobs = []
+    new_raw_entries = []
+    for c in candidates:
+        link = c["link"]
+        is_existing = link in existing_job_map
+        if is_existing and existing_job_map[link] is not None:
+            continue
+
+        title = c["title"]
+        desc = c["description"]
+        company = c["company"]
+        loc_hint = c["loc_hint"]
+
+        tech_category = infer_technology(title)
+        seniority = infer_seniority(title, desc)
+        country, city = infer_location(
+            title=title,
+            description=desc,
+            company_domain=company.lower().replace(" ", "")[:50],
+            extra_hint=loc_hint,
+            source_hint=f"{src.name} {url}"
+        )
+        score, reason = calculate_match_score(title, desc, tech_category)
+
+        full_job_text = f"{title} {loc_hint} {desc}"
+        salary_text = extract_salary(full_job_text)
+        salary_min, salary_max, salary_curr = parse_numeric_salary(full_job_text)
+
+        if salary_min is None and c["sal_min_direct"] and c["sal_max_direct"]:
+            salary_min = float(c["sal_min_direct"])
+            salary_max = float(c["sal_max_direct"])
+            salary_curr = "USD"
+            salary_text = f"${salary_min:,.0f} - ${salary_max:,.0f} USD"
+
+        is_remote = c["is_remote"] or bool(REMOTE_KEYWORD_PATTERN.search(full_job_text))
+
+        tags = [seniority, tech_category.lower(), source_slug]
+        if is_remote:
+            tags.append("remote")
+        if salary_text or salary_min is not None:
+            tags.append("salary_disclosed")
+
+        if is_existing:
+            if salary_min is not None:
+                db.query(JobPosting).filter(JobPosting.url == link).update({
+                    "salary_min": salary_min,
+                    "salary_max": salary_max,
+                    "salary_currency": salary_curr,
+                    "tags": tags,
+                }, synchronize_session=False)
+            continue
+
+        formatted_job = (
+            f"COMPANY: {company}\n"
+            f"JOB_TITLE: {title}\n"
+            f"CATEGORY: {tech_category}\n"
+            f"SENIORITY: {seniority}\n"
+            f"LOCATION: {city}, {country}\n"
+            f"URL: {link}\n"
+        )
+        if salary_text:
+            formatted_job += f"SALARY: {salary_text}\n"
+        formatted_job += f"DESCRIPTION:\n{desc[:2500]}"
+
+        new_raw_entries.append(RawScrapeData(
+            source_id=src.id,
+            country_code=country,
+            raw_text=formatted_job,
+            extracted_urls=[link],
+            processed=0,
+            created_at=datetime.now(timezone.utc)
+        ))
+
+        new_jobs.append({
+            "title": title[:500],
+            "company": company[:200],
+            "url": link[:1000],
+            "source": source_slug,
+            "country": country,
+            "city": city,
+            "technology": tech_category,
+            "tags": tags,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "salary_currency": salary_curr,
+            "date": datetime.now(timezone.utc),
+            "match_score": score,
+            "match_reason": reason,
+            "status": "published"
+        })
+
+    saved = 0
+    if new_raw_entries:
+        db.add_all(new_raw_entries)
+    if new_jobs:
+        deduped = []
+        seen = set()
+        for j in new_jobs:
+            k = (j["title"], j["company"], j["source"])
+            if k not in seen:
+                seen.add(k)
+                deduped.append(j)
+
+        stmt = pg_insert(JobPosting).values(deduped)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["title", "company", "source"],
+            set_={
+                "salary_min": stmt.excluded.salary_min,
+                "salary_max": stmt.excluded.salary_max,
+                "salary_currency": stmt.excluded.salary_currency,
+                "tags": stmt.excluded.tags,
+            }
+        )
+        db.execute(stmt)
+        saved = len(deduped)
+    db.commit()
+    logger.info(f"Saved {saved} jobs from API source [{src.name}].")
+    return saved
+
+
 async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
     """
-    Parses public RSS feeds of active job data sources registered in data_sources.
-    Filters for genuine tech/IT positions, extracts location & seniority,
+    Parses active job sources registered in data_sources (both RSS feeds and JSON APIs).
+    Filters for genuine tech/IT positions, extracts location & seniority across Europe,
     discovers salary disclosures, and saves structured JobPostings and RawScrapeData.
     """
     active_sources = db.query(DataSource).filter(
@@ -514,6 +717,16 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
     
     for src in active_sources:
         rss_url = src.url
+        
+        # ── JSON API Dispatch (e.g. Arbeitnow, RemoteOK) ──
+        if getattr(src, "source_type", "rss") == "api" or (rss_url and "api" in rss_url.lower()):
+            try:
+                api_saved = await _scrape_job_api_source(src, db)
+                saved_count += api_saved
+            except Exception as e:
+                logger.warning(f"Error scraping job API [{src.name}]: {e}")
+            continue
+
         logger.info(f"Fetching job RSS [{src.name}]: {rss_url}")
         
         try:
@@ -734,4 +947,7 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
 
     logger.info(f"Jobs sweep finished. Saved {saved_count} tech jobs across {len(active_sources)} sources.")
     return saved_count
+
+# Universal alias for job ingestion
+scrape_jobs = scrape_teamtailor_jobs
 

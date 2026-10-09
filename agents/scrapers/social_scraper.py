@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 import httpx
@@ -8,6 +9,27 @@ from database.models import RawScrapeData, SourceLog, DataSource
 from utils.logger import get_centralized_logger
 
 logger = get_centralized_logger("SocialScraper")
+
+
+async def _get_reddit_oauth_token(client: httpx.AsyncClient) -> str:
+    """Retrieves Reddit application-only OAuth token if client credentials exist in environment."""
+    client_id = os.getenv("REDDIT_CLIENT_ID")
+    client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        return ""
+    try:
+        resp = await client.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(client_id, client_secret),
+            data={"grant_type": "client_credentials"},
+            headers={"User-Agent": "FremtidsbarometerBot/1.0"},
+            timeout=10.0
+        )
+        if resp.status_code == 200:
+            return resp.json().get("access_token", "")
+    except Exception as e:
+        logger.debug(f"Failed to obtain Reddit OAuth token: {e}")
+    return ""
 
 
 async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) -> int:
@@ -160,27 +182,34 @@ async def scrape_reddit_discussions(db, source_id: int = None, limit_per_sub: in
             DataSource.is_active == 1
         ).all()
 
-        consecutive_blocks = 0
+        if not active_reddit:
+            logger.info("Reddit sources disabled or not configured.")
+            return saved_count
+
+        oauth_token = await _get_reddit_oauth_token(client)
+        req_headers = {"Authorization": f"bearer {oauth_token}"} if oauth_token else {}
+        base_domain = "oauth.reddit.com" if oauth_token else "www.reddit.com"
+
         for src in active_reddit:
             sub = src.url.rstrip("/").split("/")[-1]
-            url = f"https://www.reddit.com/r/{sub}/hot.json?limit={limit_per_sub}"
+            url = f"https://{base_domain}/r/{sub}/hot.json?limit={limit_per_sub}"
             try:
-                resp = await client.get(url)
-                if resp.status_code == 403:
-                    consecutive_blocks += 1
+                resp = await client.get(url, headers=req_headers)
+                if resp.status_code in (401, 403, 429):
                     try:
-                        db.add(SourceLog(data_source_id=src.id, error_message="HTTP 403 (Rate limit/Cloud IP block)", http_status=403))
+                        db.add(SourceLog(
+                            data_source_id=src.id,
+                            error_message=f"HTTP {resp.status_code} (Reddit API requires authentication or rate limit reached)",
+                            http_status=resp.status_code
+                        ))
                         db.commit()
                     except Exception:
                         db.rollback()
 
-                    if consecutive_blocks >= 2:
-                        logger.info("Reddit cloud IP blocks detected on consecutive subreddits. Skipping remaining Reddit requests.")
-                        break
-                    continue
+                    logger.info("Reddit public endpoint rate-limited/blocked. Skipped gracefully, proceeding with Lobste.rs and Dev.to.")
+                    break
                 elif resp.status_code != 200:
                     continue
-                consecutive_blocks = 0
                 
                 data = resp.json()
                 children = data.get("data", {}).get("children", [])

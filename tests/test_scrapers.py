@@ -155,3 +155,28 @@ def test_salary_job_classification():
     assert _classify_job("Golang Microservices Developer", ["go"]) == "Go"
     assert _classify_job("Security Operations Analyst", ["cyber"]) == "Cybersecurity"
 
+def test_german_and_european_non_tech_exclusion():
+    titles = [
+        "Steuerberater (m/w/d) in Vollzeit",
+        "Buchhalter / Accountant",
+        "Vertriebsmitarbeiter im Außendienst",
+        "Verkäufer / Retail Sales Assistant",
+        "Recruiter / Talent Acquisition Specialist",
+        "Praktikant im Bereich Empfang / Receptionist",
+    ]
+    for title in titles:
+        t_lower = title.lower()
+        has_exclude = any(ex in t_lower for ex in EXCLUDE_KEYWORDS)
+        assert has_exclude is True, f"Failed to exclude: {title}"
+
+def test_scrape_jobs_export():
+    from agents.scrapers import scrape_jobs, scrape_teamtailor_jobs
+    assert callable(scrape_jobs)
+    assert scrape_jobs == scrape_teamtailor_jobs
+
+def test_news_agent_isolation():
+    from agents.news_agent import NewsAgent
+    agent = NewsAgent()
+    assert agent.primary_rss.startswith("https://news.google.com")
+    assert any("TechCrunch" in name for name, _ in agent.fallback_rss)
+

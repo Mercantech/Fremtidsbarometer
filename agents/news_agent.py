@@ -31,15 +31,16 @@ class NewsAgent:
         db = get_session()
         
         try:
-            # Query active RSS data sources from the database
+            # Query active news RSS data sources from the database (strictly category == "news")
             db_sources = db.query(DataSource).filter(
                 DataSource.is_active == 1,
-                DataSource.source_type == "rss"
+                DataSource.source_type == "rss",
+                DataSource.category == "news"
             ).all()
 
             rss_candidates = []
             for s in db_sources:
-                if s.url and "salary" not in s.category.lower():
+                if s.url:
                     rss_candidates.append((s.name, s.url))
 
             # Default fallback candidates

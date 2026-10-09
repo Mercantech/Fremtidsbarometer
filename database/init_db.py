@@ -34,8 +34,22 @@ def init_db():
         from sqlalchemy import text
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);"))
+            conn.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;"))
+            conn.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;"))
+            conn.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);"))
             conn.commit()
-            print("   🔧 Schema columns verified (api_key in ai_model_configs).")
+            print("   🔧 Schema columns verified (api_key in ai_model_configs, salary_min/max/currency in job_postings).")
+
+        # Automatically apply Alembic migrations to head
+        try:
+            from alembic.config import Config
+            from alembic import command
+            alembic_cfg = Config("alembic.ini")
+            command.upgrade(alembic_cfg, "head")
+            print("   🔧 Alembic migration applied to head.")
+        except Exception as mig_err:
+            print(f"   ℹ️ Alembic upgrade notice: {mig_err}")
 
         # Show created tables
         table_names = list(Base.metadata.tables.keys())

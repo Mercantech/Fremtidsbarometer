@@ -9,7 +9,7 @@ load_dotenv()
 
 from agents.scrapers.social_scraper import scrape_reddit_discussions
 from agents.scrapers.tech_scraper import scrape_hackernews, scrape_github_trending
-from agents.scrapers.jobs_scraper import scrape_teamtailor_jobs
+from agents.scrapers.jobs_scraper import scrape_teamtailor_jobs, scrape_jobs
 from agents.scrapers.salary_scraper import scrape_developer_salaries
 from agents.synthesizer import run_mathematical_synthesis
 
@@ -154,13 +154,16 @@ async def run_jobs_sweep(db=None):
 
     try:
         logger.info("=== Partition 3: Jobs & Salaries Sweep ===")
-        tt_active, tt_id = get_data_source_status(db, "TeamTailor")
-        if not tt_active:
-            logger.info("⏩ Jobs sweep skipped: TeamTailor ATS data source is disabled in Admin Panel.")
+        any_jobs_active = db.query(DataSource).filter(
+            DataSource.category == "jobs",
+            DataSource.is_active == 1
+        ).first() is not None
+        if not any_jobs_active:
+            logger.info("⏩ Jobs sweep skipped: All Jobs data sources are disabled in Admin Panel.")
             return 0
         
-        jobs_count = await scrape_teamtailor_jobs(db, source_id=tt_id or 1)
-        logger.info(f"Partition 3 Complete: Scraped {jobs_count} ATS jobs.")
+        jobs_count = await scrape_jobs(db)
+        logger.info(f"Partition 3 Complete: Scraped {jobs_count} tech jobs.")
         return jobs_count
     except Exception as e:
         logger.error(f"Jobs sweep failed: {e}")

@@ -58,11 +58,12 @@ interface AppState {
 
   liveTopics: LiveTopic[];
   selectedTopic: LiveTopic | null;
-
   isLoadingNews: boolean;
 
   apiError: string | null;
   clearApiError: () => void;
+  apiWarning: string | null;
+  clearApiWarning: () => void;
 
   activeFilters: ('job' | 'salary' | 'hype')[];
   toggleFilter: (filter: 'job' | 'salary' | 'hype') => void;
@@ -273,11 +274,13 @@ export const useStore = create<AppState>()(
       liveTopics: [],
       selectedTopic: null,
       apiError: null,
+      apiWarning: null,
       activeFilters: ['job', 'salary', 'hype'],
 
       isLoadingNews: false,
 
       clearApiError: () => set({ apiError: null }),
+      clearApiWarning: () => set({ apiWarning: null }),
 
       toggleFilter: (f) => set((state) => ({
         activeFilters: state.activeFilters.includes(f)
@@ -299,10 +302,10 @@ export const useStore = create<AppState>()(
       setSelectedTopic: (topic) => set({ selectedTopic: topic }),
 
       loadInitialData: async () => {
-        set({ isLoadingNews: true, apiError: null });
+        set({ isLoadingNews: true, apiError: null, apiWarning: null });
 
         try {
-          const [newsData, trendsData, historyData, jobsData, hypeData, salaryData, erasData, countriesData] = await Promise.all([
+          const results = await Promise.allSettled([
             fetchNews(15),
             fetchTrends('GLOBAL', 10),
             fetchTrendsHistory('GLOBAL', 1960, 2034),
@@ -312,6 +315,35 @@ export const useStore = create<AppState>()(
             fetchEras(),
             fetchCountries()
           ]);
+
+          const newsData = results[0].status === 'fulfilled' ? results[0].value : [];
+          const trendsData = results[1].status === 'fulfilled' ? results[1].value : [];
+          const historyData = results[2].status === 'fulfilled' ? results[2].value : [];
+          const jobsData = results[3].status === 'fulfilled' ? results[3].value : [];
+          const hypeData = results[4].status === 'fulfilled' ? results[4].value : [];
+          const salaryData = results[5].status === 'fulfilled' ? results[5].value : [];
+          const erasData = results[6].status === 'fulfilled' ? results[6].value : [];
+          const countriesData = results[7].status === 'fulfilled' ? results[7].value : [];
+
+          // Log degraded feeds if any failed
+          const endpointNames = ['News', 'Trends', 'History', 'Jobs', 'Hype', 'Salary', 'Eras', 'Countries'];
+          const failedFeeds = results
+            .map((r, idx) => (r.status === 'rejected' ? endpointNames[idx] : null))
+            .filter(Boolean) as string[];
+
+          // Complete network / server failure check
+          const allFailed = results.every(r => r.status === 'rejected');
+          if (allFailed) {
+            set({
+              isLoadingNews: false,
+              apiError: 'Backend Connection Error — server temporarily unreachable'
+            });
+            return;
+          }
+
+          const warningNotice = failedFeeds.length > 0
+            ? `Notice: ${failedFeeds.join(', ')} feed is temporarily synchronizing`
+            : null;
 
           // Set era index based on current year and loaded eras
           let eraIdx = 0;
@@ -475,7 +507,8 @@ export const useStore = create<AppState>()(
             salary: salaryData,
             liveTopics: newLiveTopics,
             isLoadingNews: false,
-            apiError: null
+            apiError: null,
+            apiWarning: warningNotice
           });
         } catch (err: unknown) {
           const errorMessage = err instanceof Error ? err.message : 'Failed to connect to backend server';
