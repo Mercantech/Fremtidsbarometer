@@ -547,4 +547,170 @@ export const updateAdminGlobeConfig = async (
   return response.data;
 };
 
+// ── Eras & History CMS ──────────────────────────────────
+export interface AdminEra {
+  id: number;
+  year: number;
+  title: string;
+  subtitle?: string;
+  stats?: {
+    title_da?: string;
+    subtitle_da?: string;
+    tagline?: string;
+    tagline_da?: string;
+    icon?: string;
+    moodColor?: string;
+    roles?: [string, string, string, string?][];
+    stack?: [string, string, string, string?][];
+    hypeTopic?: string;
+    hypeTopic_da?: string;
+    hypeDesc?: string;
+    hypeDesc_da?: string;
+    milestones?: { year: number; title: string; title_da?: string; desc: string; desc_da?: string }[];
+    chronicle?: { year: number; headline: string; headline_da?: string; snippet: string; snippet_da?: string; tag?: string }[];
+    [key: string]: any;
+  };
+  created_at?: string;
+}
+
+export const fetchAdminEras = async (): Promise<AdminEra[]> => {
+  const response = await adminApi.get<AdminEra[]>('/api/admin/eras');
+  return response.data;
+};
+
+export const createAdminEra = async (payload: {
+  year: number;
+  title: string;
+  subtitle?: string;
+  stats?: Record<string, any>;
+}): Promise<AdminEra> => {
+  const response = await adminApi.post<AdminEra>('/api/admin/eras', payload);
+  return response.data;
+};
+
+export const updateAdminEra = async (
+  eraId: number,
+  payload: Partial<{ year: number; title: string; subtitle: string; stats: Record<string, any> }>
+): Promise<AdminEra> => {
+  const response = await adminApi.put<AdminEra>(`/api/admin/eras/${eraId}`, payload);
+  return response.data;
+};
+
+export const deleteAdminEra = async (eraId: number): Promise<{ status: string; id: number; title: string }> => {
+  const response = await adminApi.delete(`/api/admin/eras/${eraId}`);
+  return response.data;
+};
+
+export const resetDefaultEras = async (): Promise<AdminEra[]> => {
+  const response = await adminApi.post<AdminEra[]>('/api/admin/eras/reset-defaults');
+  return response.data;
+};
+
+// ── Live Pins Moderation ────────────────────────────────
+export interface AdminPinItem {
+  id: string;
+  raw_id: number;
+  type: 'job' | 'hype';
+  title: string;
+  subtitle: string;
+  city: string;
+  country: string;
+  is_hidden: boolean;
+  salary?: string | null;
+  score?: number | null;
+  created_at?: string | null;
+}
+
+export interface AdminPinsResponse {
+  items: AdminPinItem[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+  hidden_count: number;
+}
+
+export const fetchAdminPins = async (params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string;
+  only_hidden?: boolean;
+}): Promise<AdminPinsResponse> => {
+  const response = await adminApi.get<AdminPinsResponse>('/api/admin/pins', { params });
+  return response.data;
+};
+
+export const toggleHidePin = async (
+  pinId: string
+): Promise<{ id: string; is_hidden: boolean; total_hidden: number }> => {
+  const response = await adminApi.post(`/api/admin/pins/${pinId}/toggle-hide`);
+  return response.data;
+};
+
+export const unhideAllPins = async (): Promise<{ message: string; total_hidden: number }> => {
+  const response = await adminApi.post('/api/admin/pins/unhide-all');
+  return response.data;
+};
+
+// ── Jobs & ATS Directory ────────────────────────────────
+export interface AdminJobItem {
+  id: number;
+  title: string;
+  company: string;
+  url?: string;
+  source?: string;
+  country: string;
+  city: string;
+  technology?: string;
+  tags: string[];
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency: string;
+  hype_score: number;
+  is_hot: boolean;
+  created_at?: string | null;
+}
+
+export interface AdminJobsResponse {
+  items: AdminJobItem[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+
+export interface AdminJobsStats {
+  total_jobs: number;
+  danish_jobs: number;
+  salary_disclosed_count: number;
+  danish_focus_regions: string[];
+  top_cities: { city: string; count: number }[];
+}
+
+export const fetchAdminJobs = async (params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  city?: string;
+  country?: string;
+  only_danish?: boolean;
+  only_hot?: boolean;
+  only_salary?: boolean;
+}): Promise<AdminJobsResponse> => {
+  const response = await adminApi.get<AdminJobsResponse>('/api/admin/jobs', { params });
+  return response.data;
+};
+
+export const fetchAdminJobsStats = async (): Promise<AdminJobsStats> => {
+  const response = await adminApi.get<AdminJobsStats>('/api/admin/jobs/stats');
+  return response.data;
+};
+
+export const deleteAdminJob = async (jobId: number): Promise<{ status: string; id: number; title: string }> => {
+  const response = await adminApi.delete(`/api/admin/jobs/${jobId}`);
+  return response.data;
+};
+
+
 

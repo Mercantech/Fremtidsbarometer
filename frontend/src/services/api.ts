@@ -227,6 +227,7 @@ export interface GlobeConfig {
   prioritize_salary: boolean;
   prioritize_trending_tech: boolean;
   pause_on_hover: boolean;
+  hidden_pins?: string[];
 }
 
 export const fetchGlobeConfig = async (): Promise<GlobeConfig> => {

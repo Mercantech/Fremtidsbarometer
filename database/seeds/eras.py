@@ -351,27 +351,31 @@ ERAS_SEED = [
     }
 ]
 
-def seed_eras(session):
+def seed_eras(session, force: bool = False):
     """
-    Seeds/upserts historical IT eras into the database.
-    Uses on_conflict_do_update on 'year' so that new fields (chronicle, DA translations,
-    milestones, icons) are always synchronized for both new and existing eras.
+    Seeds historical IT eras into the database.
+    By default, uses on_conflict_do_nothing on 'year' so that admin modifications made
+    in the database or admin CMS are never overwritten or lost.
+    Pass force=True to explicitly overwrite with defaults.
     """
     print(f"🕐 Synchronizing {len(ERAS_SEED)} historical IT eras (1964–2035)...")
     try:
         for era_data in ERAS_SEED:
             stmt = insert(Era).values(**era_data)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["year"],
-                set_={
-                    "title": stmt.excluded.title,
-                    "subtitle": stmt.excluded.subtitle,
-                    "stats": stmt.excluded.stats,
-                }
-            )
+            if force:
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["year"],
+                    set_={
+                        "title": stmt.excluded.title,
+                        "subtitle": stmt.excluded.subtitle,
+                        "stats": stmt.excluded.stats,
+                    }
+                )
+            else:
+                stmt = stmt.on_conflict_do_nothing(index_elements=["year"])
             session.execute(stmt)
         session.commit()
-        print(f"✅ Successfully seeded/updated {len(ERAS_SEED)} IT eras.")
+        print(f"✅ Successfully verified {len(ERAS_SEED)} IT eras (safe mode: {not force}).")
     except Exception as e:
         session.rollback()
         print(f"❌ Error seeding eras: {e}")

@@ -85,10 +85,25 @@ class EraSchema(BaseModel):
     id: int
     year: int
     title: str
-    subtitle: Optional[str]
-    stats: Optional[Dict[str, Any]]
+    subtitle: Optional[str] = None
+    stats: Optional[Dict[str, Any]] = None
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EraCreateSchema(BaseModel):
+    year: int = Field(..., ge=1950, le=2100, description="Era anchor year e.g. 1970, 2026")
+    title: str = Field(..., min_length=2, max_length=200, description="Era headline title")
+    subtitle: Optional[str] = Field(default=None, max_length=500, description="Era secondary summary")
+    stats: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Flexible era payload: roles, stack, hypeTopic, etc.")
+
+
+class EraUpdateSchema(BaseModel):
+    year: Optional[int] = Field(default=None, ge=1950, le=2100)
+    title: Optional[str] = Field(default=None, min_length=2, max_length=200)
+    subtitle: Optional[str] = Field(default=None, max_length=500)
+    stats: Optional[Dict[str, Any]] = None
 
 # --- System Logs ---
 class SystemLogSchema(BaseModel):
@@ -299,3 +314,4 @@ class GlobeConfigSchema(BaseModel):
     prioritize_salary: bool = Field(default=True, description="Prioritize vacancies with confirmed salary ranges")
     prioritize_trending_tech: bool = Field(default=True, description="Prioritize vacancies matching rising tech trends")
     pause_on_hover: bool = Field(default=True, description="Pause rotation while hovering on pins")
+    hidden_pins: List[str] = Field(default_factory=list, description="List of pin IDs hidden by moderator")

@@ -38,6 +38,7 @@ export interface LiveTopic {
 }
 
 export type HypeTopicInput = HypeTopic & {
+  id?: number | string;
   city?: string;
   country?: string;
   location_name?: string;
@@ -387,10 +388,14 @@ export const useStore = create<AppState>()(
 
           // Build live topics strictly from real backend data with geo-accurate coordinates
           const newLiveTopics: LiveTopic[] = [];
+          const hiddenPinsSet = new Set(get().globeConfig?.hidden_pins || []);
           let idCounter = 0;
 
           // Map jobs to live topics
           sampleJobsFairly(jobsData).forEach(j => {
+            const pinId = `job-${j.id || idCounter++}`;
+            if (hiddenPinsSet.has(pinId)) return;
+
             const resolvedCountry = (j.country && j.country.trim() !== '' && j.country.toUpperCase() !== 'GLOBAL')
               ? j.country
               : (resolveCountryForCity(j.city) || 'EU');
@@ -402,7 +407,7 @@ export const useStore = create<AppState>()(
 
             const hotPrefix = j.is_hot ? '🔥 ' : '';
             newLiveTopics.push({
-              id: `job-${idCounter++}`,
+              id: pinId,
               country: resolvedCountry,
               city: j.city,
               lat: coords.lat,
@@ -430,9 +435,12 @@ export const useStore = create<AppState>()(
 
           // Map hype topics to live topics (backend geo -> semantic heuristic -> deterministic fallback)
           hypeData.forEach((h: HypeTopicInput) => {
+            const pinId = `hype-${h.id || idCounter++}`;
+            if (hiddenPinsSet.has(pinId)) return;
+
             const loc = resolveHypeItemLocation(h);
             newLiveTopics.push({
-              id: `hype-${idCounter++}`,
+              id: pinId,
               country: loc.country,
               city: loc.city,
               lat: loc.lat,

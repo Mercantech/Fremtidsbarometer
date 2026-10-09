@@ -10,6 +10,9 @@ import {
   LogOut,
   SlidersHorizontal,
   Globe,
+  Calendar,
+  Eye,
+  Briefcase,
 } from 'lucide-react';
 import { SystemStatusDisplay } from '../components/SystemStatusDisplay';
 import { PipelineControl } from '../components/PipelineControl';
@@ -17,10 +20,33 @@ import { AIModelManager } from '../components/AIModelManager';
 import { DataSourceManager } from '../components/DataSourceManager';
 import { LogsViewer } from '../components/LogsViewer';
 import { GlobeConfigManager } from '../components/GlobeConfigManager';
+import { ErasManager } from '../components/ErasManager';
+import { PinsModerationManager } from '../components/PinsModerationManager';
+import { JobsInspector } from '../components/JobsInspector';
 import '../styles/admin.css';
 
-type SectionType = 'overview' | 'pipeline' | 'ai-models' | 'data-sources' | '3d-radar' | 'logs';
-const VALID_SECTIONS: SectionType[] = ['overview', 'pipeline', 'ai-models', 'data-sources', '3d-radar', 'logs'];
+type SectionType =
+  | 'overview'
+  | 'pipeline'
+  | 'ai-models'
+  | 'data-sources'
+  | '3d-radar'
+  | 'eras'
+  | 'pins'
+  | 'jobs'
+  | 'logs';
+
+const VALID_SECTIONS: SectionType[] = [
+  'overview',
+  'pipeline',
+  'ai-models',
+  'data-sources',
+  '3d-radar',
+  'eras',
+  'pins',
+  'jobs',
+  'logs',
+];
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -132,6 +158,27 @@ export default function Admin() {
               <span>3D Radar Settings</span>
             </button>
             <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'pins' ? 'active' : ''}`}
+              onClick={() => setActiveSection('pins')}
+            >
+              <Eye className={`w-4 h-4 shrink-0 ${activeSection === 'pins' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Live Pins Moderation</span>
+            </button>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'eras' ? 'active' : ''}`}
+              onClick={() => setActiveSection('eras')}
+            >
+              <Calendar className={`w-4 h-4 shrink-0 ${activeSection === 'eras' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Eras & Timeline CMS</span>
+            </button>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'jobs' ? 'active' : ''}`}
+              onClick={() => setActiveSection('jobs')}
+            >
+              <Briefcase className={`w-4 h-4 shrink-0 ${activeSection === 'jobs' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Jobs & ATS Directory</span>
+            </button>
+            <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'logs' ? 'active' : ''}`}
               onClick={() => setActiveSection('logs')}
             >
@@ -169,6 +216,24 @@ export default function Admin() {
           {activeSection === '3d-radar' && (
             <div className="section-3d-radar">
               <GlobeConfigManager />
+            </div>
+          )}
+
+          {activeSection === 'pins' && (
+            <div className="section-pins">
+              <PinsModerationManager />
+            </div>
+          )}
+
+          {activeSection === 'eras' && (
+            <div className="section-eras">
+              <ErasManager />
+            </div>
+          )}
+
+          {activeSection === 'jobs' && (
+            <div className="section-jobs">
+              <JobsInspector />
             </div>
           )}
 
