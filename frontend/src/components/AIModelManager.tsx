@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import {
     fetchAIModels,
+    fetchProvidersStatus,
     createAIModel,
     updateAIModel,
     deleteAIModel,
     type AIModelConfig,
     type CreateAIModelConfig,
+    type ProviderStatus,
     getAdminErrorMessage,
 } from '../services/adminApi';
 import '../styles/admin.css';
 
 const TASK_TYPES = ['social_extraction', 'tech_extraction', 'jobs_extraction', 'final_synthesis'];
-const PROVIDERS = ['google', 'openai', 'anthropic', 'mistral', 'groq', 'custom'];
+const PROVIDERS = ['google', 'openai', 'mistral', 'groq', 'custom'];
 
 export const AIModelManager: React.FC = () => {
   const [models, setModels] = useState<AIModelConfig[]>([]);
+  const [providersStatus, setProvidersStatus] = useState<ProviderStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -22,20 +25,23 @@ export const AIModelManager: React.FC = () => {
     task_type: TASK_TYPES[0],
     model_name: '',
     provider: PROVIDERS[0],
-    api_key: '',
     is_active: 0,
     is_fallback: 0,
   });
 
   useEffect(() => {
-    loadModels();
+    loadData();
   }, []);
 
-  const loadModels = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await fetchAIModels();
-      setModels(data);
+      const [modelsData, pStatus] = await Promise.all([
+        fetchAIModels(),
+        fetchProvidersStatus()
+      ]);
+      setModels(modelsData);
+      setProvidersStatus(pStatus);
       setError(null);
     } catch (err) {
       setError(getAdminErrorMessage(err, 'Failed to load AI models'));
@@ -57,11 +63,10 @@ export const AIModelManager: React.FC = () => {
         task_type: TASK_TYPES[0],
         model_name: '',
         provider: PROVIDERS[0],
-        api_key: '',
         is_active: 0,
         is_fallback: 0,
       });
-      await loadModels();
+      await loadData();
     } catch (err) {
       setError(getAdminErrorMessage(err, 'Failed to create AI model'));
     }
@@ -70,7 +75,7 @@ export const AIModelManager: React.FC = () => {
   const handleToggleActive = async (modelId: number, currentActive: number) => {
     try {
       await updateAIModel(modelId, { is_active: currentActive === 1 ? 0 : 1 });
-      await loadModels();
+      await loadData();
     } catch (err) {
       setError(getAdminErrorMessage(err, 'Failed to update AI model'));
     }
@@ -79,7 +84,7 @@ export const AIModelManager: React.FC = () => {
   const handleToggleFallback = async (modelId: number, currentFallback: number) => {
     try {
       await updateAIModel(modelId, { is_fallback: currentFallback === 1 ? 0 : 1 });
-      await loadModels();
+      await loadData();
     } catch (err) {
       setError(getAdminErrorMessage(err, 'Failed to update fallback status'));
     }
@@ -89,7 +94,7 @@ export const AIModelManager: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this model configuration?')) {
       try {
         await deleteAIModel(modelId);
-        await loadModels();
+        await loadData();
       } catch (err) {
         setError(getAdminErrorMessage(err, 'Failed to delete AI model'));
       }
@@ -125,6 +130,33 @@ export const AIModelManager: React.FC = () => {
         </div>
       </div>
 
+      {/* Provider API Key Status Panel */}
+      <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+        <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <span>AI Providers Key Status (.env)</span>
+          <span className="text-[11px] font-normal text-slate-500">Ключи хранятся строго в переменных окружения сервера</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {providersStatus.map((ps) => (
+            <div key={ps.provider} className="flex items-center justify-between p-2 rounded bg-white border border-slate-200 shadow-xs">
+              <div>
+                <span className="font-bold text-xs uppercase block text-slate-800">{ps.provider}</span>
+                <span className="text-[10px] font-mono text-slate-500">{ps.env_var}</span>
+              </div>
+              {ps.is_configured ? (
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1" title="API key is active in environment">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Ключ найден
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1" title="Missing in .env">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Не найден
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {error && <div className="error-message">{error}</div>}
 
       {showForm && (
@@ -148,7 +180,7 @@ export const AIModelManager: React.FC = () => {
             <label>Model Identifier (Exact Model ID):</label>
             <input
               type="text"
-              placeholder="e.g., gemini-3.8-flash, gpt-4o-mini, claude-3-5-sonnet"
+              placeholder="e.g., gemini-3.8-flash, gpt-4o-mini, open-mistral-nemo"
               value={formData.model_name}
               onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
               className="form-input"
@@ -173,32 +205,6 @@ export const AIModelManager: React.FC = () => {
             </select>
           </div>
 
-          <div className="form-group">
-            <label>API Key (Optional / Кастомный токен):</label>
-            <input
-              type="password"
-              placeholder="Leave empty to use .env key, or enter custom token..."
-              value={formData.api_key || ''}
-              onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-              className="form-input"
-              autoComplete="new-password"
-            />
-
-            {/* Сноска по API токенам */}
-            <div className="token-footnote">
-              <div className="token-footnote-title">
-                <span>ℹ️</span>
-                <span>Сноска / Примечание по токенам:</span>
-              </div>
-              <p>
-                • <strong>Пустое</strong> — модель автоматически использует системный ключ из <code>.env</code> (удобно, не надо дублировать).
-              </p>
-              <p>
-                • <strong>Заполненное</strong> — модель использует свой собственный персональный токен (сохраняется в зашифрованном виде в БД). Это позволяет подключать чужие ключи, отдельные лимиты или сторонние шлюзы (Groq, Together AI, OpenRouter).
-              </p>
-            </div>
-          </div>
-
           <div className="form-group flex items-center gap-6 mt-3">
             <label className="flex items-center gap-2 cursor-pointer font-bold text-xs text-slate-700">
               <input
@@ -219,7 +225,7 @@ export const AIModelManager: React.FC = () => {
           </div>
 
           <button onClick={handleCreate} className="btn-primary mt-3">
-            + Register & Save Model
+            + Register Model
           </button>
         </div>
       )}
@@ -238,13 +244,13 @@ export const AIModelManager: React.FC = () => {
                       <div className="model-name font-mono font-bold text-sm text-slate-900">{model.model_name}</div>
                       <div className="model-meta flex flex-wrap items-center gap-2 mt-1">
                         <span className="provider-badge uppercase font-bold text-[10px]">{model.provider}</span>
-                        {model.has_custom_key ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200" title="Custom Token configured in database">
-                            🔑 Custom Token {model.masked_key ? `(${model.masked_key})` : ''}
+                        {model.env_key_present ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Active via ${model.env_var || '.env'}`}>
+                            🟢 Ключ найден (.env)
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200" title="Uses shared system key from .env">
-                            ⚙️ System (.env)
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" title={`Требуется ${model.env_var || 'API_KEY'} в .env`}>
+                            🔴 Ключ не найден в .env
                           </span>
                         )}
                         {model.is_active === 1 && <span className="active-badge">✓ Active</span>}

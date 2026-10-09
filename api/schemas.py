@@ -109,8 +109,8 @@ class AIModelConfigSchema(BaseModel):
     provider: str
     is_active: int
     is_fallback: int
-    has_custom_key: Optional[bool] = False
-    masked_key: Optional[str] = None
+    env_key_present: bool = True
+    env_var: Optional[str] = None
     created_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
@@ -120,7 +120,6 @@ class AIModelConfigCreateSchema(BaseModel):
     task_type: str
     model_name: str
     provider: str
-    api_key: Optional[str] = None
     is_active: int = 0
     is_fallback: int = 0
 
@@ -128,7 +127,14 @@ class AIModelConfigCreateSchema(BaseModel):
 class AIModelConfigUpdateSchema(BaseModel):
     is_active: Optional[int] = None
     is_fallback: Optional[int] = None
-    api_key: Optional[str] = None
+
+
+class ProviderStatusSchema(BaseModel):
+    provider: str
+    env_var: str
+    is_configured: bool
+    active_count: int = 0
+    fallback_count: int = 0
 
 
 # --- Data Sources ---
@@ -175,4 +181,70 @@ class SourceLogSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Multi-Stage AI Extraction Schemas with Grounded Citations ---
+class GroundedFact(BaseModel):
+    """
+    Base contract for all AI-extracted facts.
+    Requires a valid source URL and a verbatim quotation proof from the raw text.
+    """
+    source_url: str = Field(..., description="Direct URL of the source article/post/job")
+    quote: str = Field(..., min_length=10, max_length=500, description="Exact quotation proof from raw text")
 
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExtractedJob(GroundedFact):
+    """
+    Job vacancy extracted by AI from raw feed/HTML/JSON.
+    """
+    title: str = Field(..., min_length=2, description="Job title")
+    company: str = Field(..., min_length=1, description="Company name")
+    country: str = Field(default="GLOBAL", min_length=2, max_length=10, description="ISO-2 country code or GLOBAL/REMOTE")
+    city: Optional[str] = Field(default=None, description="City if mentioned in text")
+    technologies: List[str] = Field(default_factory=list, description="Extracted tech stack")
+    seniority: Optional[str] = Field(default=None, description="Junior, Middle, Senior, Lead, Staff, Principal")
+    salary_min: Optional[float] = Field(default=None, description="Minimum salary if explicitly disclosed")
+    salary_max: Optional[float] = Field(default=None, description="Maximum salary if explicitly disclosed")
+    salary_currency: Optional[str] = Field(default=None, description="Salary currency e.g. USD, EUR, DKK")
+
+
+class JobExtractionPayload(BaseModel):
+    """
+    Strict payload returned by the jobs_extraction stage.
+    """
+    jobs: List[ExtractedJob] = Field(default_factory=list)
+
+
+class ExtractedTechSignal(GroundedFact):
+    """
+    Technical signal extracted by AI from HackerNews, GitHub, or tech blogs.
+    """
+    technology: str = Field(..., min_length=1, description="Name of technology, tool, library, or framework")
+    signal_type: str = Field(default="rising_popularity", description="new_release, rising_popularity, migration, outage, deprecation")
+    context_summary: str = Field(..., min_length=10, max_length=400, description="Summary of the technical signal")
+    sentiment: str = Field(default="neutral", description="positive, neutral, negative")
+
+
+class TechExtractionPayload(BaseModel):
+    """
+    Strict payload returned by the tech_extraction stage.
+    """
+    signals: List[ExtractedTechSignal] = Field(default_factory=list)
+
+
+class ExtractedDiscussion(GroundedFact):
+    """
+    Developer discussion / sentiment extracted by AI from Reddit, Dev.to, Lobste.rs.
+    """
+    topic: str = Field(..., min_length=2, description="Topic of developer discussion")
+    community: str = Field(..., description="Community source e.g. Reddit r/LocalLLaMA, Dev.to")
+    key_argument: str = Field(..., min_length=10, max_length=400, description="Core thesis or takeaway from discussion")
+    sentiment_score: float = Field(default=0.0, ge=-1.0, le=1.0, description="Sentiment score from -1.0 to +1.0")
+    tags: List[str] = Field(default_factory=list, description="Categorization tags")
+
+
+class SocialExtractionPayload(BaseModel):
+    """
+    Strict payload returned by the social_extraction stage.
+    """
+    discussions: List[ExtractedDiscussion] = Field(default_factory=list)

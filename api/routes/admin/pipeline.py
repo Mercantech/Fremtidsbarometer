@@ -343,7 +343,7 @@ async def trigger_pipeline(
                     _update_step_in_db(run_id, "Partition 3: ATS Tech Jobs (Teamtailor & Nordic ATS)")
                     await run_jobs_sweep()
                     _update_step_in_db(run_id, "Partition 4: AI Mathematical Synthesis (Clustering & Eras)")
-                    await run_synthesis()
+                    await run_synthesis(force=force)
                 elif sweep == "social":
                     _update_step_in_db(run_id, "Harvesting Social Discussions (Dev.to, Reddit, Lobste.rs)")
                     await run_social_sweep()
@@ -358,7 +358,7 @@ async def trigger_pipeline(
                     await run_salary_sweep()
                 elif sweep == "synthesis":
                     _update_step_in_db(run_id, "Running AI Mathematical Synthesis & Trend Clustering")
-                    await run_synthesis()
+                    await run_synthesis(force=force)
                 elif sweep == "news":
                     _update_step_in_db(run_id, "Fetching Live Real-Time News (RSS feeds)")
                     await NewsAgent().fetch_news()

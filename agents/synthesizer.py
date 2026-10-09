@@ -97,7 +97,6 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
                 candidates.append({
                     "provider": fb.provider,
                     "model_name": fb.model_name,
-                    "api_key": getattr(fb, "api_key", None),
                 })
     except Exception as e:
         logger.warning(f"Could not load fallback models from DB: {e}")

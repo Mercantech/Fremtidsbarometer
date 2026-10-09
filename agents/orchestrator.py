@@ -58,7 +58,6 @@ def get_active_model(db, task_type: str):
     return {
         "provider": model_config.provider,
         "model_name": model_config.model_name,
-        "api_key": getattr(model_config, "api_key", None),
     }
 
 def get_data_source_status(db, keyword: str):
@@ -205,11 +204,12 @@ async def run_salary_sweep(db=None):
             db.close()
 
 
-async def run_synthesis(db=None):
+async def run_synthesis(db=None, force: bool = False):
     """
     Run 4: Final Synthesis.
     Collects cross-platform data from raw_scrape_data, clusters topics via LLM,
     calculates deterministic mathematical hype shares, and commits to HypeAnalysis & Eras.
+    If force=False and fresh synthesis exists (<6h) with no new raw data, skips to save AI tokens.
     """
     should_close = False
     if db is None:
@@ -218,6 +218,17 @@ async def run_synthesis(db=None):
 
     try:
         logger.info("=== Partition 4: Final Synthesis & Deduplication ===")
+        if not force:
+            threshold = datetime.now(timezone.utc) - timedelta(hours=6)
+            fresh_hype = db.query(HypeAnalysis).filter(HypeAnalysis.created_at >= threshold).first()
+            unprocessed_raw = db.query(RawScrapeData).filter(RawScrapeData.processed == 0).count()
+            if fresh_hype and unprocessed_raw == 0:
+                logger.info(
+                    "⏩ Fresh synthesis exists and no unprocessed raw items found. "
+                    "Skipping synthesis to save AI tokens (use force=True to re-run)."
+                )
+                return []
+
         model = get_active_model(db, "final_synthesis")
         logger.info(f"Using Model for Synthesis: {model['model_name']} ({model['provider']})")
         

@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import httpx
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple, Union
 from dotenv import load_dotenv
 import google.generativeai as genai
 
@@ -17,6 +17,124 @@ DEPRECATED_GEMINI_MODELS = {
     "gemini-1.5-flash",
     "gemini-3.5-flash",
 }
+
+# Standard token pricing in USD per 1M tokens
+MODEL_PRICING = {
+    "gemini-3.8-flash": {"input": 0.075 / 1_000_000, "output": 0.30 / 1_000_000},
+    "gemini-2.0-flash": {"input": 0.075 / 1_000_000, "output": 0.30 / 1_000_000},
+    "gemini-1.5-flash": {"input": 0.075 / 1_000_000, "output": 0.30 / 1_000_000},
+    "gpt-4o-mini":      {"input": 0.150 / 1_000_000, "output": 0.60 / 1_000_000},
+    "open-mistral-nemo":{"input": 0.150 / 1_000_000, "output": 0.15 / 1_000_000},
+    "default":          {"input": 0.100 / 1_000_000, "output": 0.30 / 1_000_000},
+}
+
+# Standard mapping: provider slug -> primary environment variable name
+PROVIDER_ENV_VARS: Dict[str, str] = {
+    "google": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "azure": "OPENAI_API_KEY",
+    "custom": "OPENAI_API_KEY",
+}
+
+
+def check_provider_key_present(provider: str) -> Tuple[str, bool]:
+    """Returns (env_var_name, is_configured) for a given provider."""
+    p_norm = (provider or "google").strip().lower()
+    env_var = PROVIDER_ENV_VARS.get(p_norm, f"{p_norm.upper()}_API_KEY")
+    val = (os.getenv(env_var) or "").strip()
+    return env_var, bool(val)
+
+
+def verify_provider_keys(db) -> List[Dict[str, Any]]:
+    """
+    Checks environment keys for ALL providers configured in ai_model_configs
+    (including both active models and fallback models).
+    Writes WARNING to SystemLog if keys are missing (never logging key values).
+    Returns list of provider status records.
+    """
+    from database.models import AIModelConfig, SystemLog
+
+    try:
+        models = db.query(AIModelConfig).all()
+    except Exception as e:
+        logger.warning(f"Could not query AIModelConfig for key verification: {e}")
+        return []
+
+    # Map provider -> {'active': int, 'fallback': int, 'total': int}
+    prov_map: Dict[str, Dict[str, int]] = {}
+    for m in models:
+        p = (m.provider or "google").strip().lower()
+        if p not in prov_map:
+            prov_map[p] = {"active": 0, "fallback": 0, "total": 0}
+        prov_map[p]["total"] += 1
+        if m.is_active == 1:
+            prov_map[p]["active"] += 1
+        elif m.is_fallback == 1:
+            prov_map[p]["fallback"] += 1
+
+    results = []
+    for p, counts in prov_map.items():
+        env_var, is_present = check_provider_key_present(p)
+        results.append({
+            "provider": p,
+            "env_var": env_var,
+            "is_configured": is_present,
+            "active_count": counts["active"],
+            "fallback_count": counts["fallback"]
+        })
+
+        if not is_present:
+            if counts["active"] > 0:
+                msg = (
+                    f"Active AI provider '{p}' has no key set in environment ({env_var}). "
+                    f"Active models for this provider will fail until the key is set."
+                )
+                logger.warning(f"⚠️ {msg}")
+                try:
+                    db.add(SystemLog(
+                        level="WARNING",
+                        component="AIProviderEnvCheck",
+                        message=msg,
+                        metadata_={"provider": p, "env_var": env_var, "status": "active_provider_missing_key"}
+                    ))
+                    db.commit()
+                except Exception as log_e:
+                    db.rollback()
+                    logger.warning(f"Failed to write missing key warning to SystemLog: {log_e}")
+
+            elif counts["fallback"] > 0:
+                msg = (
+                    f"Fallback AI provider '{p}' has no key set in environment ({env_var}). "
+                    f"(fallback provider has no key)"
+                )
+                logger.warning(f"⚠️ {msg}")
+                try:
+                    db.add(SystemLog(
+                        level="WARNING",
+                        component="AIProviderEnvCheck",
+                        message=msg,
+                        metadata_={"provider": p, "env_var": env_var, "status": "fallback_provider_missing_key"}
+                    ))
+                    db.commit()
+                except Exception as log_e:
+                    db.rollback()
+                    logger.warning(f"Failed to write missing key warning to SystemLog: {log_e}")
+
+    return results
+
+
+def calculate_token_cost(model_name: str, prompt_tokens: int, completion_tokens: int) -> float:
+    """Calculates approximate USD cost for token usage."""
+    cleaned = (model_name or "").lower()
+    pricing = MODEL_PRICING.get("default")
+    for key, price_info in MODEL_PRICING.items():
+        if key in cleaned:
+            pricing = price_info
+            break
+    cost = (prompt_tokens * pricing["input"]) + (completion_tokens * pricing["output"])
+    return round(cost, 6)
 
 
 class AIProviderError(Exception):
@@ -48,10 +166,10 @@ class GeminiProvider:
         self.model_name = cleaned_name
         self.model = genai.GenerativeModel(cleaned_name)
 
-    async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
+    async def analyze_json_with_meta(self, prompt: str, schema: str = "") -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
-        Sends prompt to Gemini and expects a validated JSON response.
-        Raises AIProviderError on missing keys or generation failures.
+        Sends prompt to Gemini, validates JSON response and returns (data, meta).
+        Meta includes prompt_tokens, completion_tokens, and cost_usd.
         """
         api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
         if not api_key:
@@ -63,13 +181,27 @@ class GeminiProvider:
             response = await self.model.generate_content_async(full_prompt)
             text = response.text
 
+            # Token tracking
+            usage_meta = getattr(response, "usage_metadata", None)
+            prompt_tokens = getattr(usage_meta, "prompt_token_count", 0) if usage_meta else 0
+            completion_tokens = getattr(usage_meta, "candidates_token_count", 0) if usage_meta else 0
+            cost = calculate_token_cost(self.model_name, prompt_tokens, completion_tokens)
+
             # Clear markdown formatting
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
 
-            return json.loads(text.strip())
+            parsed = json.loads(text.strip())
+            meta = {
+                "provider": "google",
+                "model_name": self.model_name,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "cost_usd": cost,
+            }
+            return parsed, meta
         except Exception as e:
             err_str = str(e).lower()
             # If model is unavailable (404 / no longer available / not found) and wasn't gemini-3.8-flash, retry with gemini-3.8-flash
@@ -79,16 +211,32 @@ class GeminiProvider:
                     fallback_model = genai.GenerativeModel("gemini-3.8-flash")
                     fallback_resp = await fallback_model.generate_content_async(full_prompt)
                     fb_text = fallback_resp.text
+                    fb_usage = getattr(fallback_resp, "usage_metadata", None)
+                    p_tok = getattr(fb_usage, "prompt_token_count", 0) if fb_usage else 0
+                    c_tok = getattr(fb_usage, "candidates_token_count", 0) if fb_usage else 0
+                    fb_cost = calculate_token_cost("gemini-3.8-flash", p_tok, c_tok)
+
                     if "```json" in fb_text:
                         fb_text = fb_text.split("```json")[1].split("```")[0]
                     elif "```" in fb_text:
                         fb_text = fb_text.split("```")[1].split("```")[0]
-                    return json.loads(fb_text.strip())
+                    return json.loads(fb_text.strip()), {
+                        "provider": "google",
+                        "model_name": "gemini-3.8-flash",
+                        "prompt_tokens": p_tok,
+                        "completion_tokens": c_tok,
+                        "cost_usd": fb_cost,
+                    }
                 except Exception as fb_err:
                     logger.error(f"Automatic retry with gemini-3.8-flash also failed: {fb_err}")
 
             logger.error(f"Gemini API error ({self.model_name}): {e}")
             raise AIProviderError(f"Gemini JSON generation failed: {e}") from e
+
+    async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
+        """Backward-compatible helper returning only the data dict."""
+        data, _ = await self.analyze_json_with_meta(prompt, schema)
+        return data
 
 
 class OpenAICompatibleProvider:
@@ -97,7 +245,7 @@ class OpenAICompatibleProvider:
         self.api_key = (api_key or os.getenv("OPENAI_API_KEY") or "").strip()
         self.base_url = base_url.rstrip("/")
 
-    async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
+    async def analyze_json_with_meta(self, prompt: str, schema: str = "") -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if not self.api_key:
             raise AIProviderError(f"API key for {self.base_url} is not configured.")
 
@@ -122,10 +270,28 @@ class OpenAICompatibleProvider:
                     raise AIProviderError(f"AI API error ({self.base_url}) {resp.status_code}: {resp.text}")
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]
-                return json.loads(content.strip())
+
+                usage = data.get("usage", {})
+                p_tok = usage.get("prompt_tokens", 0)
+                c_tok = usage.get("completion_tokens", 0)
+                cost = calculate_token_cost(self.model_name, p_tok, c_tok)
+
+                meta = {
+                    "provider": "openai_compatible",
+                    "model_name": self.model_name,
+                    "prompt_tokens": p_tok,
+                    "completion_tokens": c_tok,
+                    "cost_usd": cost,
+                }
+                return json.loads(content.strip()), meta
             except Exception as e:
                 logger.error(f"AI API error ({self.base_url}): {e}")
                 raise AIProviderError(f"AI JSON generation failed: {e}") from e
+
+    async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
+        """Backward-compatible helper returning only the data dict."""
+        data, _ = await self.analyze_json_with_meta(prompt, schema)
+        return data
 
 
 def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.8-flash", api_key: Optional[str] = None):
@@ -173,28 +339,36 @@ def get_ai_provider(provider: str = "google", model_name: str = "gemini-3.8-flas
 async def analyze_with_fallback(
     candidates: List[Dict[str, Any]],
     prompt: str,
-    schema: str = ""
-) -> Dict[str, Any]:
+    schema: str = "",
+    return_meta: bool = False
+) -> Union[Dict[str, Any], Tuple[Dict[str, Any], Dict[str, Any]]]:
     """
     Executes analyze_json trying each candidate model in order.
     Transitions to the next fallback model on provider errors (404, rate limit, quota, timeout).
     Raises AIProviderError only if all candidates fail.
+    If return_meta=True, returns (result, meta_dict).
     """
     if not candidates:
         candidates = [{"provider": "google", "model_name": "gemini-3.8-flash"}]
 
     last_error = None
-    for cand in candidates:
+    for idx, cand in enumerate(candidates):
         provider = cand.get("provider", "google")
         model_name = cand.get("model_name", "gemini-3.8-flash")
-        api_key = cand.get("api_key")
 
         try:
             logger.info(f"Invoking AI model: {provider} / {model_name}...")
-            ai = get_ai_provider(provider=provider, model_name=model_name, api_key=api_key)
-            result = await ai.analyze_json(prompt, schema)
+            ai = get_ai_provider(provider=provider, model_name=model_name)
+            result, meta = await ai.analyze_json_with_meta(prompt, schema)
             if result:
-                logger.info(f"AI response successfully generated by {provider} / {model_name}.")
+                meta["fallback_used"] = (idx > 0)
+                logger.info(
+                    f"AI response successfully generated by {provider}/{model_name}. "
+                    f"Tokens: {meta.get('prompt_tokens', 0)}+{meta.get('completion_tokens', 0)} "
+                    f"(${meta.get('cost_usd', 0.0):.6f})"
+                )
+                if return_meta:
+                    return result, meta
                 return result
         except AIProviderError as e:
             last_error = e

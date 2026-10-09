@@ -57,6 +57,9 @@ def seed_ai_models(session):
                 d.is_fallback = 0
                 logger.info(f"Deactivated deprecated model '{d.model_name}' for task '{d.task_type}'")
 
+        # Neutralize any database stored api_key values
+        session.query(AIModelConfig).update({AIModelConfig.api_key: None}, synchronize_session=False)
+
         # 2. Synchronize model configurations per task type
         for task in TASK_TYPES:
             existing_models = session.query(AIModelConfig).filter(

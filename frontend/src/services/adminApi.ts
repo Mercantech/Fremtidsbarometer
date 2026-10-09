@@ -131,9 +131,8 @@ export interface AIModelConfig {
   task_type: string;
   model_name: string;
   provider: string;
-  api_key?: string;
-  has_custom_key?: boolean;
-  masked_key?: string;
+  env_key_present: boolean;
+  env_var?: string;
   is_active: number;
   is_fallback: number;
   created_at: string;
@@ -144,7 +143,6 @@ export interface CreateAIModelConfig {
   task_type: string;
   model_name: string;
   provider: string;
-  api_key?: string;
   is_active?: number;
   is_fallback?: number;
 }
@@ -152,8 +150,20 @@ export interface CreateAIModelConfig {
 export interface UpdateAIModelConfig {
   is_active?: number;
   is_fallback?: number;
-  api_key?: string;
 }
+
+export interface ProviderStatus {
+  provider: string;
+  env_var: string;
+  is_configured: boolean;
+  active_count: number;
+  fallback_count: number;
+}
+
+export const fetchProvidersStatus = async (): Promise<ProviderStatus[]> => {
+  const response = await adminApi.get('/api/admin/ai-models/providers-status');
+  return response.data;
+};
 
 export const fetchAIModels = async (
   taskType?: string,
