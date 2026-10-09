@@ -1,14 +1,20 @@
 from typing import Optional, List
+import asyncio
+import httpx
+import feedparser
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from database.session import get_db
-from database.models import DataSource
+from database.models import DataSource, SourceLog
 from api.schemas import (
     DataSourceSchema,
     DataSourceCreateSchema,
     DataSourceUpdateSchema,
+    DataSourceTestRequest,
+    DataSourceTestResponse,
+    DataSourceIngestResponse,
 )
 
 router = APIRouter()
@@ -99,11 +105,14 @@ def create_data_source(source_data: DataSourceCreateSchema, db: Session = Depend
             )
         )
 
+    country_code = (source_data.country_code or "GLOBAL").strip().upper()[:10]
+
     new_source = DataSource(
         name=name,
         url=clean_url,
         category=category,
         source_type=source_type,
+        country_code=country_code,
         is_active=source_data.is_active if source_data.is_active is not None else 1,
     )
 
@@ -117,6 +126,180 @@ def create_data_source(source_data: DataSourceCreateSchema, db: Session = Depend
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Data source with URL '{clean_url}' already exists in database."
+        )
+
+
+@router.post("/data-sources/test", response_model=DataSourceTestResponse)
+async def test_data_source(payload: DataSourceTestRequest):
+    """
+    Tests a data source URL before adding or saving it.
+    Validates HTTP connectivity, detects format (RSS/Atom XML, JSON API, HTML),
+    and counts available entries.
+    """
+    clean_url = payload.url.strip()
+    if not (clean_url.startswith("http://") or clean_url.startswith("https://")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="URL must start with http:// or https://"
+        )
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Fremtidsbarometer/1.0",
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, application/json, text/xml, text/html, */*"
+    }
+
+    try:
+        async with httpx.AsyncClient(headers=headers, timeout=12.0, follow_redirects=True) as client:
+            resp = await client.get(clean_url)
+    except Exception as e:
+        return DataSourceTestResponse(
+            status_code=0,
+            is_valid=False,
+            detected_type="unreachable",
+            item_count=0,
+            sample_titles=[],
+            error=f"Connection failed: {str(e)}"
+        )
+
+    if resp.status_code != 200:
+        return DataSourceTestResponse(
+            status_code=resp.status_code,
+            is_valid=False,
+            detected_type="http_error",
+            item_count=0,
+            sample_titles=[],
+            error=f"HTTP {resp.status_code} ({resp.reason_phrase})"
+        )
+
+    body_text = resp.text
+    content_type = resp.headers.get("content-type", "").lower()
+
+    # 1. Try parsing as RSS / Atom XML
+    is_xml_hint = (
+        "xml" in content_type or
+        "rss" in content_type or
+        "atom" in content_type or
+        clean_url.endswith((".rss", ".xml", ".atom")) or
+        "/rss" in clean_url or
+        body_text.lstrip().startswith("<?xml") or
+        "<rss" in body_text[:500] or
+        "<feed" in body_text[:500]
+    )
+
+    if is_xml_hint:
+        feed = await asyncio.to_thread(feedparser.parse, body_text)
+        entries = getattr(feed, "entries", [])
+        if entries:
+            sample_titles = [e.get("title", "").strip() for e in entries[:3] if e.get("title")]
+            return DataSourceTestResponse(
+                status_code=200,
+                is_valid=True,
+                detected_type="rss",
+                item_count=len(entries),
+                sample_titles=sample_titles,
+                error=None
+            )
+
+    # 2. Try parsing as JSON API
+    if "application/json" in content_type or clean_url.endswith(".json") or body_text.lstrip().startswith(("{", "[")):
+        try:
+            data = resp.json()
+            items = []
+            if isinstance(data, list):
+                items = data
+            elif isinstance(data, dict):
+                for key in ["jobs", "data", "results", "articles", "stories", "items", "vacancies"]:
+                    if key in data and isinstance(data[key], list):
+                        items = data[key]
+                        break
+                if not items and data:
+                    items = [data]
+
+            sample_titles = []
+            for item in items[:3]:
+                if isinstance(item, dict):
+                    t = item.get("title") or item.get("name") or item.get("headline") or item.get("position")
+                    if t:
+                        sample_titles.append(str(t).strip())
+
+            return DataSourceTestResponse(
+                status_code=200,
+                is_valid=True,
+                detected_type="json_api",
+                item_count=len(items),
+                sample_titles=sample_titles,
+                error=None
+            )
+        except Exception:
+            pass
+
+    # 3. HTML or Web page fallback
+    return DataSourceTestResponse(
+        status_code=200,
+        is_valid=True,
+        detected_type="html",
+        item_count=1,
+        sample_titles=["HTML document received (200 OK)"],
+        error=None
+    )
+
+
+@router.post("/data-sources/{source_id}/ingest", response_model=DataSourceIngestResponse)
+async def ingest_single_data_source(source_id: int, db: Session = Depends(get_db)):
+    """
+    Instantly scrapes a single data source on-demand and returns ingestion results.
+    Clears any prior failure logs on success.
+    """
+    source = db.query(DataSource).filter(DataSource.id == source_id).first()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data source not found")
+
+    saved = 0
+    try:
+        if source.category == "jobs":
+            from agents.scrapers.jobs_scraper import scrape_single_job_source
+            saved = await scrape_single_job_source(source, db)
+        elif source.category in ("social", "tech"):
+            from agents.scrapers.social_scraper import scrape_lobsters, scrape_dev_to
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                if "lobste.rs" in source.url.lower():
+                    saved = await scrape_lobsters(client, db)
+                elif "dev.to" in source.url.lower():
+                    saved = await scrape_dev_to(client, db)
+                else:
+                    from agents.scrapers.jobs_scraper import scrape_single_job_source
+                    saved = await scrape_single_job_source(source, db)
+        elif source.category == "salary":
+            from agents.scrapers.salary_scraper import scrape_developer_salaries
+            saved = await scrape_developer_salaries(db, source_id=source.id)
+        else:
+            from agents.scrapers.jobs_scraper import scrape_single_job_source
+            saved = await scrape_single_job_source(source, db)
+
+        # On success, clear any failure logs
+        db.query(SourceLog).filter(SourceLog.data_source_id == source.id).delete(synchronize_session=False)
+        db.commit()
+
+        return DataSourceIngestResponse(
+            success=True,
+            source_id=source.id,
+            source_name=source.name,
+            items_saved=saved,
+            message=f"Успешно обработано: сохранено/обновлено {saved} записей."
+        )
+    except Exception as e:
+        db.rollback()
+        try:
+            db.add(SourceLog(data_source_id=source.id, error_message=str(e)[:500]))
+            db.commit()
+        except Exception:
+            pass
+        return DataSourceIngestResponse(
+            success=False,
+            source_id=source.id,
+            source_name=source.name,
+            items_saved=0,
+            message=f"Ошибка сбора источника: {str(e)}"
         )
 
 
@@ -152,6 +335,9 @@ def update_data_source(source_id: int, update: DataSourceUpdateSchema, db: Sessi
                 detail=f"Invalid category '{update_data['category']}'. Allowed categories: {', '.join(sorted(VALID_CATEGORIES))}"
             )
         update_data["category"] = cat
+
+    if "country_code" in update_data and update_data["country_code"] is not None:
+        update_data["country_code"] = update_data["country_code"].strip().upper()[:10]
 
     if "source_type" in update_data and update_data["source_type"] is not None:
         st = update_data["source_type"].strip().lower()
@@ -199,3 +385,4 @@ def delete_data_source(source_id: int, db: Session = Depends(get_db)):
     db.delete(source)
     db.commit()
     return {"message": "Data source deleted successfully"}
+

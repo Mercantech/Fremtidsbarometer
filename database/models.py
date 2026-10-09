@@ -209,7 +209,8 @@ class DataSource(Base):
     name        = Column(String(200), nullable=False)
     url         = Column(String(1000), nullable=False)
     source_type = Column(String(50))   # "rss", "api", "html_scrape"
-    category    = Column(String(50))   # "jobs", "hype", "salary", "news"
+    category    = Column(String(50))   # "jobs", "hype", "salary", "news", "tech", "social"
+    country_code = Column(String(10), default="GLOBAL")  # e.g. "PL", "DE", "DK", "UA", "GLOBAL"
     is_active   = Column(Integer, default=1) # 1=active, 0=inactive (disabled due to errors)
     created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

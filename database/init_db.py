@@ -69,6 +69,8 @@ def ensure_database_schema(engine=None):
             cols = {c["name"] for c in insp.get_columns("data_sources")}
             if "source_type" not in cols:
                 needed_ddls.append(("ALTER TABLE data_sources ADD COLUMN source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"))
+            if "country_code" not in cols:
+                needed_ddls.append(("ALTER TABLE data_sources ADD COLUMN country_code VARCHAR(10) DEFAULT 'GLOBAL';", "data_sources.country_code"))
 
         if "system_settings" not in existing_tables:
             try:

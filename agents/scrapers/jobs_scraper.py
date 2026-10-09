@@ -942,10 +942,15 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
     Filters for genuine tech/IT positions, extracts location & seniority across Europe,
     discovers salary disclosures, and saves structured JobPostings and RawScrapeData.
     """
-    active_sources = db.query(DataSource).filter(
-        DataSource.category == "jobs",
-        DataSource.is_active == 1
-    ).all()
+    query = db.query(DataSource)
+    if source_id:
+        query = query.filter(DataSource.id == source_id)
+    else:
+        query = query.filter(
+            DataSource.category == "jobs",
+            DataSource.is_active == 1
+        )
+    active_sources = query.all()
 
     if not active_sources:
         logger.info("No active job data sources found in database. Skipping jobs sweep.")
@@ -1119,6 +1124,9 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                     extra_hint=extra_hint,
                     source_hint=f"{src.name} {rss_url}"
                 )
+                if country == "GLOBAL" and getattr(src, "country_code", None) and src.country_code != "GLOBAL":
+                    country = src.country_code
+
                 score, reason = calculate_match_score(title, description, tech_category)
                 full_job_text = f"{title} {extra_hint} {description}"
                 salary_text = extract_salary(full_job_text)
@@ -1258,4 +1266,9 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
 
 # Universal alias for job ingestion
 scrape_jobs = scrape_teamtailor_jobs
+
+
+async def scrape_single_job_source(src: DataSource, db) -> int:
+    """Convenience helper to scrape a single registered job DataSource."""
+    return await scrape_teamtailor_jobs(db, source_id=src.id)
 

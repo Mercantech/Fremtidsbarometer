@@ -158,6 +158,7 @@ class DataSourceSchema(BaseModel):
     url: str
     category: str
     source_type: str
+    country_code: Optional[str] = "GLOBAL"
     is_active: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -170,6 +171,7 @@ class DataSourceCreateSchema(BaseModel):
     url: str
     category: str
     source_type: str
+    country_code: Optional[str] = "GLOBAL"
     is_active: int = 1
 
 
@@ -178,7 +180,30 @@ class DataSourceUpdateSchema(BaseModel):
     url: Optional[str] = None
     category: Optional[str] = None
     source_type: Optional[str] = None
+    country_code: Optional[str] = None
     is_active: Optional[int] = None
+
+
+class DataSourceTestRequest(BaseModel):
+    url: str
+    source_type: Optional[str] = "rss"
+
+
+class DataSourceTestResponse(BaseModel):
+    status_code: int
+    is_valid: bool
+    detected_type: str
+    item_count: int
+    sample_titles: List[str] = []
+    error: Optional[str] = None
+
+
+class DataSourceIngestResponse(BaseModel):
+    success: bool
+    source_id: int
+    source_name: str
+    items_saved: int
+    message: str
 
 
 # --- Source Logs ---

@@ -8,6 +8,9 @@ import {
   type CreateDataSource,
   fetchSourceTelemetry,
   type SourceTelemetry,
+  testDataSourceUrl,
+  ingestDataSourceNow,
+  type DataSourceTestResult,
   getAdminErrorMessage,
 } from '../services/adminApi';
 import {
@@ -25,11 +28,29 @@ import {
   Loader2,
   Power,
   Globe,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import '../styles/admin.css';
 
 const CATEGORIES = ['jobs', 'social', 'tech', 'news', 'salary'];
 const SOURCE_TYPES = ['rss', 'api', 'html_scrape'];
+
+const POPULAR_COUNTRIES = [
+  { code: 'GLOBAL', label: '🌐 Global / Remote' },
+  { code: 'DK', label: '🇩🇰 Denmark' },
+  { code: 'DE', label: '🇩🇪 Germany' },
+  { code: 'PL', label: '🇵🇱 Poland' },
+  { code: 'UA', label: '🇺🇦 Ukraine' },
+  { code: 'SE', label: '🇸🇪 Sweden' },
+  { code: 'NO', label: '🇳🇴 Norway' },
+  { code: 'UK', label: '🇬🇧 United Kingdom' },
+  { code: 'US', label: '🇺🇸 United States' },
+  { code: 'NL', label: '🇳🇱 Netherlands' },
+  { code: 'CH', label: '🇨🇭 Switzerland' },
+  { code: 'EE', label: '🇪🇪 Estonia' },
+  { code: 'FR', label: '🇫🇷 France' },
+];
 
 export const DataSourceManager: React.FC = () => {
   const [sources, setSources] = useState<DataSource[]>([]);
@@ -39,13 +60,24 @@ export const DataSourceManager: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Form State
   const [formData, setFormData] = useState<CreateDataSource>({
     name: '',
     url: '',
     category: CATEGORIES[0],
     source_type: SOURCE_TYPES[0],
+    country_code: 'GLOBAL',
     is_active: 1,
   });
+
+  // URL Testing State
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<DataSourceTestResult | null>(null);
+
+  // Instant Ingest State
+  const [ingestingId, setIngestingId] = useState<number | null>(null);
+  const [ingestNotice, setIngestNotice] = useState<{ id: number; message: string; success: boolean } | null>(null);
 
   const loadSources = React.useCallback(async () => {
     try {
@@ -77,13 +109,33 @@ export const DataSourceManager: React.FC = () => {
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.url.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q)
+        s.category.toLowerCase().includes(q) ||
+        (s.country_code && s.country_code.toLowerCase().includes(q))
     );
   }, [sources, searchQuery]);
 
   const activeCount = useMemo(() => {
     return sources.filter((s) => s.is_active === 1).length;
   }, [sources]);
+
+  const handleTestUrl = async () => {
+    const trimmedUrl = formData.url.trim();
+    if (!trimmedUrl) {
+      setError('Please enter a URL to test');
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    setError(null);
+    try {
+      const res = await testDataSourceUrl(trimmedUrl, formData.source_type);
+      setTestResult(res);
+    } catch (err) {
+      setError(getAdminErrorMessage(err, 'Failed to test endpoint'));
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const handleCreate = async () => {
     try {
@@ -99,13 +151,16 @@ export const DataSourceManager: React.FC = () => {
         ...formData,
         name: trimmedName,
         url: trimmedUrl,
+        country_code: formData.country_code || 'GLOBAL',
       });
       setShowForm(false);
+      setTestResult(null);
       setFormData({
         name: '',
         url: '',
         category: selectedCategory || CATEGORIES[0],
         source_type: SOURCE_TYPES[0],
+        country_code: 'GLOBAL',
         is_active: 1,
       });
       setError(null);
@@ -135,6 +190,28 @@ export const DataSourceManager: React.FC = () => {
     }
   };
 
+  const handleInstantIngest = async (sourceId: number) => {
+    setIngestingId(sourceId);
+    setIngestNotice(null);
+    try {
+      const res = await ingestDataSourceNow(sourceId);
+      setIngestNotice({
+        id: sourceId,
+        message: res.message,
+        success: res.success,
+      });
+      await loadSources();
+    } catch (err) {
+      setIngestNotice({
+        id: sourceId,
+        message: getAdminErrorMessage(err, 'Ingest failed'),
+        success: false,
+      });
+    } finally {
+      setIngestingId(null);
+    }
+  };
+
   if (loading && sources.length === 0) {
     return <div className="admin-section-loading">Loading data sources...</div>;
   }
@@ -151,7 +228,7 @@ export const DataSourceManager: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Single Source of Truth: All scrapers and background agents query active feeds dynamically from this table.
+            Single Source of Truth: All scrapers, radar pins, and background agents query active feeds dynamically from this table.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -170,9 +247,10 @@ export const DataSourceManager: React.FC = () => {
                 }));
               }
               setShowForm(!showForm);
+              setTestResult(null);
               setError(null);
             }}
-            className="btn-secondary"
+            className="btn-secondary cursor-pointer"
           >
             {showForm ? (
               <>
@@ -196,7 +274,7 @@ export const DataSourceManager: React.FC = () => {
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search channels by name, URL, or keyword..."
+            placeholder="Search channels by name, URL, country, or keyword..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="form-input text-xs pl-9!"
@@ -231,7 +309,7 @@ export const DataSourceManager: React.FC = () => {
             <label>Name:</label>
             <input
               type="text"
-              placeholder="e.g., TeamTailor: Podimo Tech, Reddit: r/rust, InfoQ RSS"
+              placeholder="e.g., TeamTailor: Podimo Tech, NoFluffJobs Poland, InfoQ RSS"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="form-input"
@@ -240,16 +318,81 @@ export const DataSourceManager: React.FC = () => {
 
           <div className="form-group">
             <label>URL / Endpoint:</label>
-            <input
-              type="text"
-              placeholder="https://podimo.teamtailor.com/jobs.rss or https://www.reddit.com/r/rust"
-              value={formData.url}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-              className="form-input"
-            />
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                placeholder="https://podimo.teamtailor.com/jobs.rss or https://www.arbeitnow.com/api/job-board-api"
+                value={formData.url}
+                onChange={(e) => {
+                  setFormData({ ...formData, url: e.target.value });
+                  setTestResult(null);
+                }}
+                className="form-input flex-1"
+              />
+              <button
+                type="button"
+                onClick={handleTestUrl}
+                disabled={testLoading || !formData.url.trim()}
+                className="px-3.5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0"
+                title="Проверить ответ сервера и распарсить превью записей"
+              >
+                {testLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Проверка...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                    <span>Проверить URL</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {testResult && (
+              <div
+                className={`mt-2.5 p-3 rounded-lg border text-xs ${
+                  testResult.is_valid
+                    ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                    : 'bg-rose-950/40 border-rose-500/30 text-rose-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-semibold">
+                    {testResult.is_valid ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertOctagon className="w-4 h-4 text-rose-400" />
+                    )}
+                    <span>
+                      {testResult.is_valid
+                        ? `HTTP 200 OK — Обнаружен формат ${testResult.detected_type.toUpperCase()} (${testResult.item_count} записей)`
+                        : `Сбой проверки (${testResult.error || `HTTP ${testResult.status_code}`})`}
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-white/10 text-slate-300">
+                    {testResult.detected_type}
+                  </span>
+                </div>
+                {testResult.sample_titles.length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-white/10">
+                    <div className="text-[11px] text-slate-400 mb-1 font-medium">Превью обнаруженных заголовков:</div>
+                    <ul className="space-y-1 text-slate-200">
+                      {testResult.sample_titles.map((title, i) => (
+                        <li key={i} className="truncate flex items-center gap-1.5">
+                          <span className="text-emerald-400 text-[10px]">•</span>
+                          <span>{title}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="form-row">
+          <div className="form-row grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="form-group">
               <label>Category:</label>
               <select
@@ -279,6 +422,21 @@ export const DataSourceManager: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            <div className="form-group">
+              <label>Country / Region (Страна):</label>
+              <select
+                value={formData.country_code || 'GLOBAL'}
+                onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
+                className="form-input text-xs font-semibold"
+              >
+                {POPULAR_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label} ({c.code})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Sources Footnote */}
@@ -288,10 +446,10 @@ export const DataSourceManager: React.FC = () => {
               <span>Source Notes & Guidelines:</span>
             </div>
             <p>
-              • <strong>RSS / Atom feeds</strong> (TeamTailor jobs, Google News, blogs) are parsed directly via XML URL without authentication.
+              • <strong>RSS / Atom feeds</strong> (TeamTailor jobs, Job boards, Google News, blogs) are parsed directly via XML URL without authentication.
             </p>
             <p>
-              • <strong>APIs & Scrapers</strong> (Reddit, GitHub, Lobste.rs, Dev.to, RemoteOK, Salary APIs) use platform adapters. For Salary APIs, provide REST endpoints that return developer compensation or job listings (e.g., <code>https://remoteok.com/api</code>).
+              • <strong>APIs & Scrapers</strong> (Dev.to, Lobste.rs, RemoteOK, Arbeitnow) use JSON data adapters. For regional job boards, specify the exact country code to pin jobs accurately to the 3D globe.
             </p>
           </div>
 
@@ -306,7 +464,7 @@ export const DataSourceManager: React.FC = () => {
             </label>
           </div>
 
-          <button onClick={handleCreate} className="btn-primary mt-2">
+          <button onClick={handleCreate} className="btn-primary mt-2 cursor-pointer">
             <Plus className="w-3.5 h-3.5" />
             Register & Save Source
           </button>
@@ -319,12 +477,16 @@ export const DataSourceManager: React.FC = () => {
         ) : (
           filteredSources.map((source) => {
             const tel = telemetry?.sources.find((t) => t.id === source.id);
+            const notice = ingestNotice?.id === source.id ? ingestNotice : null;
             return (
               <div key={source.id} className="source-item">
                 <div className="source-info">
                   <div className="source-name font-semibold text-slate-100 flex items-center gap-2">
                     <Globe className="w-4 h-4 text-slate-400" />
                     <span>{source.name}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white/5 text-slate-300 border border-white/8">
+                      {source.country_code || 'GLOBAL'}
+                    </span>
                   </div>
                   <div className="source-meta flex items-center gap-2 mt-1.5">
                     <span className="category-badge uppercase font-bold text-[10px]">{source.category}</span>
@@ -372,19 +534,47 @@ export const DataSourceManager: React.FC = () => {
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
+
+                  {notice && (
+                    <div className={`mt-2 text-xs font-medium px-2.5 py-1 rounded inline-flex items-center gap-1.5 ${
+                      notice.success
+                        ? 'bg-emerald-950/50 border border-emerald-500/30 text-emerald-300'
+                        : 'bg-rose-950/50 border border-rose-500/30 text-rose-300'
+                    }`}>
+                      <span>{notice.message}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="source-actions">
+                <div className="source-actions flex items-center gap-2">
+                  <button
+                    onClick={() => handleInstantIngest(source.id)}
+                    disabled={ingestingId === source.id}
+                    className="px-2.5 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-500/30 text-xs font-medium transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    title="Запустить сбор данных по этому источнику прямо сейчас"
+                  >
+                    {ingestingId === source.id ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                        <span>Сбор...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3 h-3 text-amber-400" />
+                        <span>Собрать</span>
+                      </>
+                    )}
+                  </button>
                   <button
                     onClick={() => handleToggleActive(source.id, source.is_active)}
-                    className={`btn-toggle ${source.is_active === 1 ? 'active' : 'inactive'}`}
+                    className={`btn-toggle cursor-pointer ${source.is_active === 1 ? 'active' : 'inactive'}`}
                   >
                     <Power className="w-3 h-3" />
                     {source.is_active === 1 ? 'Disable' : 'Enable'}
                   </button>
                   <button
                     onClick={() => handleDelete(source.id)}
-                    className="btn-danger"
+                    className="btn-danger cursor-pointer"
                     title="Delete data source"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

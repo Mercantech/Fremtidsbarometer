@@ -222,6 +222,7 @@ export interface DataSource {
   url: string;
   category: string;
   source_type: string;
+  country_code?: string;
   is_active: number;
   created_at: string;
   updated_at?: string;
@@ -232,6 +233,7 @@ export interface CreateDataSource {
   url: string;
   category: string;
   source_type: string;
+  country_code?: string;
   is_active?: number;
 }
 
@@ -240,7 +242,25 @@ export interface UpdateDataSource {
   url?: string;
   category?: string;
   source_type?: string;
+  country_code?: string;
   is_active?: number;
+}
+
+export interface DataSourceTestResult {
+  status_code: number;
+  is_valid: boolean;
+  detected_type: string;
+  item_count: number;
+  sample_titles: string[];
+  error?: string | null;
+}
+
+export interface DataSourceIngestResult {
+  success: boolean;
+  source_id: number;
+  source_name: string;
+  items_saved: number;
+  message: string;
 }
 
 export const fetchDataSources = async (
@@ -274,6 +294,25 @@ export const updateDataSource = async (
 export const deleteDataSource = async (sourceId: number): Promise<void> => {
   await adminApi.delete(`/api/admin/data-sources/${sourceId}`);
 };
+
+export const testDataSourceUrl = async (
+  url: string,
+  sourceType: string = 'rss'
+): Promise<DataSourceTestResult> => {
+  const response = await adminApi.post<DataSourceTestResult>('/api/admin/data-sources/test', {
+    url,
+    source_type: sourceType,
+  });
+  return response.data;
+};
+
+export const ingestDataSourceNow = async (
+  sourceId: number
+): Promise<DataSourceIngestResult> => {
+  const response = await adminApi.post<DataSourceIngestResult>(`/api/admin/data-sources/${sourceId}/ingest`);
+  return response.data;
+};
+
 
 // ── Source Logs & Telemetry ──────────────────────────
 export interface SourceLog {

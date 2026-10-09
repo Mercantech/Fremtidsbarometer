@@ -193,3 +193,74 @@ def test_repair_data_sources_idempotent():
         except Exception:
             db.rollback()
         db.close()
+
+
+def test_create_and_patch_data_source_country_code():
+    url = "https://test-country-code.example.com/rss"
+    create_resp = client.post("/api/admin/data-sources", json={
+        "name": "Test Poland Feed",
+        "url": url,
+        "category": "jobs",
+        "source_type": "rss",
+        "country_code": "pl",
+        "is_active": 1,
+    }, headers=AUTH_HEADERS)
+    assert create_resp.status_code == 201
+    source_id = create_resp.json()["id"]
+    assert create_resp.json()["country_code"] == "PL"
+
+    try:
+        # Patch country code to DE
+        patch_resp = client.patch(f"/api/admin/data-sources/{source_id}", json={
+            "country_code": "de"
+        }, headers=AUTH_HEADERS)
+        assert patch_resp.status_code == 200
+        assert patch_resp.json()["country_code"] == "DE"
+    finally:
+        client.delete(f"/api/admin/data-sources/{source_id}", headers=AUTH_HEADERS)
+
+
+def test_test_data_source_endpoint_validation():
+    # Bad URL scheme
+    bad_resp = client.post("/api/admin/data-sources/test", json={
+        "url": "not-a-valid-url"
+    }, headers=AUTH_HEADERS)
+    assert bad_resp.status_code == 400
+    assert "URL must start with" in bad_resp.json()["detail"]
+
+    # Unreachable URL returns graceful error response (not a 500 crash)
+    unreachable_resp = client.post("/api/admin/data-sources/test", json={
+        "url": "https://non-existent-subdomain-123456789.example.com/rss"
+    }, headers=AUTH_HEADERS)
+    assert unreachable_resp.status_code == 200
+    data = unreachable_resp.json()
+    assert data["is_valid"] is False
+    assert data["status_code"] == 0
+    assert "Connection failed" in data["error"]
+
+
+def test_instant_ingest_endpoint():
+    # 1. Non-existent source returns 404
+    resp_404 = client.post("/api/admin/data-sources/9999999/ingest", headers=AUTH_HEADERS)
+    assert resp_404.status_code == 404
+
+    # 2. Existing source test run
+    create_resp = client.post("/api/admin/data-sources", json={
+        "name": "Test Ingest Feed",
+        "url": "https://httpbin.org/status/200",
+        "category": "jobs",
+        "source_type": "rss",
+        "country_code": "GLOBAL",
+    }, headers=AUTH_HEADERS)
+    assert create_resp.status_code == 201
+    source_id = create_resp.json()["id"]
+
+    try:
+        ingest_resp = client.post(f"/api/admin/data-sources/{source_id}/ingest", headers=AUTH_HEADERS)
+        assert ingest_resp.status_code == 200
+        res = ingest_resp.json()
+        assert res["source_id"] == source_id
+        assert "items_saved" in res
+    finally:
+        client.delete(f"/api/admin/data-sources/{source_id}", headers=AUTH_HEADERS)
+
