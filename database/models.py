@@ -292,6 +292,22 @@ class PipelineExecution(Base):
         return f"<PipelineExecution {self.id} [{self.sweep}] {self.status}>"
 
 
+# ── 15. System Settings (Persistent Key-Value Store) ───────────
+class SystemSetting(Base):
+    """
+    Stores system-wide configuration objects (e.g. globe radar display settings,
+    feature parameters) in JSONB format.
+    """
+    __tablename__ = "system_settings"
+
+    key        = Column(String(100), primary_key=True)
+    value      = Column(JSONB, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<SystemSetting {self.key}>"
+
+
 # ── Engine & Session Factory ─────────────────────────────────
 from database.session import engine, get_session
 

@@ -90,6 +90,12 @@ const GlobeMesh: React.FC = () => {
         minPolarAngle={Math.PI / 2}
         maxPolarAngle={Math.PI / 2}
         target={[0, 0, 0]}
+        onStart={() => {
+          globeState.isInteracting = true;
+        }}
+        onEnd={() => {
+          globeState.isInteracting = false;
+        }}
       />
     </>
   );

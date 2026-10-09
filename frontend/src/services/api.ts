@@ -56,6 +56,8 @@ export interface JobPosting {
   match_score?: number;
   match_reason?: string;
   date?: string;
+  hype_score?: number;
+  is_hot?: boolean;
 }
 
 export interface HypeTopic {
@@ -186,5 +188,31 @@ export const fetchCountries = async (): Promise<string[]> => {
   } catch (error) {
     console.error('Failed to fetch countries', error);
     throw error;
+  }
+};
+
+export interface GlobeConfig {
+  batch_rotation_seconds: number;
+  max_visible_pins: number;
+  hype_ratio: number;
+  prioritize_salary: boolean;
+  prioritize_trending_tech: boolean;
+  pause_on_hover: boolean;
+}
+
+export const fetchGlobeConfig = async (): Promise<GlobeConfig> => {
+  try {
+    const res = await api.get<GlobeConfig>('/api/globe/config');
+    return res.data;
+  } catch (error) {
+    console.warn('Failed to fetch globe config, fallback to default', error);
+    return {
+      batch_rotation_seconds: 15,
+      max_visible_pins: 14,
+      hype_ratio: 50,
+      prioritize_salary: true,
+      prioritize_trending_tech: true,
+      pause_on_hover: true,
+    };
   }
 };

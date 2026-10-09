@@ -9,16 +9,18 @@ import {
   Compass,
   LogOut,
   SlidersHorizontal,
+  Globe,
 } from 'lucide-react';
 import { SystemStatusDisplay } from '../components/SystemStatusDisplay';
 import { PipelineControl } from '../components/PipelineControl';
 import { AIModelManager } from '../components/AIModelManager';
 import { DataSourceManager } from '../components/DataSourceManager';
 import { LogsViewer } from '../components/LogsViewer';
+import { GlobeConfigManager } from '../components/GlobeConfigManager';
 import '../styles/admin.css';
 
-type SectionType = 'overview' | 'pipeline' | 'ai-models' | 'data-sources' | 'logs';
-const VALID_SECTIONS: SectionType[] = ['overview', 'pipeline', 'ai-models', 'data-sources', 'logs'];
+type SectionType = 'overview' | 'pipeline' | 'ai-models' | 'data-sources' | '3d-radar' | 'logs';
+const VALID_SECTIONS: SectionType[] = ['overview', 'pipeline', 'ai-models', 'data-sources', '3d-radar', 'logs'];
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -123,6 +125,13 @@ export default function Admin() {
               <span>Data Sources</span>
             </button>
             <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === '3d-radar' ? 'active' : ''}`}
+              onClick={() => setActiveSection('3d-radar')}
+            >
+              <Globe className={`w-4 h-4 shrink-0 ${activeSection === '3d-radar' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>3D Radar Settings</span>
+            </button>
+            <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'logs' ? 'active' : ''}`}
               onClick={() => setActiveSection('logs')}
             >
@@ -154,6 +163,12 @@ export default function Admin() {
           {activeSection === 'data-sources' && (
             <div className="section-data-sources">
               <DataSourceManager />
+            </div>
+          )}
+
+          {activeSection === '3d-radar' && (
+            <div className="section-3d-radar">
+              <GlobeConfigManager />
             </div>
           )}
 

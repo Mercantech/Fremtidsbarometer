@@ -6,6 +6,7 @@ from api.routes.admin.logs import router as logs_router
 from api.routes.admin.pipeline import router as pipeline_router
 from api.routes.admin.ai_models import router as ai_models_router
 from api.routes.admin.data_sources import router as data_sources_router
+from api.routes.admin.globe import router as globe_router
 
 load_dotenv()
 
@@ -16,5 +17,6 @@ router.include_router(logs_router)
 router.include_router(pipeline_router)
 router.include_router(ai_models_router)
 router.include_router(data_sources_router)
+router.include_router(globe_router)
 
 __all__ = ["router", "verify_api_key"]

@@ -4,4 +4,5 @@
  */
 export const globeState = {
   rotationY: 0,
+  isInteracting: false,
 };

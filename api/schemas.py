@@ -51,6 +51,8 @@ class JobPostingSchema(BaseModel):
     match_score: Optional[float] = None
     match_reason: Optional[str] = None
     date: Optional[datetime] = None
+    hype_score: Optional[float] = 0.0
+    is_hot: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -260,3 +262,15 @@ class SocialExtractionPayload(BaseModel):
     Strict payload returned by the social_extraction stage.
     """
     discussions: List[ExtractedDiscussion] = Field(default_factory=list)
+
+
+class GlobeConfigSchema(BaseModel):
+    """
+    Settings controlling 3D Globe Radar density, batch rotation and content prioritization.
+    """
+    batch_rotation_seconds: int = Field(default=15, ge=5, le=60, description="Rotation period in seconds per batch")
+    max_visible_pins: int = Field(default=14, ge=6, le=30, description="Maximum simultaneous pins on globe")
+    hype_ratio: int = Field(default=50, ge=10, le=90, description="Percentage of hype topics vs jobs in batch")
+    prioritize_salary: bool = Field(default=True, description="Prioritize vacancies with confirmed salary ranges")
+    prioritize_trending_tech: bool = Field(default=True, description="Prioritize vacancies matching rising tech trends")
+    pause_on_hover: bool = Field(default=True, description="Pause rotation while hovering on pins")

@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import type {
-  NewsItem, TechTrend, JobPosting, HypeTopic, SalaryData, EraInfo, EraTrendHistory
+  NewsItem, TechTrend, JobPosting, HypeTopic, SalaryData, EraInfo, EraTrendHistory, GlobeConfig
 } from '../services/api';
 import {
-  fetchNews, fetchTrends, fetchTrendsHistory, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries
+  fetchNews, fetchTrends, fetchTrendsHistory, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries, fetchGlobeConfig
 } from '../services/api';
 import { resolveCoordinates, resolveCountryForCity } from '../utils/GeoLookup';
 
-export type { EraInfo };
+export type { EraInfo, GlobeConfig };
 
 export interface LiveTopic {
   id: string;
@@ -20,6 +20,8 @@ export interface LiveTopic {
   details: string;
   color: string;
   isInferred?: boolean;
+  hype_score?: number;
+  is_hot?: boolean;
   meta?: {
     company?: string;
     source?: string;
@@ -30,6 +32,8 @@ export interface LiveTopic {
     url?: string;
     tech?: string;
     isInferred?: boolean;
+    hype_score?: number;
+    is_hot?: boolean;
   };
 }
 
@@ -39,6 +43,15 @@ export type HypeTopicInput = HypeTopic & {
   location_name?: string;
   lat?: number;
   lng?: number;
+};
+
+export const DEFAULT_GLOBE_CONFIG: GlobeConfig = {
+  batch_rotation_seconds: 15,
+  max_visible_pins: 14,
+  hype_ratio: 50,
+  prioritize_salary: true,
+  prioritize_trending_tech: true,
+  pause_on_hover: true,
 };
 
 interface AppState {
@@ -55,6 +68,9 @@ interface AppState {
   jobs: JobPosting[];
   hype: HypeTopic[];
   salary: SalaryData[];
+
+  globeConfig: GlobeConfig;
+  setGlobeConfig: (config: Partial<GlobeConfig>) => void;
 
   liveTopics: LiveTopic[];
   selectedTopic: LiveTopic | null;
@@ -209,11 +225,18 @@ function resolveHypeItemLocation(h: HypeTopicInput): ResolvedHypeLocation {
 }
 
 // Fair job sampling: retain all jobs that have either a recognized country, a recognized city, or a deducible country,
-// give every country fair representation, scale slots by share, and cap per country / per city to avoid visual clutter.
-function sampleJobsFairly<T extends { country?: string | null; city?: string | null }>(
-  jobs: T[], budget = 80, maxPerCountry = 20, maxPerCity = 6
+// give every country fair representation, scale slots by share, prioritizing hot/salary-transparent jobs.
+function sampleJobsFairly<T extends { country?: string | null; city?: string | null; is_hot?: boolean; salary_min?: number; salary_max?: number; hype_score?: number }>(
+  jobs: T[], budget = 120, maxPerCountry = 25, maxPerCity = 8
 ): T[] {
-  const located = jobs.filter((j) => {
+  // Pre-sort candidates so hot jobs, verified salaries, and high hype scores get first priority
+  const sorted = [...jobs].sort((a, b) => {
+    const scoreA = (a.is_hot ? 3 : 0) + ((a.salary_min || a.salary_max) ? 1.5 : 0) + (a.hype_score || 0);
+    const scoreB = (b.is_hot ? 3 : 0) + ((b.salary_min || b.salary_max) ? 1.5 : 0) + (b.hype_score || 0);
+    return scoreB - scoreA;
+  });
+
+  const located = sorted.filter((j) => {
     const hasCountry = Boolean(j.country && j.country.trim() !== '' && j.country.trim().toUpperCase() !== 'GLOBAL');
     const hasCity = Boolean(j.city && j.city.trim() !== '' && j.city.trim().toLowerCase() !== 'remote');
     const deducedCountry = Boolean(j.city && resolveCountryForCity(j.city));
@@ -277,6 +300,9 @@ export const useStore = create<AppState>()(
       apiWarning: null,
       activeFilters: ['job', 'salary', 'hype'],
 
+      globeConfig: DEFAULT_GLOBE_CONFIG,
+      setGlobeConfig: (cfg) => set((s) => ({ globeConfig: { ...s.globeConfig, ...cfg } })),
+
       isLoadingNews: false,
 
       clearApiError: () => set({ apiError: null }),
@@ -313,7 +339,8 @@ export const useStore = create<AppState>()(
             fetchHype(15),
             fetchSalary(),
             fetchEras(),
-            fetchCountries()
+            fetchCountries(),
+            fetchGlobeConfig(),
           ]);
 
           const newsData = results[0].status === 'fulfilled' ? results[0].value : [];
@@ -324,6 +351,7 @@ export const useStore = create<AppState>()(
           const salaryData = results[5].status === 'fulfilled' ? results[5].value : [];
           const erasData = results[6].status === 'fulfilled' ? results[6].value : [];
           const countriesData = results[7].status === 'fulfilled' ? results[7].value : [];
+          const globeConfigData = results[8].status === 'fulfilled' ? results[8].value : DEFAULT_GLOBE_CONFIG;
 
           // Log degraded feeds if any failed
           const endpointNames = ['News', 'Trends', 'History', 'Jobs', 'Hype', 'Salary', 'Eras', 'Countries'];
@@ -367,6 +395,7 @@ export const useStore = create<AppState>()(
               : (j.salary_min || j.salary_max || undefined);
             const salaryDetail = jobMedian ? ` • $${jobMedian.toLocaleString()} USD` : '';
 
+            const hotPrefix = j.is_hot ? '🔥 ' : '';
             newLiveTopics.push({
               id: `job-${idCounter++}`,
               country: resolvedCountry,
@@ -374,9 +403,11 @@ export const useStore = create<AppState>()(
               lat: coords.lat,
               lng: coords.lng,
               type: 'job',
-              topic: j.title,
+              topic: `${hotPrefix}${j.title}`,
               details: `${j.company || 'Unknown'} — ${j.city || 'Remote'} (${resolvedCountry})${salaryDetail}`,
               color: SEMANTIC_COLORS.job,
+              hype_score: j.hype_score,
+              is_hot: j.is_hot,
               meta: {
                 company: j.company,
                 source: j.source,
@@ -386,6 +417,8 @@ export const useStore = create<AppState>()(
                 salaryMin: j.salary_min,
                 salaryMax: j.salary_max,
                 currency: j.salary_currency || 'USD',
+                hype_score: j.hype_score,
+                is_hot: j.is_hot,
               }
             });
           });
@@ -506,6 +539,7 @@ export const useStore = create<AppState>()(
             hype: hypeData,
             salary: salaryData,
             liveTopics: newLiveTopics,
+            globeConfig: globeConfigData,
             isLoadingNews: false,
             apiError: null,
             apiWarning: warningNotice

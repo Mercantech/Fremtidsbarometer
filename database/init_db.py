@@ -70,6 +70,37 @@ def ensure_database_schema(engine=None):
             if "source_type" not in cols:
                 needed_ddls.append(("ALTER TABLE data_sources ADD COLUMN source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"))
 
+        if "system_settings" not in existing_tables:
+            try:
+                from database.models import SystemSetting
+                SystemSetting.__table__.create(engine, checkfirst=True)
+                logger.info("✅ Table system_settings created.")
+            except Exception as tbl_err:
+                logger.warning(f"Notice creating system_settings table: {tbl_err}")
+
+        # Seed default globe_config if not present
+        try:
+            from database.models import SystemSetting
+            from sqlalchemy.orm import Session
+            with Session(engine) as s:
+                cfg = s.query(SystemSetting).filter(SystemSetting.key == "globe_config").first()
+                if not cfg:
+                    s.add(SystemSetting(
+                        key="globe_config",
+                        value={
+                            "batch_rotation_seconds": 15,
+                            "max_visible_pins": 14,
+                            "hype_ratio": 50,
+                            "prioritize_salary": True,
+                            "prioritize_trending_tech": True,
+                            "pause_on_hover": True,
+                        }
+                    ))
+                    s.commit()
+                    logger.info("🌱 Default globe_config initialized in system_settings.")
+        except Exception as seed_err:
+            logger.info(f"Notice verifying globe_config seed: {seed_err}")
+
         if needed_ddls:
             for ddl_sql, desc in needed_ddls:
                 try:
