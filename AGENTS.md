@@ -48,3 +48,12 @@
   - Any API endpoint must either return in < 10 seconds or be offloaded to an asynchronous background task with polling (like the Pipeline Execution engine).
 - **Graceful Degradation**:
   - Read endpoints (`/api/jobs`, `/api/trends`, `/api/news`) must degrade gracefully (e.g., return empty list or cached data) rather than crashing or hanging on unexpected database anomalies.
+
+---
+
+## 5. External Data Sources & Scraper Policies
+- **Strictly No Reddit Scraping or APIs**:
+  - Reddit strictly blocks public `.json` endpoints, RSS, and free API access with HTTP 403 / IP rate limits.
+  - **NEVER** re-introduce Reddit scrapers, Reddit OAuth calls, or Reddit entries in `DataSource` / `SOURCES_SEED`. Reddit is permanently deprecated.
+  - Developer discussion signals must be collected solely from open, reliable developer platforms: **Dev.to API** (`/api/articles?tag=...`), **Lobste.rs** (`/hottest.json`, `/t/ai.json`), **HackerNews**, and **GitHub Trending**.
+

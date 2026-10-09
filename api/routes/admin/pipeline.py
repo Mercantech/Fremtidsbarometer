@@ -32,7 +32,7 @@ SCHEDULED_JOBS_METADATA = {
     },
     "social_sweep_job": {
         "name": "Partition 1: Social Discussions Sweep",
-        "description": "Collects developer sentiment and topics from Dev.to, Reddit, and Lobste.rs.",
+        "description": "Collects developer sentiment and topics from Dev.to and Lobste.rs.",
         "category": "sweep",
         "default_schedule": "Mon & Thu at 09:00 UTC",
     },
@@ -336,7 +336,7 @@ async def trigger_pipeline(
             start_t = datetime.now(timezone.utc)
             try:
                 if sweep == "all":
-                    _update_step_in_db(run_id, "Partition 1: Social Discussions (Dev.to, Reddit, Lobste.rs)")
+                    _update_step_in_db(run_id, "Partition 1: Social Discussions (Dev.to, Lobste.rs)")
                     await run_social_sweep()
                     _update_step_in_db(run_id, "Partition 2: Technical Trends (HackerNews, GitHub Trending)")
                     await run_tech_sweep()
@@ -345,7 +345,7 @@ async def trigger_pipeline(
                     _update_step_in_db(run_id, "Partition 4: AI Mathematical Synthesis (Clustering & Eras)")
                     await run_synthesis(force=force)
                 elif sweep == "social":
-                    _update_step_in_db(run_id, "Harvesting Social Discussions (Dev.to, Reddit, Lobste.rs)")
+                    _update_step_in_db(run_id, "Harvesting Social Discussions (Dev.to, Lobste.rs)")
                     await run_social_sweep()
                 elif sweep == "tech":
                     _update_step_in_db(run_id, "Harvesting Tech Trends (HackerNews, GitHub)")

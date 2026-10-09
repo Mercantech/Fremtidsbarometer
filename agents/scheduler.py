@@ -253,9 +253,9 @@ def create_configured_scheduler(loop=None) -> AsyncIOScheduler:
     # ── Mon/Thu Partitioned Sweeps ──
     # 09:00 UTC - Partition 1: Social Sweep
     scheduler.add_job(
-        tracked_scheduled_job("social", "Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)", run_social_sweep),
+        tracked_scheduled_job("social", "Partition 1: Social Discussions (Lobste.rs, Dev.to)", run_social_sweep),
         'cron', day_of_week='mon,thu', hour=9, minute=0,
-        id='social_sweep_job', name='Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)', replace_existing=True
+        id='social_sweep_job', name='Partition 1: Social Discussions (Lobste.rs, Dev.to)', replace_existing=True
     )
     
     # 10:00 UTC - Partition 2: Technical Sweep

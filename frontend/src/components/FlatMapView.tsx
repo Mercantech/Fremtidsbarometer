@@ -20,12 +20,16 @@ const MapInvalidateSize: React.FC = () => {
 };
 
 // Custom HTML icon to keep our circle styling while using standard Markers for clustering
-const createDotIcon = (color: string) => {
+const createDotIcon = (color: string, isHot = false) => {
+  const glow = isHot
+    ? 'box-shadow: 0 0 10px #ff5500, 0 0 16px rgba(255,85,0,0.6); border: 2px solid #ff7700;'
+    : 'box-shadow: 0 2px 5px rgba(0,0,0,0.4); border: 2px solid white;';
+  const size = isHot ? 16 : 14;
   return L.divIcon({
     className: 'custom-dot-icon',
-    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.4); opacity: 0.9;"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7]
+    html: `<div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; ${glow} opacity: 0.95;"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 };
 
@@ -70,43 +74,47 @@ export const FlatMapView: React.FC = () => {
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
         >
-          {liveTopics.filter(t => activeFilters.includes(t.type)).map((t) => (
-            <Marker
-              key={t.id}
-              position={[t.lat, t.lng]}
-              icon={createDotIcon(t.color)}
-              eventHandlers={{
-                click: () => setSelectedTopic(t),
-              }}
-            >
-              <Tooltip
-                direction="top"
-                offset={[0, -8]}
-                permanent={false}
-                interactive={false}
-                className="custom-leaflet-tooltip"
+          {liveTopics.filter(t => activeFilters.includes(t.type)).map((t) => {
+            const isHot = Boolean(t.is_hot || t.meta?.is_hot);
+            return (
+              <Marker
+                key={t.id}
+                position={[t.lat, t.lng]}
+                icon={createDotIcon(t.color, isHot)}
+                eventHandlers={{
+                  click: () => setSelectedTopic(t),
+                }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', minWidth: '120px' }}>
-                  <div style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#64748b' }}>
-                    {t.city ? `${t.city}, ${t.country}` : t.country} • {t.type}
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                    {t.topic}
-                  </div>
-                  {t.meta?.medianSalary && (
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#059669', marginTop: '2px' }}>
-                      ${t.meta.medianSalary.toLocaleString()} USD
+                <Tooltip
+                  direction="top"
+                  offset={[0, -8]}
+                  permanent={false}
+                  interactive={false}
+                  className="custom-leaflet-tooltip"
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left', minWidth: '120px' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>{t.city ? `${t.city}, ${t.country}` : t.country} • {t.type}</span>
+                      {isHot && <span style={{ color: '#ea580c', fontWeight: 900 }}>🔥 HOT</span>}
                     </div>
-                  )}
-                  {t.meta?.company && (
-                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#0284c7' }}>
-                      {t.meta.company}
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                      {t.topic}
                     </div>
-                  )}
-                </div>
-              </Tooltip>
-            </Marker>
-          ))}
+                    {t.meta?.medianSalary && (
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#059669', marginTop: '2px' }}>
+                        ${t.meta.medianSalary.toLocaleString()} USD
+                      </div>
+                    )}
+                    {t.meta?.company && (
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#0284c7' }}>
+                        {t.meta.company}
+                      </div>
+                    )}
+                  </div>
+                </Tooltip>
+              </Marker>
+            );
+          })}
         </MarkerClusterGroup>
       </MapContainer>
 

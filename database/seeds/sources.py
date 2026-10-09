@@ -29,17 +29,8 @@ SOURCES_SEED = [
     # ── European Tech Job JSON APIs (Germany, Austria & Pan-European) ──
     {"name": "Arbeitnow: European Tech & IT Jobs", "url": "https://www.arbeitnow.com/api/job-board-api", "source_type": "api", "category": "jobs", "is_active": 1},
 
-    # ── Category 2: Social & Developer Discussions (Reddit & Dev.to) ──
-    {"name": "Reddit: r/LocalLLaMA", "url": "https://www.reddit.com/r/LocalLLaMA", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/programming", "url": "https://www.reddit.com/r/programming", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/webdev", "url": "https://www.reddit.com/r/webdev", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/MachineLearning", "url": "https://www.reddit.com/r/MachineLearning", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/devops", "url": "https://www.reddit.com/r/devops", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/cybersecurity", "url": "https://www.reddit.com/r/cybersecurity", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/cscareerquestions", "url": "https://www.reddit.com/r/cscareerquestions", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/artificial", "url": "https://www.reddit.com/r/artificial", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/rust", "url": "https://www.reddit.com/r/rust", "source_type": "api", "category": "social", "is_active": 1},
-    {"name": "Reddit: r/golang", "url": "https://www.reddit.com/r/golang", "source_type": "api", "category": "social", "is_active": 1},
+    # ── Category 2: Social & Developer Discussions (Dev.to & Lobste.rs) ──
+    # Note: Dev.to and Lobste.rs provide open, reliable technical discussion APIs.
     {"name": "Dev.to: AI & Machine Learning", "url": "https://dev.to/t/ai", "source_type": "api", "category": "social", "is_active": 1},
     {"name": "Dev.to: DevOps & Cloud Architecture", "url": "https://dev.to/t/devops", "source_type": "api", "category": "social", "is_active": 1},
     {"name": "Dev.to: Software Architecture", "url": "https://dev.to/t/architecture", "source_type": "api", "category": "social", "is_active": 1},
@@ -77,9 +68,11 @@ def seed_sources(session):
     """Seeds default verified data sources and cleans up legacy placeholders."""
     print("📡 Seeding Data Sources...")
     try:
-        # Clean up obsolete placeholder URLs
+        # Clean up obsolete placeholder URLs and blocked Reddit sources
         session.query(DataSource).filter(
-            DataSource.url.in_(["https://api.teamtailor.com", "https://api.twitter.com/dev", "https://api.threads.net"])
+            (DataSource.url.in_(["https://api.teamtailor.com", "https://api.twitter.com/dev", "https://api.threads.net"])) |
+            (DataSource.name.ilike("%Reddit%")) |
+            (DataSource.url.ilike("%reddit.com%"))
         ).delete(synchronize_session=False)
 
         for source_data in SOURCES_SEED:

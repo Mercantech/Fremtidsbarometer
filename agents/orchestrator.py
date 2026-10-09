@@ -7,7 +7,7 @@ from utils.logger import get_centralized_logger
 
 load_dotenv()
 
-from agents.scrapers.social_scraper import scrape_reddit_discussions
+from agents.scrapers.social_scraper import scrape_social_discussions, scrape_reddit_discussions
 from agents.scrapers.tech_scraper import scrape_hackernews, scrape_github_trending
 from agents.scrapers.jobs_scraper import scrape_teamtailor_jobs, scrape_jobs
 from agents.scrapers.salary_scraper import scrape_developer_salaries
@@ -75,7 +75,7 @@ def get_data_source_status(db, keyword: str):
 
 async def run_social_sweep(db=None):
     """
-    Run 1: Social Sweep. Parses deep discussions and comments from Reddit/Threads/Social.
+    Run 1: Social Sweep. Parses deep discussions from Dev.to and Lobste.rs.
     """
     should_close = False
     if db is None:
@@ -84,12 +84,16 @@ async def run_social_sweep(db=None):
         
     try:
         logger.info("=== Partition 1: Social Sweep ===")
-        is_active, source_id = get_data_source_status(db, "Reddit")
-        if not is_active:
-            logger.info("⏩ Social sweep skipped: Reddit/Social data source is disabled in Admin Panel.")
+        # Check active social discussion sources (Dev.to, Lobste.rs, or any active social category)
+        active_social = db.query(DataSource).filter(
+            DataSource.is_active == 1,
+            (DataSource.category == "social") | (DataSource.name.ilike("%Dev.to%")) | (DataSource.name.ilike("%Lobste.rs%"))
+        ).first()
+        if not active_social:
+            logger.info("⏩ Social sweep skipped: No active social/discussion sources in Admin Panel.")
             return 0
 
-        count = await scrape_reddit_discussions(db, source_id=source_id or 1, limit_per_sub=15)
+        count = await scrape_social_discussions(db, source_id=active_social.id, limit_per_sub=15)
         logger.info(f"Partition 1 Complete: Scraped {count} social discussions.")
         return count
     except Exception as e:
