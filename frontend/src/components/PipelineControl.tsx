@@ -321,16 +321,13 @@ export const PipelineControl: React.FC = () => {
     <div className="space-y-6">
       {/* ── 1. ACTIVE PROCESS STATUS (Persists across page reload) ── */}
       {activeExecution ? (
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-2 border-cyan-500/50 rounded-2xl p-5 shadow-2xl text-white animate-in fade-in duration-300">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-white">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3 pb-3 border-b border-white/10">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-cyan-500"></span>
-              </span>
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
               <div>
-                <h3 className="text-base font-extrabold tracking-wide text-white m-0">
-                  Active Background Process: <span className="text-cyan-400 uppercase">{activeExecution.sweep}</span>
+                <h3 className="text-sm font-semibold text-white m-0">
+                  Background Process: <span className="uppercase text-blue-300">{activeExecution.sweep}</span>
                 </h3>
                 <p className="text-xs text-slate-400 m-0">
                   Triggered via {activeExecution.trigger_type === 'manual' ? 'Manual Run' : 'Automated Scheduler'} • Run ID: <code className="text-slate-300">{activeExecution.id}</code>
@@ -338,14 +335,14 @@ export const PipelineControl: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1 bg-black/40 rounded-lg border border-white/10 text-xs font-mono font-bold text-cyan-300 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+            <div className="flex items-center gap-2.5">
+              <div className="px-2.5 py-1 bg-white/5 rounded-md border border-white/10 text-xs font-mono font-medium text-slate-300 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
                 <span>Elapsed: {elapsedTimer}s</span>
               </div>
               <button
                 onClick={() => handleAbort(activeExecution.id)}
-                className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/50 text-rose-300 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
+                className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-300 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
               >
                 <StopCircle className="w-3.5 h-3.5" />
                 <span>Abort Task</span>
@@ -353,64 +350,64 @@ export const PipelineControl: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-black/30 rounded-xl p-3 border border-white/5 flex items-center justify-between">
+          <div className="bg-white/3 rounded-lg p-2.5 border border-white/6 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Current Phase:</span>
-              <span className="text-sm font-semibold text-emerald-400 animate-pulse">
+              <span className="text-xs text-slate-400 font-medium">Phase:</span>
+              <span className="text-xs font-semibold text-emerald-300">
                 {activeExecution.current_step || 'Processing data...'}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 font-medium">
-              Page reload safe • Polling status live
+            <span className="text-[11px] text-slate-500 font-medium">
+              Live status polling
             </span>
           </div>
         </div>
       ) : (
-        <div className="bg-slate-900/60 rounded-2xl p-4 border border-slate-800 shadow-sm flex items-center justify-between text-xs">
+        <div className="bg-white/3 rounded-xl p-3 border border-white/6 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-            <span className="font-bold text-slate-200">Pipeline Engine Status:</span>
-            <span className="text-slate-400">Idle — Ready for execution or next scheduled run.</span>
+            <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span className="font-semibold text-slate-200">Pipeline Status:</span>
+            <span className="text-slate-400">Idle — ready for scheduled or manual execution.</span>
           </div>
-          <span className="text-slate-500 font-medium">
-            Background workers synchronized
+          <span className="text-slate-500">
+            Workers synchronized
           </span>
         </div>
       )}
 
       {/* ── 2. AUTOMATED SCHEDULER MANAGEMENT ── */}
       <div className="admin-card">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-3 border-b border-white/8">
           <div>
-            <h2 className="!mb-1 flex items-center gap-2.5 text-lg font-black text-slate-100">
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <h2 className="!mb-1 flex items-center gap-2.5 text-sm font-semibold text-slate-100">
+              <div className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
                 <CalendarClock className="w-4 h-4" />
               </div>
               <span>Automated Pipeline Scheduler</span>
             </h2>
             <p className="text-xs text-slate-400 m-0">
-              Manage recurring automated background data collection, AI synthesis cycles, and retention cleanup.
+              Manage automated background data collection, AI synthesis cycles and retention cleanup.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${schedulerRunning ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'}`}>
-              <span className={`w-2 h-2 rounded-full ${schedulerRunning ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-              {schedulerRunning ? 'Scheduler Running' : 'Scheduler Paused'}
+          <div className="flex items-center gap-2.5">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium ${schedulerRunning ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${schedulerRunning ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+              {schedulerRunning ? 'Active' : 'Paused'}
             </span>
 
             <button
               onClick={handleToggleScheduler}
               disabled={schedulerLoading}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${schedulerRunning ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600'}`}
+              className="btn-secondary text-xs px-2.5 py-1"
             >
-              {schedulerLoading ? 'Updating...' : schedulerRunning ? 'Pause All Schedules' : 'Resume All Schedules'}
+              {schedulerLoading ? 'Updating...' : schedulerRunning ? 'Pause All' : 'Resume All'}
             </button>
           </div>
         </div>
 
         {/* Scheduled Tasks Grid */}
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {scheduledJobs.length === 0 ? (
             <div className="text-center py-6 text-slate-500 text-xs">
               Loading scheduled background tasks...
@@ -419,44 +416,43 @@ export const PipelineControl: React.FC = () => {
             scheduledJobs.map((job) => (
               <div 
                 key={job.id}
-                className="bg-slate-900/50 hover:bg-slate-850 transition border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3"
+                className="bg-white/2 hover:bg-white/4 transition border border-white/6 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3"
               >
                 <div className="space-y-1 max-w-lg">
                   <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-sm text-slate-100">
+                    <span className="font-semibold text-xs text-slate-100">
                       {job.name}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-medium uppercase tracking-wider bg-white/5 text-slate-300 border border-white/8">
                       {job.category}
                     </span>
                     {job.is_paused ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-medium uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/20">
                         Paused
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-medium uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                         Active
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 m-0 leading-relaxed">
+                  <p className="text-xs text-slate-400 m-0">
                     {job.description}
                   </p>
                   <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
-                    <span>Schedule: <strong className="text-slate-200">{job.schedule_display}</strong></span>
+                    <span>Schedule: <strong className="text-slate-300 font-normal">{job.schedule_display}</strong></span>
                     <span>•</span>
-                    <span>Next execution: <strong className={job.is_paused ? 'text-amber-400' : 'text-cyan-400'}>{formatNextRun(job.next_run_time)}</strong></span>
+                    <span>Next execution: <strong className={job.is_paused ? 'text-amber-400 font-normal' : 'text-slate-300 font-normal'}>{formatNextRun(job.next_run_time)}</strong></span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Dynamic interval configuration for interval tasks like Live News */}
                   {job.trigger_type === 'interval' && (
                     <select
                       value={job.interval_minutes || 15}
                       onChange={(e) => handleUpdateInterval(job.id, parseInt(e.target.value))}
                       disabled={actionJobId === job.id}
-                      className="text-xs py-1 px-2 rounded-lg border border-slate-700 bg-slate-900 font-medium text-slate-200 cursor-pointer"
+                      className="text-xs py-1 px-2 rounded-md border border-white/10 bg-white/5 font-medium text-slate-200 cursor-pointer"
                       title="Adjust execution frequency"
                     >
                       <option value={5}>Every 5 min</option>
@@ -469,16 +465,16 @@ export const PipelineControl: React.FC = () => {
                   <button
                     onClick={() => handleToggleJobPause(job)}
                     disabled={actionJobId === job.id}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border flex items-center gap-1.5 ${job.is_paused ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer border flex items-center gap-1.5 ${job.is_paused ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/25' : 'btn-secondary'}`}
                   >
-                    {actionJobId === job.id ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" /> : job.is_paused ? <Play className="w-3 h-3 fill-current text-emerald-400" /> : <Pause className="w-3 h-3" />}
+                    {actionJobId === job.id ? <RefreshCw className="w-3 h-3 animate-spin text-slate-400" /> : job.is_paused ? <Play className="w-3 h-3 fill-current text-emerald-400" /> : <Pause className="w-3 h-3" />}
                     <span>{actionJobId === job.id ? '...' : job.is_paused ? 'Resume' : 'Pause'}</span>
                   </button>
 
                   <button
                     onClick={() => handleRunJobNow(job)}
                     disabled={actionJobId === job.id || isRunning}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                     title="Trigger immediate execution of this scheduled task"
                   >
                     <Play className="w-3 h-3 fill-current" />
@@ -495,25 +491,25 @@ export const PipelineControl: React.FC = () => {
       <div className="pipeline-control-card">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
               <Terminal className="w-4 h-4" />
             </div>
-            <h2 className="!mb-0 text-base font-extrabold text-slate-100">Manual Pipeline Execution</h2>
+            <h2 className="!mb-0 text-sm font-semibold text-slate-100">Manual Pipeline Execution</h2>
           </div>
           {isRunning ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              Task in Progress...
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Executing...
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-850 text-slate-400 border border-slate-700">
-              <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-white/5 text-slate-400 border border-white/8">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
               Idle
             </span>
           )}
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Trigger real-time multi-agent data scrapers and mathematical AI synthesis on demand.
+          Execute multi-agent data scrapers and mathematical AI synthesis on demand.
         </p>
         
         <div className="control-section">
@@ -544,7 +540,7 @@ export const PipelineControl: React.FC = () => {
               onChange={(e) => setForceRun(e.target.checked)}
               disabled={loading || isRunning}
             />
-            <span>Force Run (bypass 12h freshness check, force AI token consumption)</span>
+            <span>Force Run (bypass 12h freshness check, re-run AI extraction stages)</span>
           </label>
         </div>
 
@@ -555,17 +551,17 @@ export const PipelineControl: React.FC = () => {
         >
           {loading ? (
             <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               <span>Triggering Pipeline...</span>
             </>
           ) : isRunning ? (
             <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               <span>Pipeline Task In Progress...</span>
             </>
           ) : (
             <>
-              <Play className="w-4 h-4 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Start Pipeline Run</span>
             </>
           )}
@@ -573,14 +569,14 @@ export const PipelineControl: React.FC = () => {
 
         {success && (
           <div className="message-box success-message flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span><strong>Dispatched:</strong> {success}</span>
           </div>
         )}
 
         {error && (
           <div className="message-box error-message flex items-center gap-2">
-            <AlertOctagon className="w-4 h-4 text-rose-600 shrink-0" />
+            <AlertOctagon className="w-4 h-4 text-rose-400 shrink-0" />
             <span><strong>Error:</strong> {error}</span>
           </div>
         )}
@@ -595,33 +591,33 @@ export const PipelineControl: React.FC = () => {
 
       {/* ── 4. PROCESS EXECUTION HISTORY (Persisted in DB) ── */}
       <div className="admin-card">
-        <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/8">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-600">
+            <div className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
               <History className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="!mb-0.5 text-base font-extrabold text-slate-900">
+              <h2 className="!mb-0.5 text-sm font-semibold text-slate-100">
                 Process Execution History
               </h2>
-              <p className="text-xs text-slate-500 m-0">
-                Complete historical record of pipeline tasks (retained across browser reloads).
+              <p className="text-xs text-slate-400 m-0">
+                Complete historical record of pipeline tasks.
               </p>
             </div>
           </div>
           <button
             onClick={loadData}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 border border-slate-300"
+            className="btn-secondary text-xs px-2.5 py-1 flex items-center gap-1.5"
           >
             <RefreshCw className="w-3 h-3" />
-            <span>Refresh History</span>
+            <span>Refresh</span>
           </button>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+              <tr className="border-b border-white/8 bg-white/2 text-slate-400 font-medium text-[11px] uppercase tracking-wider">
                 <th className="py-2.5 px-3">Run ID / Time</th>
                 <th className="py-2.5 px-3">Scope</th>
                 <th className="py-2.5 px-3">Trigger</th>
@@ -630,7 +626,7 @@ export const PipelineControl: React.FC = () => {
                 <th className="py-2.5 px-3">Current / Final Step</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-white/6">
               {recentExecutions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-6 text-slate-500">
@@ -639,12 +635,12 @@ export const PipelineControl: React.FC = () => {
                 </tr>
               ) : (
                 recentExecutions.map((exec) => (
-                  <tr key={exec.id} className="hover:bg-slate-800/40 transition">
+                  <tr key={exec.id} className="hover:bg-white/2 transition">
                     <td className="py-2 px-3 font-mono text-[11px] text-slate-300">
                       <div>{exec.id}</div>
                       <div className="text-[10px] text-slate-500">{formatTimeAgo(exec.started_at)}</div>
                     </td>
-                    <td className="py-2 px-3 font-bold uppercase text-slate-200">
+                    <td className="py-2 px-3 font-medium uppercase text-slate-200">
                       {exec.sweep}
                     </td>
                     <td className="py-2 px-3 text-slate-400">
@@ -652,23 +648,20 @@ export const PipelineControl: React.FC = () => {
                     </td>
                     <td className="py-2 px-3">
                       {exec.status === 'completed' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                           Completed
                         </span>
                       ) : exec.status === 'running' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 animate-pulse">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-                          </span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
                           Running
                         </span>
                       ) : exec.status === 'aborted' ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/20">
                           Aborted
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-300 border border-rose-500/30">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-rose-500/10 text-rose-300 border border-rose-500/20">
                           Failed
                         </span>
                       )}
@@ -694,19 +687,19 @@ export const PipelineControl: React.FC = () => {
       {/* ── 5. DATABASE SEEDING & RETENTION CLEANUP ── */}
       <div className="admin-card">
         <div className="flex items-center gap-2.5 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
             <Sparkles className="w-4 h-4" />
           </div>
-          <h2 className="!mb-0 text-base font-extrabold text-slate-100">Database Seeding & Initialization</h2>
+          <h2 className="!mb-0 text-sm font-semibold text-slate-100">Database Initialization & Seeding</h2>
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Populate default historical eras (1995–2026), tech trends (1960–2034), data sources, AI models, and salaries. Idempotent and safe to run anytime.
+          Populate default historical eras, tech trends, data sources, AI models, and salaries. Idempotent and safe to run anytime.
         </p>
 
         <button
           onClick={handleSeed}
           disabled={seedLoading}
-          className="btn-primary !bg-emerald-600 hover:!bg-emerald-500 text-xs px-4 py-2 rounded-lg font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-2"
         >
           <Sparkles className={`w-3.5 h-3.5 ${seedLoading ? 'animate-spin' : ''}`} />
           <span>{seedLoading ? 'Seeding Database...' : 'Seed / Reinitialize Default Data'}</span>
@@ -730,25 +723,25 @@ export const PipelineControl: React.FC = () => {
       {/* Database Retention Cleanup Section */}
       <div className="admin-card">
         <div className="flex items-center gap-2.5 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+          <div className="w-7 h-7 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
             <Trash2 className="w-4 h-4" />
           </div>
-          <h2 className="!mb-0 text-base font-extrabold text-slate-100">PostgreSQL Retention & Disk Cleanup</h2>
+          <h2 className="!mb-0 text-sm font-semibold text-slate-100">Database Retention & Disk Cleanup</h2>
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Purge obsolete raw discussion dumps and system logs to prevent database disk space exhaustion.
+          Purge obsolete raw scrape dumps and system logs to maintain optimal database performance.
         </p>
 
-        <div className="flex items-center gap-4 mb-4">
-          <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
-            <span>Raw Scrape Retention (Days):</span>
+        <div className="flex items-center gap-3 mb-2">
+          <label className="text-xs font-medium text-slate-300 flex items-center gap-2">
+            <span>Retention Period (Days):</span>
             <input
               type="number"
               min={1}
               max={90}
               value={cleanupDays}
               onChange={(e) => setCleanupDays(parseInt(e.target.value) || 14)}
-              className="form-input !w-24 !py-1.5 text-center"
+              className="form-input !w-20 !py-1 text-center text-xs"
               disabled={cleanupLoading}
             />
           </label>
@@ -756,10 +749,10 @@ export const PipelineControl: React.FC = () => {
           <button
             onClick={handleCleanup}
             disabled={cleanupLoading}
-            className="btn-secondary !bg-rose-500/10 hover:!bg-rose-500/20 !text-rose-300 !border-rose-500/30 text-xs px-4 py-2 rounded-lg font-semibold transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            className="btn-danger text-xs px-3 py-1.5 flex items-center gap-1.5"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>{cleanupLoading ? 'Cleaning up...' : 'Purge Stale Data Now'}</span>
+            <span>{cleanupLoading ? 'Cleaning...' : 'Clean Old Records'}</span>
           </button>
         </div>
 

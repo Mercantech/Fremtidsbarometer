@@ -98,7 +98,7 @@ export const LogsViewer: React.FC = () => {
       <div className="card-header flex justify-between items-center">
         <div>
           <div className="flex items-center gap-2.5">
-            <ScrollText className="w-5 h-5 text-cyan-400" />
+            <ScrollText className="w-4 h-4 text-slate-400" />
             <h2>System & Source Logs</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -107,18 +107,18 @@ export const LogsViewer: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           {loading && (
-            <span className="text-xs text-cyan-400 font-medium animate-pulse flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
               Updating...
             </span>
           )}
           <button
             onClick={() => loadLogs()}
             disabled={loading}
-            className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 cursor-pointer"
+            className="btn-secondary text-xs px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer"
             title="Refresh logs from database"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
@@ -157,7 +157,7 @@ export const LogsViewer: React.FC = () => {
           <div className="logs-container relative min-h-[220px]">
             {loading && systemLogs.length === 0 ? (
               <div className="admin-section-loading flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                 <span>Loading system logs...</span>
               </div>
             ) : systemLogs.length === 0 ? (
@@ -176,8 +176,8 @@ export const LogsViewer: React.FC = () => {
 
           {/* Raw Source Error Log Stream */}
           <div className="mt-4">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 pb-2 border-b border-slate-800 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-cyan-400" />
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 pb-2 border-b border-white/8 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-slate-400" />
               <span>Raw Error Log Stream</span>
             </div>
             <SourceLogFilters
@@ -192,12 +192,12 @@ export const LogsViewer: React.FC = () => {
             <div className="logs-container relative min-h-[220px] space-y-2 mt-3">
               {loading && sourceLogs.length === 0 ? (
                 <div className="admin-section-loading flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                   <span>Loading source error & telemetry logs...</span>
                 </div>
               ) : sourceLogs.length === 0 ? (
-                <div className="p-8 text-center border border-dashed rounded-xl border-slate-800 bg-slate-900/30">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                <div className="p-8 text-center border border-dashed rounded-xl border-white/8 bg-white/2">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
                   <div className="font-semibold text-sm text-slate-200">No source errors recorded for these filters</div>
                   <div className="text-xs text-slate-400 mt-0.5">All monitored endpoints and channels operated cleanly.</div>
                 </div>

@@ -143,10 +143,10 @@ export const DataSourceManager: React.FC = () => {
     <div className="admin-card">
       <div className="card-header flex justify-between items-center">
         <div>
-          <div className="flex items-center gap-3">
-            <Radio className="w-5 h-5 text-cyan-400" />
+          <div className="flex items-center gap-2.5">
+            <Radio className="w-4 h-4 text-slate-400" />
             <h2>Data Sources Management</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-white/5 text-slate-300 border border-white/8">
               {sources.length} Channels ({activeCount} Active)
             </span>
           </div>
@@ -156,8 +156,8 @@ export const DataSourceManager: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           {loading && (
-            <span className="text-xs text-cyan-400 font-medium animate-pulse flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
               Updating...
             </span>
           )}

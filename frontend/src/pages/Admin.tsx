@@ -61,20 +61,20 @@ export default function Admin() {
     <div className="admin-panel">
       <header className="admin-header flex justify-between items-center">
         <div className="header-content flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-lg shadow-cyan-500/10">
-            <SlidersHorizontal className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
+            <SlidersHorizontal className="w-4 h-4" />
           </div>
           <div>
-            <h1>Administration Center</h1>
-            <p>Mission control, agentic pipelines, AI inference matrix & real-time telemetry</p>
+            <h1>Admin Console</h1>
+            <p>System status, automated pipelines, AI models & data channels</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <Link
             to="/"
-            className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 border border-slate-700/60 text-xs font-semibold transition flex items-center gap-2 shadow-sm"
+            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-medium transition flex items-center gap-1.5"
           >
-            <Compass className="w-3.5 h-3.5 text-cyan-400" />
+            <Compass className="w-3.5 h-3.5 text-slate-400" />
             <span>Live Radar</span>
           </Link>
           <button
@@ -82,7 +82,7 @@ export default function Admin() {
               localStorage.removeItem('admin_api_key');
               navigate('/login');
             }}
-            className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-rose-500/10 text-slate-300 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
             title="Log out and clear stored API key"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -98,35 +98,35 @@ export default function Admin() {
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'overview' ? 'active' : ''}`}
               onClick={() => setActiveSection('overview')}
             >
-              <Activity className="w-4 h-4 text-cyan-400 shrink-0" />
+              <Activity className={`w-4 h-4 shrink-0 ${activeSection === 'overview' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Overview & Health</span>
             </button>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'pipeline' ? 'active' : ''}`}
               onClick={() => setActiveSection('pipeline')}
             >
-              <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
+              <Terminal className={`w-4 h-4 shrink-0 ${activeSection === 'pipeline' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Pipeline Control</span>
             </button>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'ai-models' ? 'active' : ''}`}
               onClick={() => setActiveSection('ai-models')}
             >
-              <Cpu className="w-4 h-4 text-indigo-400 shrink-0" />
+              <Cpu className={`w-4 h-4 shrink-0 ${activeSection === 'ai-models' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>AI Models & Engines</span>
             </button>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'data-sources' ? 'active' : ''}`}
               onClick={() => setActiveSection('data-sources')}
             >
-              <Radio className="w-4 h-4 text-amber-400 shrink-0" />
+              <Radio className={`w-4 h-4 shrink-0 ${activeSection === 'data-sources' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Data Sources</span>
             </button>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'logs' ? 'active' : ''}`}
               onClick={() => setActiveSection('logs')}
             >
-              <ScrollText className="w-4 h-4 text-sky-400 shrink-0" />
+              <ScrollText className={`w-4 h-4 shrink-0 ${activeSection === 'logs' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Logs & Telemetry</span>
             </button>
           </nav>

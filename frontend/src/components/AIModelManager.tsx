@@ -178,15 +178,15 @@ export const AIModelManager: React.FC = () => {
       <div className="card-header flex justify-between items-center">
         <div>
           <div className="flex items-center gap-2.5">
-            <Cpu className="w-5 h-5 text-cyan-400" />
+            <Cpu className="w-4 h-4 text-slate-400" />
             <h2>AI Model Configurations</h2>
           </div>
           <p className="text-xs text-slate-400 mt-1">Configure models for social, tech, jobs extraction & synthesis</p>
         </div>
         <div className="flex items-center gap-2">
           {loading && (
-            <span className="text-xs text-cyan-400 font-medium animate-pulse flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
               Syncing...
             </span>
           )}
@@ -207,30 +207,30 @@ export const AIModelManager: React.FC = () => {
       </div>
 
       {/* Provider API Key Status Panel */}
-      <div className="mb-5 p-4 bg-slate-900/60 border border-slate-800/80 rounded-xl">
-        <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center justify-between">
+      <div className="mb-4 p-3 bg-white/2 border border-white/6 rounded-lg">
+        <div className="text-xs font-medium text-slate-300 uppercase tracking-wider mb-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
+            <KeyRound className="w-3.5 h-3.5 text-slate-400" />
             <span>AI Providers Key Status (.env)</span>
           </div>
-          <span className="text-[11px] font-normal text-slate-400">Ключи хранятся строго в переменных окружения сервера</span>
+          <span className="text-[11px] font-normal text-slate-500">Keys securely managed via environment variables</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {providersStatus.map((ps) => (
-            <div key={ps.provider} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/60 shadow-xs">
+            <div key={ps.provider} className="flex items-center justify-between p-2 rounded-md bg-white/3 border border-white/6">
               <div>
-                <span className="font-bold text-xs uppercase block text-slate-200">{ps.provider}</span>
+                <span className="font-semibold text-xs uppercase block text-slate-200">{ps.provider}</span>
                 <span className="text-[10px] font-mono text-slate-400">{ps.env_var}</span>
               </div>
               {ps.is_configured ? (
-                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="API key is active in environment">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
-                  Ключ активен
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1" title="API key is active in environment">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  Active
                 </span>
               ) : (
-                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-1.5" title="Missing in .env">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]"></span>
-                  Не найден
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20 flex items-center gap-1" title="Missing in .env">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  Missing
                 </span>
               )}
             </div>
@@ -357,7 +357,7 @@ export const AIModelManager: React.FC = () => {
         {TASK_TYPES.map((taskType) => (
           <div key={taskType} className="task-group">
             <h3 className="task-title capitalize flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <Sparkles className="w-3.5 h-3.5 text-slate-400" />
               <span>{taskType.replace('_', ' ')}</span>
             </h3>
             {modelsByTask[taskType].length === 0 ? (
@@ -367,18 +367,18 @@ export const AIModelManager: React.FC = () => {
                 {modelsByTask[taskType].map((model) => (
                   <div key={model.id} className="model-item">
                     <div className="model-info">
-                      <div className="model-name font-mono font-bold text-sm text-slate-100">{model.model_name}</div>
-                      <div className="model-meta flex flex-wrap items-center gap-2 mt-1.5">
-                        <span className="provider-badge uppercase font-bold text-[10px]">{model.provider}</span>
+                      <div className="model-name font-mono font-medium text-xs text-slate-100">{model.model_name}</div>
+                      <div className="model-meta flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="provider-badge uppercase text-[10px]">{model.provider}</span>
                         {model.env_key_present ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1" title={`Active via ${model.env_var || '.env'}`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                            Ключ найден (.env)
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex items-center gap-1" title={`Active via ${model.env_var || '.env'}`}>
+                            <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
+                            Key Ready (.env)
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 flex items-center gap-1" title={`Требуется ${model.env_var || 'API_KEY'} в .env`}>
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-rose-500/10 text-rose-300 border border-rose-500/20 flex items-center gap-1" title={`Requires ${model.env_var || 'API_KEY'} in .env`}>
                             <AlertCircle className="w-3 h-3 text-rose-400" />
-                            Ключ не найден в .env
+                            Missing Key
                           </span>
                         )}
                         {model.is_active === 1 && (
@@ -393,22 +393,22 @@ export const AIModelManager: React.FC = () => {
                         )}
                         {modelTestResults[model.id] && (
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 ${
+                            className={`px-1.5 py-0.2 rounded text-[10px] font-medium border flex items-center gap-1 ${
                               modelTestResults[model.id].success
-                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                                : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
                             }`}
                             title={modelTestResults[model.id].message}
                           >
                             {modelTestResults[model.id].success ? (
                               <>
                                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                                <span>Тест: OK</span>
+                                <span>OK</span>
                               </>
                             ) : (
                               <>
                                 <ShieldAlert className="w-3 h-3 text-rose-400" />
-                                <span>Ошибка теста</span>
+                                <span>Failed</span>
                               </>
                             )}
                           </span>
@@ -425,18 +425,18 @@ export const AIModelManager: React.FC = () => {
                       <button
                         onClick={() => handleTestExistingModel(model)}
                         disabled={testingModelId === model.id}
-                        className="px-2.5 py-1 text-xs rounded-lg font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-50 cursor-pointer flex items-center gap-1"
-                        title="Проверить вызов модели через API провайдера"
+                        className="btn-secondary text-xs px-2 py-0.5 flex items-center gap-1"
+                        title="Test model API connectivity"
                       >
                         {testingModelId === model.id ? (
                           <>
-                            <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                            <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
                             <span>...</span>
                           </>
                         ) : (
                           <>
-                            <Zap className="w-3 h-3 text-cyan-400" />
-                            <span>Проверить</span>
+                            <Zap className="w-3 h-3 text-slate-400" />
+                            <span>Test</span>
                           </>
                         )}
                       </button>
