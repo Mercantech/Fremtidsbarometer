@@ -24,7 +24,10 @@ TECH_KEYWORDS = (
     "developer", "software", "engineer", "data", "cloud", "devops", "architect",
     "security", "fullstack", "frontend", "backend", "system", "it ", "tech",
     "qa", "tester", "programmer", "analyst", "product", "scrum", "ai ", "machine learning",
-    "python", "java", "react", "c#", ".net", "c++", "rust", "golang", "kubernetes", "aws", "azure"
+    "python", "java", "react", "c#", ".net", "c++", "rust", "golang", "kubernetes", "aws", "azure",
+    # Ukrainian, Russian & Eastern European tech terms
+    "розробник", "програміст", "інженер", "тестувальник", "аналітик", "архітектор",
+    "разработчик", "программист", "инженер", "тестировщик", "аналитик", "веб-розробник"
 )
 
 EXCLUDE_KEYWORDS = (
@@ -35,6 +38,7 @@ EXCLUDE_KEYWORDS = (
 )
 
 COMPANY_DEFAULT_LOCATIONS = {
+    # Nordic Tech & ATS
     "netnordic": ("NO", "Oslo"),
     "dfds": ("DK", "Copenhagen"),
     "securitas": ("SE", "Stockholm"),
@@ -43,44 +47,225 @@ COMPANY_DEFAULT_LOCATIONS = {
     "bankdata": ("DK", "Silkeborg"),
     "puzzel": ("NO", "Oslo"),
     "vitecsoftware": ("SE", "Umeå"),
-    "envidan": ("DK", "Silkeborg")
+    "envidan": ("DK", "Silkeborg"),
+    "labster": ("DK", "Copenhagen"),
+    "podimo": ("DK", "Copenhagen"),
+    "lunar": ("DK", "Aarhus"),
+    "vivino": ("DK", "Copenhagen"),
+    "tibber": ("SE", "Stockholm"),
+    # Ukrainian Tech Ecosystem
+    "grammarly": ("UA", "Kyiv"),
+    "macpaw": ("UA", "Kyiv"),
+    "ajax": ("UA", "Kyiv"),
+    "genesis": ("UA", "Kyiv"),
+    "softserve": ("UA", "Lviv"),
+    "epam": ("UA", "Kyiv"),
+    "luxoft": ("UA", "Kyiv"),
+    "globallogic": ("UA", "Kyiv"),
+    "intellias": ("UA", "Lviv"),
+    "eleks": ("UA", "Lviv"),
+    "ciklum": ("UA", "Kyiv"),
+    "sigma": ("UA", "Kharkiv"),
+    "n-ix": ("UA", "Lviv"),
+    # European Tech Hubs
+    "spotify": ("SE", "Stockholm"),
+    "klarna": ("SE", "Stockholm"),
+    "asml": ("NL", "Amsterdam"),
+    "booking": ("NL", "Amsterdam"),
+    "adyen": ("NL", "Amsterdam"),
+    "deliveryhero": ("DE", "Berlin"),
+    "zalando": ("DE", "Berlin"),
+    "sap": ("DE", "Munich"),
+    "revolut": ("UK", "London"),
+    "monzo": ("UK", "London"),
+    "deepmind": ("UK", "London"),
+    "allegro": ("PL", "Warsaw"),
+    "cdprojekt": ("PL", "Warsaw"),
 }
 
+# Mapping: Regex pattern -> (CountryCode, CanonicalEnglishCity)
+# Comprehensive coverage of Ukraine, Western, Northern, Central and Eastern Europe
 LOCATION_PATTERNS = [
-    (r"\b(copenhagen|københavn)\b", ("DK", "Copenhagen")),
-    (r"\b(aarhus|århus)\b", ("DK", "Aarhus")),
-    (r"\b(odense)\b", ("DK", "Odense")),
-    (r"\b(aalborg)\b", ("DK", "Aalborg")),
-    (r"\b(silkeborg)\b", ("DK", "Silkeborg")),
-    (r"\b(stockholm)\b", ("SE", "Stockholm")),
-    (r"\b(gothenburg|göteborg)\b", ("SE", "Gothenburg")),
-    (r"\b(malm[öo])\b", ("SE", "Malmö")),
-    (r"\b(oslo)\b", ("NO", "Oslo")),
-    (r"\b(bergen)\b", ("NO", "Bergen")),
-    (r"\b(trondheim)\b", ("NO", "Trondheim")),
-    (r"\b(berlin)\b", ("DE", "Berlin")),
-    (r"\b(munich|münchen)\b", ("DE", "Munich")),
-    (r"\b(hamburg)\b", ("DE", "Hamburg")),
-    (r"\b(frankfurt)\b", ("DE", "Frankfurt")),
-    (r"\b(helsinki)\b", ("FI", "Helsinki")),
-    (r"\b(tampere)\b", ("FI", "Tampere")),
-    (r"\b(london)\b", ("UK", "London")),
-    (r"\b(manchester)\b", ("UK", "Manchester")),
-    (r"\b(edinburgh)\b", ("UK", "Edinburgh")),
-    (r"\b(dublin)\b", ("IE", "Dublin")),
-    (r"\b(amsterdam)\b", ("NL", "Amsterdam")),
-    (r"\b(rotterdam)\b", ("NL", "Rotterdam")),
-    (r"\b(paris)\b", ("FR", "Paris")),
-    (r"\b(lyon)\b", ("FR", "Lyon")),
-    (r"\b(zurich|zürich)\b", ("CH", "Zurich")),
-    (r"\b(geneva|genève)\b", ("CH", "Geneva")),
-    (r"\b(warsaw|warszawa)\b", ("PL", "Warsaw")),
-    (r"\b(krak[óo]w)\b", ("PL", "Krakow")),
-    (r"\b(wroc[łl]aw)\b", ("PL", "Wroclaw")),
-    (r"\b(madrid)\b", ("ES", "Madrid")),
-    (r"\b(barcelona)\b", ("ES", "Barcelona")),
-    (r"\b(remote|hejmearbejde|distans)\b", ("GLOBAL", "Remote")),
+    # ── Ukraine (Cities & Country) with grammatical inflections ──
+    (r"\b(kyiv|kiev|ки[їєе]в\w*)\b", ("UA", "Kyiv")),
+    (r"\b(lviv|lvov|льв[ііоо]в\w*)\b", ("UA", "Lviv")),
+    (r"\b(kharkiv|kharkov|харк[ііоо]в\w*)\b", ("UA", "Kharkiv")),
+    (r"\b(odesa|odessa|одес\w*)\b", ("UA", "Odesa")),
+    (r"\b(dnipro|dnepr|dnepropetrovsk|дн[іе]пр\w*)\b", ("UA", "Dnipro")),
+    (r"\b(zaporizhzhia|zaporozhye|запор[ііoо]ж\w*)\b", ("UA", "Zaporizhzhia")),
+    (r"\b(vinnytsia|vinnitsa|в[іи]нниц\w*)\b", ("UA", "Vinnytsia")),
+    (r"\b(poltava|полтав\w*)\b", ("UA", "Poltava")),
+    (r"\b(chernihiv|chernigov|черн[ііoо]г\w*)\b", ("UA", "Chernihiv")),
+    (r"\b(cherkasy|cherkassy|черкас\w*)\b", ("UA", "Cherkasy")),
+    (r"\b(ivano-frankivsk|івано-франк\w*|ивано-франк\w*)\b", ("UA", "Ivano-Frankivsk")),
+    (r"\b(uzhhorod|uzhgorod|ужгород\w*)\b", ("UA", "Uzhhorod")),
+    (r"\b(ternopil|ternopol|терноп[ііоо]л\w*)\b", ("UA", "Ternopil")),
+    (r"\b(lutsk|луцьк\w*|луцк\w*)\b", ("UA", "Lutsk")),
+    (r"\b(rivne|rovno|р[ііoо]вн\w*)\b", ("UA", "Rivne")),
+    (r"\b(mykolaiv|nikolaev|микола[їєе]в\w*|николаев\w*)\b", ("UA", "Mykolaiv")),
+    (r"\b(zhytomyr|zhitomir|житомир\w*)\b", ("UA", "Zhytomyr")),
+    (r"\b(chernivtsi|chernovtsy|черн[ііoо]вц\w*)\b", ("UA", "Chernivtsi")),
+    (r"\b(khmelnytskyi|khmelnitsky|хмельниц\w*)\b", ("UA", "Khmelnytskyi")),
+    (r"\b(sumy|сум[иа]\w*)\b", ("UA", "Sumy")),
+    (r"\b(kryvyi\s*rih|krivoy\s*rog|крив\w*\s*р[ііoо]г\w*)\b", ("UA", "Kryvyi Rih")),
+    (r"\b(ukraine|укра[їи]н\w*)\b", ("UA", "Kyiv")),
+
+    # ── Poland ──
+    (r"\b(warsaw|warszawa|варшав\w*)\b", ("PL", "Warsaw")),
+    (r"\b(krak[óo]w|крак[ііоо]в\w*)\b", ("PL", "Krakow")),
+    (r"\b(wroc[łl]aw|вроцлав\w*)\b", ("PL", "Wroclaw")),
+    (r"\b(gda[ńn]sk|гданськ\w*|гданьск\w*)\b", ("PL", "Gdansk")),
+    (r"\b(pozna[ńn]|познан\w*)\b", ("PL", "Poznan")),
+    (r"\b([łl][óo]d[źz]|лодз\w*)\b", ("PL", "Lodz")),
+    (r"\b(katowice|катов[іі]ц\w*)\b", ("PL", "Katowice")),
+    (r"\b(poland|polska|польщ\w*|польш\w*)\b", ("PL", "Warsaw")),
+
+    # ── Germany ──
+    (r"\b(berlin|берл[іі]н\w*)\b", ("DE", "Berlin")),
+    (r"\b(munich|münchen|мюнхен\w*)\b", ("DE", "Munich")),
+    (r"\b(hamburg|гамбург\w*)\b", ("DE", "Hamburg")),
+    (r"\b(frankfurt|франкфурт\w*)\b", ("DE", "Frankfurt")),
+    (r"\b(cologne|k[öo]ln|кельн\w*)\b", ("DE", "Cologne")),
+    (r"\b(stuttgart|штутгарт\w*)\b", ("DE", "Stuttgart")),
+    (r"\b(d[üu]sseldorf|дюссельдорф\w*)\b", ("DE", "Dusseldorf")),
+    (r"\b(germany|deutschland|н[іе]меччин\w*|германи\w*)\b", ("DE", "Berlin")),
+
+    # ── Denmark ──
+    (r"\b(copenhagen|københavn|копенгаген\w*)\b", ("DK", "Copenhagen")),
+    (r"\b(aarhus|århus|орхус\w*)\b", ("DK", "Aarhus")),
+    (r"\b(odense|оденсе)\b", ("DK", "Odense")),
+    (r"\b(aalborg|ålborg|ольборг)\b", ("DK", "Aalborg")),
+    (r"\b(silkeborg|сількеборг\w*)\b", ("DK", "Silkeborg")),
+    (r"\b(denmark|danmark|дан[іі]я\w*)\b", ("DK", "Copenhagen")),
+
+    # ── Sweden ──
+    (r"\b(stockholm|стокгольм\w*)\b", ("SE", "Stockholm")),
+    (r"\b(gothenburg|göteborg|гетеборг\w*|гётеборг\w*)\b", ("SE", "Gothenburg")),
+    (r"\b(malm[öo]|мальм[её]\w*)\b", ("SE", "Malmö")),
+    (r"\b(uppsala|уппсал\w*)\b", ("SE", "Uppsala")),
+    (r"\b(ume[åa]|умео)\b", ("SE", "Umeå")),
+    (r"\b(sweden|sverige|швец[іі]я\w*)\b", ("SE", "Stockholm")),
+
+    # ── Norway ──
+    (r"\b(oslo|осло)\b", ("NO", "Oslo")),
+    (r"\b(bergen|берген\w*)\b", ("NO", "Bergen")),
+    (r"\b(trondheim|тронхейм\w*)\b", ("NO", "Trondheim")),
+    (r"\b(stavanger|ставангер\w*)\b", ("NO", "Stavanger")),
+    (r"\b(norway|norge|норвег[іі]я\w*)\b", ("NO", "Oslo")),
+
+    # ── Finland ──
+    (r"\b(helsinki|[гх]ельс[іи]нк\w*)\b", ("FI", "Helsinki")),
+    (r"\b(tampere|тампере)\b", ("FI", "Tampere")),
+    (r"\b(espoo|еспоо)\b", ("FI", "Espoo")),
+    (r"\b(finland|suomi|ф[іи]нлянд[іі]я\w*)\b", ("FI", "Helsinki")),
+
+    # ── United Kingdom ──
+    (r"\b(london|лондон\w*)\b", ("UK", "London")),
+    (r"\b(manchester|манчестер\w*)\b", ("UK", "Manchester")),
+    (r"\b(edinburgh|единбург\w*|эдинбург\w*)\b", ("UK", "Edinburgh")),
+    (r"\b(birmingham|б[іи]рм[іи]нгем\w*)\b", ("UK", "Birmingham")),
+    (r"\b(glasgow|глазго)\b", ("UK", "Glasgow")),
+    (r"\b(united\s*kingdom|uk|britain|великобритан[іі]я\w*)\b", ("UK", "London")),
+
+    # ── France ──
+    (r"\b(paris|париж\w*)\b", ("FR", "Paris")),
+    (r"\b(lyon|л[іи]он\w*)\b", ("FR", "Lyon")),
+    (r"\b(marseille|марсел\w*)\b", ("FR", "Marseille")),
+    (r"\b(toulouse|тулуз\w*)\b", ("FR", "Toulouse")),
+    (r"\b(nice|н[іи]цц\w*)\b", ("FR", "Nice")),
+    (r"\b(france|франц[іі]я\w*)\b", ("FR", "Paris")),
+
+    # ── Netherlands ──
+    (r"\b(amsterdam|амстердам\w*)\b", ("NL", "Amsterdam")),
+    (r"\b(rotterdam|роттердам\w*)\b", ("NL", "Rotterdam")),
+    (r"\b(utrecht|утрехт\w*)\b", ("NL", "Utrecht")),
+    (r"\b(eindhoven|ейнд[гх]овен\w*|эйнд[гх]овен\w*)\b", ("NL", "Eindhoven")),
+    (r"\b(the\s*hague|den\s*haag|гааг\w*)\b", ("NL", "The Hague")),
+    (r"\b(netherlands|holland|н[іи]дерланд\w*)\b", ("NL", "Amsterdam")),
+
+    # ── Switzerland ──
+    (r"\b(zurich|zürich|цюрих\w*)\b", ("CH", "Zurich")),
+    (r"\b(geneva|genève|женев\w*)\b", ("CH", "Geneva")),
+    (r"\b(basel|базел\w*)\b", ("CH", "Basel")),
+    (r"\b(bern|берн\w*)\b", ("CH", "Bern")),
+    (r"\b(switzerland|schweiz|suisse|швейцар[іі]я\w*)\b", ("CH", "Zurich")),
+
+    # ── Austria ──
+    (r"\b(vienna|wien|в[іе]д[еі]н\w*|вен[ае]\w*)\b", ("AT", "Vienna")),
+    (r"\b(graz|грац\w*)\b", ("AT", "Graz")),
+    (r"\b(austria|österreich|австр[іі]я\w*)\b", ("AT", "Vienna")),
+
+    # ── Ireland ──
+    (r"\b(dublin|дубл[іі]н\w*)\b", ("IE", "Dublin")),
+    (r"\b(cork|корк\w*)\b", ("IE", "Cork")),
+    (r"\b(ireland|[іи]рланд[іі]я\w*)\b", ("IE", "Dublin")),
+
+    # ── Spain ──
+    (r"\b(madrid|мадрид\w*)\b", ("ES", "Madrid")),
+    (r"\b(barcelona|барселон\w*)\b", ("ES", "Barcelona")),
+    (r"\b(valencia|валенс[іі]я\w*)\b", ("ES", "Valencia")),
+    (r"\b(malaga|málaga|малаг\w*)\b", ("ES", "Malaga")),
+    (r"\b(spain|españa|[іи]спан[іі]я\w*)\b", ("ES", "Madrid")),
+
+    # ── Portugal ──
+    (r"\b(lisbon|lisboa|л[іі]сабон\w*|лиссабон\w*)\b", ("PT", "Lisbon")),
+    (r"\b(porto|порту)\b", ("PT", "Porto")),
+    (r"\b(portugal|португал[іі]я\w*)\b", ("PT", "Lisbon")),
+
+    # ── Italy ──
+    (r"\b(rome|roma|рим\w*)\b", ("IT", "Rome")),
+    (r"\b(milan|milano|м[іі]лан\w*)\b", ("IT", "Milan")),
+    (r"\b(italy|italia|[іи]тал[іі]я\w*)\b", ("IT", "Rome")),
+
+    # ── Czechia & Slovakia ──
+    (r"\b(prague|praha|праг\w*)\b", ("CZ", "Prague")),
+    (r"\b(brno|брно)\b", ("CZ", "Brno")),
+    (r"\b(czech\s*republic|czechia|cesko|чех[іі]я\w*)\b", ("CZ", "Prague")),
+    (r"\b(bratislava|братислав\w*)\b", ("SK", "Bratislava")),
+    (r"\b(slovakia|slovensko|словаччин\w*|словаки\w*)\b", ("SK", "Bratislava")),
+
+    # ── Hungary, Romania, Bulgaria ──
+    (r"\b(budapest|будапешт\w*)\b", ("HU", "Budapest")),
+    (r"\b(hungary|magyarország|угорщин\w*|венгри\w*)\b", ("HU", "Budapest")),
+    (r"\b(bucharest|bucurești|бухарест\w*)\b", ("RO", "Bucharest")),
+    (r"\b(cluj|клуж\w*)\b", ("RO", "Cluj-Napoca")),
+    (r"\b(romania|românia|румун[іі]я\w*)\b", ("RO", "Bucharest")),
+    (r"\b(sofia|соф[іі]я\w*|соф[іі][їе]й?\w*)\b", ("BG", "Sofia")),
+    (r"\b(bulgaria|болгар[іі]я\w*)\b", ("BG", "Sofia")),
+
+    # ── Baltics ──
+    (r"\b(tallinn|талл[іі]н\w*)\b", ("EE", "Tallinn")),
+    (r"\b(estonia|eesti|естон[іі]я\w*)\b", ("EE", "Tallinn")),
+    (r"\b(riga|риг\w*)\b", ("LV", "Riga")),
+    (r"\b(latvia|latvija|латв[іі]я\w*)\b", ("LV", "Riga")),
+    (r"\b(vilnius|в[іі]льнюс\w*)\b", ("LT", "Vilnius")),
+    (r"\b(lithuania|lietuva|литв\w*)\b", ("LT", "Vilnius")),
+
+    # ── Belgium, Greece, Cyprus ──
+    (r"\b(brussels|bruxelles|брюссел\w*)\b", ("BE", "Brussels")),
+    (r"\b(belgium|belgique|belgië|бельг[іі]я\w*)\b", ("BE", "Brussels")),
+    (r"\b(athens|аф[іі]н\w*)\b", ("GR", "Athens")),
+    (r"\b(greece|грец[іі]я\w*)\b", ("GR", "Athens")),
+    (r"\b(limassol|л[іи]масол\w*)\b", ("CY", "Limassol")),
+    (r"\b(cyprus|к[іи]пр\w*)\b", ("CY", "Limassol")),
+
+    # ── North America ──
+    (r"\b(san\s*francisco|bay\s*area|silicon\s*valley)\b", ("US", "San Francisco")),
+    (r"\b(new\s*york|nyc)\b", ("US", "New York")),
+    (r"\b(seattle)\b", ("US", "Seattle")),
+    (r"\b(austin)\b", ("US", "Austin")),
+    (r"\b(boston)\b", ("US", "Boston")),
+    (r"\b(chicago)\b", ("US", "Chicago")),
+    (r"\b(los\s*angeles)\b", ("US", "Los Angeles")),
+    (r"\b(toronto)\b", ("CA", "Toronto")),
+    (r"\b(vancouver)\b", ("CA", "Vancouver")),
+    (r"\b(usa|united\s*states|сша)\b", ("US", "New York")),
 ]
+
+REMOTE_KEYWORD_PATTERN = re.compile(
+    r"\b(remote|віддалено|дистанційно|удаленка|удаленно|hejmearbejde|distans|teletrabajo|télétravail|home\s*office)\b",
+    re.IGNORECASE
+)
 
 SALARY_PATTERNS = [
     r'[$€£]\s*\d{2,4}k\s*(?:-|to|–)\s*[$€£]?\s*\d{2,4}k',
@@ -90,38 +275,80 @@ SALARY_PATTERNS = [
 
 def infer_technology(title: str) -> str:
     t = title.lower()
-    if any(k in t for k in ["python", "django", "fastapi"]):
+    if any(k in t for k in ["python", "django", "fastapi", "пайтон"]):
         return "Python"
-    if any(k in t for k in ["react", "vue", "angular", "frontend", "web dev"]):
+    if any(k in t for k in ["react", "vue", "angular", "frontend", "web dev", "фронтенд", "front-end"]):
         return "Frontend"
-    if any(k in t for k in ["backend", "node", "golang", "rust", "java", "c#", ".net"]):
+    if any(k in t for k in ["backend", "node", "golang", "rust", "java", "c#", ".net", "бэкенд", "бекенд", "back-end"]):
         return "Backend"
-    if any(k in t for k in ["cloud", "devops", "kubernetes", "docker", "aws", "azure", "sre", "platform"]):
+    if any(k in t for k in ["cloud", "devops", "kubernetes", "docker", "aws", "azure", "sre", "platform", "девопс"]):
         return "Cloud & DevOps"
-    if any(k in t for k in ["data", "machine learning", "ai ", "bi ", "scientist"]):
+    if any(k in t for k in ["data", "machine learning", "ai ", "bi ", "scientist", "штучний інтелект", "дата"]):
         return "Data & AI"
-    if any(k in t for k in ["security", "cyber", "infosec", "soc"]):
+    if any(k in t for k in ["security", "cyber", "infosec", "soc", "кібербезпека", "безопасность"]):
         return "Cybersecurity"
-    if any(k in t for k in ["qa", "test", "quality"]):
+    if any(k in t for k in ["qa", "test", "quality", "тестувальник", "тестировщик", "manual qa", "automation"]):
         return "QA & Testing"
     return "Software Engineering"
 
 def infer_seniority(title: str, description: str = "") -> str:
     combined = (title + " " + description[:400]).lower()
-    if any(w in combined for w in ["lead", "principal", "staff", "head of", "director", "architect", "manager", "tech lead"]):
+    if any(w in combined for w in ["lead", "principal", "staff", "head of", "director", "architect", "manager", "tech lead", "тімлід", "тім лід", "тім-лід"]):
         return "lead"
-    if any(w in combined for w in ["senior", "sr.", "sr ", "experienced", "specialist"]):
+    if any(w in combined for w in ["senior", "sr.", "sr ", "experienced", "specialist", "сеньйор", "синьор", "сеньор"]):
         return "senior"
-    if any(w in combined for w in ["junior", "jr.", "jr ", "intern", "trainee", "entry level", "student", "graduate", "associate"]):
+    if any(w in combined for w in ["junior", "jr.", "jr ", "intern", "trainee", "entry level", "student", "graduate", "associate", "джуніор", "джун", "інтерн", "стажер"]):
         return "junior"
     return "mid"
 
-def infer_location(title: str, description: str, company_domain: str) -> Tuple[str, str]:
-    text = (title + " " + description[:800]).lower()
+def infer_location(
+    title: str,
+    description: str = "",
+    company_domain: str = "",
+    extra_hint: str = "",
+    source_hint: str = ""
+) -> Tuple[str, str]:
+    """
+    Infers (country, city) from job title, description, feed metadata and company identity.
+    Priority:
+    1. Physical city / country match in text or extra feed tags.
+    2. Company headquarters default location.
+    3. Source-level geographical indicator (e.g., Ukrainian aggregator Djinni -> UA/Kyiv).
+    4. Fallback to GLOBAL/Remote.
+    """
+    search_text = f"{title} {extra_hint} {description[:1200]}".lower()
+
+    # 1. Look for explicit physical city / country match in title, tags, or description
     for pattern, loc in LOCATION_PATTERNS:
-        if re.search(pattern, text):
+        if re.search(pattern, search_text):
             return loc
-    return COMPANY_DEFAULT_LOCATIONS.get(company_domain.lower(), ("GLOBAL", "Remote"))
+
+    # 2. Company headquarters mapping
+    if company_domain:
+        clean_domain = company_domain.lower().strip()
+        if clean_domain in COMPANY_DEFAULT_LOCATIONS:
+            return COMPANY_DEFAULT_LOCATIONS[clean_domain]
+
+    # 3. Source hint mapping (e.g., Ukrainian job boards like Djinni, DOU)
+    if source_hint:
+        s_lower = source_hint.lower()
+        if any(w in s_lower for w in ["djinni", "dou", "ukraine", "україна", "украина", ".ua"]):
+            return ("UA", "Kyiv")
+        if any(w in s_lower for w in ["denmark", "danmark", "danish", ".dk"]):
+            return ("DK", "Copenhagen")
+        if any(w in s_lower for w in ["norway", "norge", ".no"]):
+            return ("NO", "Oslo")
+        if any(w in s_lower for w in ["sweden", "sverige", ".se"]):
+            return ("SE", "Stockholm")
+        if any(w in s_lower for w in ["germany", "deutschland", ".de"]):
+            return ("DE", "Berlin")
+        if any(w in s_lower for w in ["poland", "polska", ".pl"]):
+            return ("PL", "Warsaw")
+        if any(w in s_lower for w in ["finland", ".fi"]):
+            return ("FI", "Helsinki")
+
+    # 4. Default fallback
+    return ("GLOBAL", "Remote")
 
 def extract_salary(text: str) -> Optional[str]:
     for pattern in SALARY_PATTERNS:
@@ -129,6 +356,136 @@ def extract_salary(text: str) -> Optional[str]:
         if match:
             return match.group(0).strip()
     return None
+
+CURRENCY_USD_RATES = {
+    "$": 1.0, "usd": 1.0,
+    "€": 1.08, "eur": 1.08,
+    "£": 1.28, "gbp": 1.28,
+    "dkk": 0.145,
+    "sek": 0.096,
+    "nok": 0.094,
+    "pln": 0.25,
+    "kr": 0.145,
+    "chf": 1.12,
+    "uah": 0.024,
+    "грн": 0.024,
+}
+
+SALARY_PREFIXES = r"(?:salary|compensation|remuneration|pay|зарплат\w*|ставка|вилка|compensation\s*range|salary\s*range)"
+
+SALARY_RANGE_PATTERN = re.compile(
+    r"(?:(?P<prefix>" + SALARY_PREFIXES + r")[\s:]*)?"
+    r"(?P<curr1>[$€£]|USD|EUR|GBP|DKK|SEK|NOK|PLN|CHF|UAH|грн)?\s*"
+    r"(?P<min>\d+(?:[.,]\d+)?)\s*(?P<k1>[kK]|тыс)?\s*"
+    r"(?:-|to|–|—|до)\s*"
+    r"(?P<curr2>[$€£]|USD|EUR|GBP|DKK|SEK|NOK|PLN|CHF|UAH|грн)?\s*"
+    r"(?P<max>\d+(?:[.,]\d+)?)\s*(?P<k2>[kK]|тыс)?\s*"
+    r"(?P<curr3>[$€£]|USD|EUR|GBP|DKK|SEK|NOK|PLN|CHF|UAH|грн|kr)?(?:\s*"
+    r"(?P<period>per\s+month|/mo|monthly|місяць|на\s+місяць|/year|yearly|per\s+year|на\s+рік|/yr|annually))?"
+    r"(?!\s*(?:years|år|роки|років|року|personer|people|members|employees|days|godt))",
+    re.IGNORECASE
+)
+
+SALARY_SINGLE_PATTERN = re.compile(
+    r"(?:(?P<prefix>" + SALARY_PREFIXES + r"|up to|до|від|from)[\s:]*)"
+    r"(?P<curr1>[$€£]|USD|EUR|GBP|DKK|SEK|NOK|PLN|CHF|UAH|грн)?\s*"
+    r"(?P<val>\d+(?:[.,]\d+)?)\s*(?P<k>[kK]|тыс)?\s*"
+    r"(?P<curr2>[$€£]|USD|EUR|GBP|DKK|SEK|NOK|PLN|CHF|UAH|грн|kr)?(?:\s*"
+    r"(?P<period>per\s+month|/mo|monthly|місяць|на\s+місяць|/year|yearly|per\s+year|на\s+рік|/yr|annually))?"
+    r"(?!\s*(?:years|år|роки|років|року|personer|people|members|employees|days|godt))",
+    re.IGNORECASE
+)
+
+def _parse_salary_number(raw_val: str, has_k: bool, peer_val: float = 0.0) -> float:
+    cleaned = raw_val.replace(" ", "").replace(",", "")
+    val = float(cleaned)
+    if has_k:
+        val *= 1000.0
+    elif val < 1000.0 and peer_val >= 10000.0:
+        val *= 1000.0
+    return val
+
+def parse_numeric_salary(text: str) -> Tuple[Optional[float], Optional[float], Optional[str]]:
+    """
+    Extracts numeric min, max and currency from text, normalizing to annualized USD for cross-border analytics.
+    Strictly verifies presence of currency symbol/code, 'k' suffix, or salary keyword to reject
+    false positives such as years of experience, team sizes, or dates.
+    Returns (salary_min, salary_max, 'USD') or (None, None, None).
+    """
+    if not text:
+        return None, None, None
+    text_clean = text.replace("\xa0", " ")
+
+    # 1. Range matching
+    for m in SALARY_RANGE_PATTERN.finditer(text_clean):
+        c1, c2, c3 = m.group("curr1"), m.group("curr2"), m.group("curr3")
+        k1, k2 = bool(m.group("k1")), bool(m.group("k2"))
+        pref = m.group("prefix")
+        curr_str = c1 or c2 or c3
+
+        # Must have either explicit currency, 'k' suffix, or explicit salary prefix
+        if not (curr_str or k1 or k2 or pref):
+            continue
+
+        curr_key = (curr_str or "$").lower().strip()
+        rate = CURRENCY_USD_RATES.get(curr_key, 1.0)
+
+        try:
+            raw_min = m.group("min")
+            raw_max = m.group("max")
+            val_max = _parse_salary_number(raw_max, k2)
+            val_min = _parse_salary_number(raw_min, k1, peer_val=val_max)
+            if k2 and not k1 and val_min < 1000:
+                val_min *= 1000
+        except ValueError:
+            continue
+
+        period = (m.group("period") or "").lower()
+        is_monthly = (
+            any(x in period for x in ["month", "mo", "місяць"]) or
+            (val_max <= 15000 and "year" not in period and "рік" not in period and rate >= 0.9)
+        )
+        if is_monthly:
+            val_min *= 12
+            val_max *= 12
+
+        usd_min = round(val_min * rate, -2)
+        usd_max = round(val_max * rate, -2)
+        if usd_min > usd_max:
+            usd_min, usd_max = usd_max, usd_min
+
+        # Realistic annualized bounds check: $15k to $600k USD with reasonable spread
+        if 15000 <= usd_min <= 600000 and 15000 <= usd_max <= 600000 and usd_min >= usd_max * 0.25:
+            return float(usd_min), float(usd_max), "USD"
+
+    # 2. Single value matching (e.g. "Up to $120,000" or "від $3500 на місяць")
+    for m in SALARY_SINGLE_PATTERN.finditer(text_clean):
+        c1, c2 = m.group("curr1"), m.group("curr2")
+        k = bool(m.group("k"))
+        curr_str = c1 or c2
+        if not (curr_str or k):
+            continue
+
+        curr_key = (curr_str or "$").lower().strip()
+        rate = CURRENCY_USD_RATES.get(curr_key, 1.0)
+        try:
+            val = _parse_salary_number(m.group("val"), k)
+        except ValueError:
+            continue
+
+        period = (m.group("period") or "").lower()
+        is_monthly = (
+            any(x in period for x in ["month", "mo", "місяць"]) or
+            (val <= 15000 and "year" not in period and "рік" not in period and rate >= 0.9)
+        )
+        if is_monthly:
+            val *= 12
+
+        usd_val = round(val * rate, -2)
+        if 15000 <= usd_val <= 600000:
+            return float(round(usd_val * 0.9, -2)), float(usd_val), "USD"
+
+    return None, None, None
 
 def calculate_match_score(title: str, description: str, tech_category: str) -> Tuple[float, str]:
     t_lower = (title + " " + description[:600]).lower()
@@ -165,9 +522,19 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
             if not entries:
                 continue
 
+            src_lower = (src.name + " " + rss_url).lower()
+            if "djinni" in src_lower:
+                source_slug = "djinni"
+            elif "dou" in src_lower:
+                source_slug = "dou"
+            elif "teamtailor" in src_lower:
+                source_slug = "teamtailor"
+            else:
+                source_slug = src.name.split(":")[0].strip().lower().replace(" ", "_")[:30]
+
             domain_match = re.search(r"https?://([^.]+)\.teamtailor\.com", rss_url)
             company_domain = domain_match.group(1) if domain_match else src.name.lower().replace(" ", "")[:50]
-            company_name = src.name.replace("TeamTailor: ", "").split("(")[0].strip()[:200]
+            clean_company = src.name.replace("TeamTailor: ", "").replace("Djinni: ", "").replace("DOU: ", "").split("(")[0].strip()[:200]
             
             # 1. Filter for tech jobs and exclude irrelevant non-tech roles
             candidate_entries = []
@@ -194,29 +561,102 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 continue
 
             # 2. Batch check existing URLs (1 query instead of N queries)
-            existing_links = set(
-                r[0] for r in db.query(JobPosting.url).filter(JobPosting.url.in_(candidate_links)).all()
-            )
+            existing_job_map = {
+                r[0]: r[1] for r in db.query(JobPosting.url, JobPosting.salary_min).filter(JobPosting.url.in_(candidate_links)).all()
+            }
 
-            # 3. Insert new records
+            # 3. Insert new records or enrich existing postings lacking salary
             new_jobs = []
             new_raw_entries = []
             for entry in candidate_entries:
                 link = entry.get("link", "").strip()
-                if link in existing_links:
+                is_existing = link in existing_job_map
+                if is_existing and existing_job_map[link] is not None:
                     continue
 
                 title = entry.get("title", "").strip()
                 description = entry.get("description", "").strip()
+                if not description:
+                    description = entry.get("summary", "").strip()
+
+                # Extract extra location hints from feed entry tags and metadata
+                hint_parts = []
+                for tag_field in ["location", "geo_location", "author", "category"]:
+                    val = entry.get(tag_field)
+                    if val:
+                        hint_parts.append(str(val))
+                for t_item in entry.get("tags", []):
+                    if isinstance(t_item, dict) and t_item.get("term"):
+                        hint_parts.append(str(t_item["term"]))
+                    elif isinstance(t_item, str):
+                        hint_parts.append(t_item)
+                extra_hint = " ".join(hint_parts)
+
+                # Try to extract company name from entry author or feed if not Teamtailor
+                candidate_company = clean_company
+                if entry.get("author") and len(entry.get("author", "")) > 1:
+                    candidate_company = entry.get("author").strip()[:200]
+
+                # Specialized parsing for Ukrainian job boards (DOU & Djinni)
+                if source_slug == "dou":
+                    if " в " in title:
+                        parts = title.split(" в ", 1)
+                        if len(parts) == 2:
+                            parsed_title = parts[0].strip()
+                            comp_and_loc = parts[1].strip()
+                            loc_tokens = [tok.strip() for tok in comp_and_loc.split(",") if tok.strip()]
+                            if loc_tokens:
+                                extracted_comp = loc_tokens[0]
+                                if len(loc_tokens) > 1 and loc_tokens[1].lower() in ["inc.", "inc", "llc", "ltd"]:
+                                    extracted_comp = f"{loc_tokens[0]}, {loc_tokens[1]}"
+                                    extra_hint += " " + " ".join(loc_tokens[2:])
+                                else:
+                                    extra_hint += " " + " ".join(loc_tokens[1:])
+                                candidate_company = extracted_comp
+                                title = parsed_title
+                    if not candidate_company or any(v in candidate_company.lower() for v in ["vacancies", "вакансії"]):
+                        candidate_company = "Tech Company (via DOU)"
+
+                elif source_slug == "djinni":
+                    m_comp = re.search(r"<strong>\s*([^<]+?)\s*</strong>\s*(?:—|–|-|is\b|шукає|запрошує)", description, re.IGNORECASE)
+                    if m_comp:
+                        c_candidate = m_comp.group(1).replace("&nbsp;", " ").strip()
+                        if 1 < len(c_candidate) < 40 and c_candidate.lower() not in ["looking", "hiring", "searching", "proud", "вакансія", "опис"]:
+                            candidate_company = c_candidate
+                    if not candidate_company or any(v in candidate_company.lower() for v in ["vacancies", "all tech jobs", "вакансії"]):
+                        candidate_company = "Tech Company (via Djinni)"
+
                 tech_category = infer_technology(title)
                 seniority = infer_seniority(title, description)
-                country, city = infer_location(title, description, company_domain)
+                country, city = infer_location(
+                    title=title,
+                    description=description,
+                    company_domain=company_domain,
+                    extra_hint=extra_hint,
+                    source_hint=f"{src.name} {rss_url}"
+                )
                 score, reason = calculate_match_score(title, description, tech_category)
-                salary_text = extract_salary(description)
+                full_job_text = f"{title} {extra_hint} {description}"
+                salary_text = extract_salary(full_job_text)
+                salary_min, salary_max, salary_curr = parse_numeric_salary(full_job_text)
                 
-                tags = [seniority, tech_category.lower(), "teamtailor"]
-                if salary_text:
+                is_remote = bool(REMOTE_KEYWORD_PATTERN.search(full_job_text))
+
+                tags = [seniority, tech_category.lower(), source_slug]
+                if is_remote:
+                    tags.append("remote")
+                if salary_text or salary_min is not None:
                     tags.append("salary_disclosed")
+
+                if is_existing:
+                    if salary_min is not None:
+                        db.query(JobPosting).filter(JobPosting.url == link).update({
+                            "salary_min": salary_min,
+                            "salary_max": salary_max,
+                            "salary_currency": salary_curr,
+                            "tags": tags,
+                        }, synchronize_session=False)
+                    continue
                 
                 formatted_job = (
                     f"COMPANY: {company_domain}\n"
@@ -241,13 +681,16 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
 
                 new_jobs.append({
                     "title": title[:500],
-                    "company": company_name,
+                    "company": candidate_company,
                     "url": link[:1000],
-                    "source": "teamtailor",
+                    "source": source_slug,
                     "country": country,
                     "city": city,
                     "technology": tech_category,
                     "tags": tags,
+                    "salary_min": salary_min,
+                    "salary_max": salary_max,
+                    "salary_currency": salary_curr,
                     "date": datetime.now(timezone.utc),
                     "match_score": score,
                     "match_reason": reason,
@@ -266,8 +709,15 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                         seen_keys.add(key)
                         deduped_jobs.append(j)
 
-                stmt = pg_insert(JobPosting).values(deduped_jobs).on_conflict_do_nothing(
-                    index_elements=["title", "company", "source"]
+                stmt = pg_insert(JobPosting).values(deduped_jobs)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["title", "company", "source"],
+                    set_={
+                        "salary_min": stmt.excluded.salary_min,
+                        "salary_max": stmt.excluded.salary_max,
+                        "salary_currency": stmt.excluded.salary_currency,
+                        "tags": stmt.excluded.tags,
+                    }
                 )
                 db.execute(stmt)
                 saved_count += len(deduped_jobs)

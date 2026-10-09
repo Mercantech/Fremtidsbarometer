@@ -38,16 +38,19 @@ class TrendHistoryYearSchema(BaseModel):
 class JobPostingSchema(BaseModel):
     id: int
     title: str
-    company: Optional[str]
-    url: Optional[str]
-    source: Optional[str]
-    country: Optional[str] = "DK"
-    city: Optional[str]
-    technology: Optional[str]
-    tags: Optional[List[str]]
-    match_score: Optional[float]
-    match_reason: Optional[str]
-    date: Optional[datetime]
+    company: Optional[str] = None
+    url: Optional[str] = None
+    source: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
+    technology: Optional[str] = None
+    tags: Optional[List[str]] = None
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    salary_currency: Optional[str] = None
+    match_score: Optional[float] = None
+    match_reason: Optional[str] = None
+    date: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 

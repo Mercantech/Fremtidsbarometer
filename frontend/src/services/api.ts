@@ -50,6 +50,9 @@ export interface JobPosting {
   city?: string;
   technology?: string;
   tags?: string[];
+  salary_min?: number;
+  salary_max?: number;
+  salary_currency?: string;
   match_score?: number;
   match_reason?: string;
   date?: string;

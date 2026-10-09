@@ -5,7 +5,7 @@ import type {
 import {
   fetchNews, fetchTrends, fetchTrendsHistory, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries
 } from '../services/api';
-import { resolveCoordinates } from '../utils/GeoLookup';
+import { resolveCoordinates, resolveCountryForCity } from '../utils/GeoLookup';
 
 export type { EraInfo };
 
@@ -24,6 +24,8 @@ export interface LiveTopic {
     company?: string;
     source?: string;
     medianSalary?: number;
+    salaryMin?: number;
+    salaryMax?: number;
     currency?: string;
     url?: string;
     tech?: string;
@@ -95,6 +97,12 @@ function resolveHypeLocation(topic: string, summary: string = ''): { city: strin
   if (/nordic|denmark|danish|sweden|scandinavia|copenhagen|stockholm/.test(combined)) {
     return { city: 'Copenhagen', country: 'DK' };
   }
+  if (/ukraine|ukrainian|kyiv|lviv|djinni|dou|київ|львів|україна|харків|одеса/.test(combined)) {
+    return { city: 'Kyiv', country: 'UA' };
+  }
+  if (/poland|polish|warsaw|krakow|wroclaw|варшава|краків|польща/.test(combined)) {
+    return { city: 'Warsaw', country: 'PL' };
+  }
   if (/web3|crypto|bitcoin|ethereum|solana|decentralized|blockchain/.test(combined)) {
     return { city: 'Zurich', country: 'CH' };
   }
@@ -112,6 +120,8 @@ function resolveHypeLocation(topic: string, summary: string = ''): { city: strin
 
 // Key global tech hubs used for deterministic fallback distribution of hype topics
 const GLOBAL_TECH_HUBS: { city: string; country: string }[] = [
+  { city: 'Kyiv', country: 'UA' },
+  { city: 'Warsaw', country: 'PL' },
   { city: 'London', country: 'UK' },
   { city: 'Berlin', country: 'DE' },
   { city: 'San Francisco', country: 'US' },
@@ -197,17 +207,30 @@ function resolveHypeItemLocation(h: HypeTopicInput): ResolvedHypeLocation {
   };
 }
 
-// Fair job sampling: drop jobs without a real location, give every country at least one slot,
-// scale slots by its real share of postings, and cap per country / per city to avoid clutter.
+// Fair job sampling: retain all jobs that have either a recognized country, a recognized city, or a deducible country,
+// give every country fair representation, scale slots by share, and cap per country / per city to avoid visual clutter.
 function sampleJobsFairly<T extends { country?: string | null; city?: string | null }>(
-  jobs: T[], budget = 45, maxPerCountry = 8, maxPerCity = 3
+  jobs: T[], budget = 80, maxPerCountry = 20, maxPerCity = 6
 ): T[] {
-  const located = jobs.filter((j) => j.country && j.country !== 'GLOBAL' && j.city && j.city !== 'Remote');
+  const located = jobs.filter((j) => {
+    const hasCountry = Boolean(j.country && j.country.trim() !== '' && j.country.trim().toUpperCase() !== 'GLOBAL');
+    const hasCity = Boolean(j.city && j.city.trim() !== '' && j.city.trim().toLowerCase() !== 'remote');
+    const deducedCountry = Boolean(j.city && resolveCountryForCity(j.city));
+    return hasCountry || hasCity || deducedCountry;
+  });
+
+  if (located.length === 0) return [];
+
   const byCountry = new Map<string, T[]>();
   located.forEach((j) => {
-    const list = byCountry.get(j.country as string) ?? [];
+    let c = (j.country && j.country.toUpperCase() !== 'GLOBAL') ? j.country.toUpperCase() : null;
+    if (!c && j.city) {
+      c = resolveCountryForCity(j.city);
+    }
+    const countryKey = c || 'EU';
+    const list = byCountry.get(countryKey) ?? [];
     list.push(j);
-    byCountry.set(j.country as string, list);
+    byCountry.set(countryKey, list);
   });
 
   const result: T[] = [];
@@ -217,7 +240,7 @@ function sampleJobsFairly<T extends { country?: string | null; city?: string | n
     let taken = 0;
     for (const j of list) {
       if (taken >= quota) break;
-      const key = j.city as string;
+      const key = (j.city && j.city.toLowerCase() !== 'remote') ? j.city : 'Remote/Regional';
       const n = perCity.get(key) ?? 0;
       if (n >= maxPerCity) continue;
       perCity.set(key, n + 1);
@@ -303,23 +326,34 @@ export const useStore = create<AppState>()(
 
           // Map jobs to live topics
           sampleJobsFairly(jobsData).forEach(j => {
-            const country = j.country || 'DK';
-            const coords = resolveCoordinates(country, j.city);
+            const resolvedCountry = (j.country && j.country.trim() !== '' && j.country.toUpperCase() !== 'GLOBAL')
+              ? j.country
+              : (resolveCountryForCity(j.city) || 'EU');
+            const coords = resolveCoordinates(resolvedCountry, j.city);
+            const jobMedian = (j.salary_min && j.salary_max)
+              ? Math.round((j.salary_min + j.salary_max) / 2)
+              : (j.salary_min || j.salary_max || undefined);
+            const salaryDetail = jobMedian ? ` • $${jobMedian.toLocaleString()} USD` : '';
+
             newLiveTopics.push({
               id: `job-${idCounter++}`,
-              country: country,
+              country: resolvedCountry,
               city: j.city,
               lat: coords.lat,
               lng: coords.lng,
               type: 'job',
               topic: j.title,
-              details: `${j.company || 'Unknown'} — ${j.city || 'Remote'} (${country})`,
+              details: `${j.company || 'Unknown'} — ${j.city || 'Remote'} (${resolvedCountry})${salaryDetail}`,
               color: SEMANTIC_COLORS.job,
               meta: {
                 company: j.company,
                 source: j.source,
                 url: j.url,
                 tech: j.technology,
+                medianSalary: jobMedian,
+                salaryMin: j.salary_min,
+                salaryMax: j.salary_max,
+                currency: j.salary_currency || 'USD',
               }
             });
           });
@@ -348,6 +382,11 @@ export const useStore = create<AppState>()(
 
           // European & Global Tech Hubs for clear, non-overlapping regional salary radar markers
           const REGIONAL_SALARY_HUBS: { country: string; city: string; tech: string }[] = [
+            // Ukraine & Eastern Europe
+            { country: 'UA', city: 'Kyiv', tech: 'Python' },
+            { country: 'UA', city: 'Lviv', tech: 'Data & AI' },
+            { country: 'PL', city: 'Warsaw', tech: 'Python' },
+            { country: 'PL', city: 'Krakow', tech: 'Backend' },
             // Nordics
             { country: 'DK', city: 'Copenhagen', tech: 'Data & AI' },
             { country: 'DK', city: 'Aarhus', tech: 'Rust' },
@@ -362,8 +401,7 @@ export const useStore = create<AppState>()(
             { country: 'FR', city: 'Paris', tech: 'Python' },
             { country: 'CH', city: 'Zurich', tech: 'Backend' },
             { country: 'IE', city: 'Dublin', tech: 'Frontend' },
-            // Southern & Eastern Europe
-            { country: 'PL', city: 'Warsaw', tech: 'Python' },
+            // Southern Europe
             { country: 'ES', city: 'Madrid', tech: 'Software Engineering' },
             { country: 'ES', city: 'Barcelona', tech: 'Frontend' },
             // North America

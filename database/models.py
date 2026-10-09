@@ -71,22 +71,26 @@ class JobPosting(Base):
         UniqueConstraint("title", "company", "source", name="uq_job_title_company"),
         Index("idx_job_country", "country"),
         Index("idx_job_date", "date"),
+        Index("idx_job_salary", "salary_min", "salary_max"),
     )
 
-    id          = Column(Integer, primary_key=True, autoincrement=True)
-    title       = Column(String(500), nullable=False)
-    company     = Column(String(200))
-    url         = Column(String(1000))
-    source      = Column(String(50))   # "jobindex", "itjobbank", "jobnet"
-    country     = Column(String(10))
-    city        = Column(String(100))
-    technology  = Column(String(100))  # Main technology
-    tags        = Column(JSONB)        # ["Python", "Django", "PostgreSQL"]
-    date        = Column(DateTime(timezone=True))
-    match_score = Column(Float)        # AI scoring (0–100)
-    match_reason = Column(Text)        # Why it fits
-    status      = Column(String(20), default="published", index=True)
-    created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    id              = Column(Integer, primary_key=True, autoincrement=True)
+    title           = Column(String(500), nullable=False)
+    company         = Column(String(200))
+    url             = Column(String(1000))
+    source          = Column(String(50))   # "jobindex", "itjobbank", "jobnet", "djinni", "dou"
+    country         = Column(String(10))
+    city            = Column(String(100))
+    technology      = Column(String(100))  # Main technology
+    tags            = Column(JSONB)        # ["Python", "Django", "PostgreSQL"]
+    date            = Column(DateTime(timezone=True))
+    salary_min      = Column(Float, nullable=True)
+    salary_max      = Column(Float, nullable=True)
+    salary_currency = Column(String(10), nullable=True)
+    match_score     = Column(Float)        # AI scoring (0–100)
+    match_reason    = Column(Text)        # Why it fits
+    status          = Column(String(20), default="published", index=True)
+    created_at      = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):
         return f"<JobPosting {self.company}: {self.title[:40]}>"

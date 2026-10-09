@@ -17,6 +17,15 @@ SOURCES_SEED = [
     {"name": "TeamTailor: Tibber Smart Energy Tech", "url": "https://tibber.teamtailor.com/jobs.rss", "source_type": "rss", "category": "jobs", "is_active": 1},
     {"name": "EuroTechJobs: Software Engineering Feed", "url": "https://www.eurotechjobs.com/rss", "source_type": "rss", "category": "jobs", "is_active": 1},
 
+    # ── Ukrainian Tech Job Aggregators (Djinni & DOU) ──
+    {"name": "Djinni: All Tech Jobs (Ukraine/Remote)", "url": "https://djinni.co/jobs/rss/", "source_type": "rss", "category": "jobs", "is_active": 1},
+    {"name": "Djinni: Python Vacancies", "url": "https://djinni.co/jobs/rss/?primary_keyword=Python", "source_type": "rss", "category": "jobs", "is_active": 1},
+    {"name": "Djinni: JavaScript & Web Vacancies", "url": "https://djinni.co/jobs/rss/?primary_keyword=JavaScript", "source_type": "rss", "category": "jobs", "is_active": 1},
+    {"name": "DOU: Python Vacancies (Ukraine)", "url": "https://jobs.dou.ua/vacancies/feeds/?category=Python", "source_type": "rss", "category": "jobs", "is_active": 1},
+    {"name": "DOU: Frontend Vacancies (Ukraine)", "url": "https://jobs.dou.ua/vacancies/feeds/?category=Front+End", "source_type": "rss", "category": "jobs", "is_active": 1},
+    {"name": "DOU: DevOps Vacancies (Ukraine)", "url": "https://jobs.dou.ua/vacancies/feeds/?category=DevOps", "source_type": "rss", "category": "jobs", "is_active": 1},
+    {"name": "DOU: QA Vacancies (Ukraine)", "url": "https://jobs.dou.ua/vacancies/feeds/?category=QA", "source_type": "rss", "category": "jobs", "is_active": 1},
+
     # ── Category 2: Social & Developer Discussions (Reddit & Dev.to) ──
     {"name": "Reddit: r/LocalLLaMA", "url": "https://www.reddit.com/r/LocalLLaMA", "source_type": "api", "category": "social", "is_active": 1},
     {"name": "Reddit: r/programming", "url": "https://www.reddit.com/r/programming", "source_type": "api", "category": "social", "is_active": 1},
@@ -59,7 +68,6 @@ SOURCES_SEED = [
     # ── Category 5: Developer Salaries & Market Benchmarks ──
     {"name": "RemoteOK: Developer Salaries & Tech Jobs", "url": "https://remoteok.com/api", "source_type": "api", "category": "salary", "is_active": 1},
     {"name": "Levels.fyi: Tech Compensation Benchmarks", "url": "https://www.levels.fyi", "source_type": "api", "category": "salary", "is_active": 1},
-    {"name": "EuroTechJobs: IT Salary & Compensation Feed", "url": "https://www.eurotechjobs.com/rss", "source_type": "rss", "category": "salary", "is_active": 1},
 ]
 
 def seed_sources(session):
