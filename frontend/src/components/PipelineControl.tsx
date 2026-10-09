@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Clock,
   StopCircle,
@@ -89,56 +89,40 @@ export const PipelineControl: React.FC = () => {
   // Optimized polling intervals: 10s when active, 25s when idle
   const POLL_INTERVAL_ACTIVE = 10000;
   const POLL_INTERVAL_IDLE = 25000;
+  const isExecutionActive = Boolean(activeExecution);
 
-  // Initial load, periodic polling and tab visibility synchronization
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
+
+  // Initial load & periodic polling (stable boolean dependency avoids infinite cascading loops)
   useEffect(() => {
-    loadData();
+    loadDataRef.current();
 
-    let timer: ReturnType<typeof setInterval> | null = null;
-    const intervalTime = activeExecution ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
-
-    const startPolling = () => {
-      if (timer !== null) return;
-      timer = setInterval(() => {
-        if (!document.hidden) {
-          loadData();
-        }
-      }, intervalTime);
-    };
-
-    const stopPolling = () => {
-      if (timer !== null) {
-        clearInterval(timer);
-        timer = null;
+    const intervalTime = isExecutionActive ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+    const timer = setInterval(() => {
+      if (!document.hidden) {
+        loadDataRef.current();
       }
-    };
+    }, intervalTime);
 
+    return () => clearInterval(timer);
+  }, [isExecutionActive]);
+
+  // Tab visibility synchronization: sync with backend when user returns to tab
+  useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopPolling();
-      } else {
-        // Tab restored: immediately sync with backend and restart polling interval
-        loadData();
-        startPolling();
+      if (!document.hidden) {
+        loadDataRef.current();
       }
     };
-
-    // Only start polling interval if tab is currently visible
-    if (!document.hidden) {
-      startPolling();
-    }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      stopPolling();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [loadData, activeExecution]);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // Live timer tick for active process (pauses if tab is hidden)
   useEffect(() => {
-    if (!activeExecution) {
+    if (!isExecutionActive) {
       setElapsedTimer(0);
       return;
     }
@@ -148,7 +132,7 @@ export const PipelineControl: React.FC = () => {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeExecution]);
+  }, [isExecutionActive]);
 
   // Manual Trigger handler
   const handleTrigger = async () => {
