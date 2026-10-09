@@ -60,6 +60,22 @@ export const TimelineSlider: React.FC = () => {
     };
   }, [isPlaying, currentYear, setCurrentYear]);
 
+  // Keep dragRatio synchronized when currentYear changes externally (not while dragging)
+  useEffect(() => {
+    if (!isDragging) {
+      setDragRatio((currentYear - MIN_YEAR) / TOTAL_SPAN);
+    }
+  }, [currentYear, isDragging]);
+
+  const handleReturnToPresent = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsPlaying(false);
+    setIsDragging(false);
+    setDragRatio((2026 - MIN_YEAR) / TOTAL_SPAN);
+    setCurrentYear(2026);
+  }, [setCurrentYear]);
+
   // Keyboard navigation (Left / Right / Space)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -159,11 +175,13 @@ export const TimelineSlider: React.FC = () => {
           {/* Return to Present (2026) */}
           {currentYear !== 2026 && (
             <button
-              onClick={() => setCurrentYear(2026)}
-              className="px-2.5 py-1 rounded-full bg-[#111] hover:bg-black text-[#ffd000] text-[11px] font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1"
+              type="button"
+              onClick={handleReturnToPresent}
+              className="px-2.5 py-1 rounded-full bg-[#111] hover:bg-black active:scale-95 text-[#ffd000] text-[11px] font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1 shrink-0 select-none"
               title={t('returnToPresent', lang)}
+              aria-label={t('returnToPresent', lang)}
             >
-              <RotateCcw size={10} />
+              <RotateCcw size={10} className="stroke-[2.5]" />
               <span>2026</span>
             </button>
           )}
