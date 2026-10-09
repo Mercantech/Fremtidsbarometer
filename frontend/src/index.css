@@ -75,41 +75,16 @@ svg.branches {
     font-weight: bold;
 }
 
-/* ── UI ELEMENTS ── */
-.era-label {
+/* ── TIMELINE SLIDER CONTAINER (APPLE LACORIC DESIGN) ── */
+.timeline-container {
     position: absolute;
-    top: 30px;
+    top: 24px;
     right: 50px;
-    left: auto;
-    transform: translateY(-8px);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px;
-    letter-spacing: 1.6px;
-    color: #111;
-    text-transform: uppercase;
-    white-space: nowrap;
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    background: rgba(255, 255, 255, 0.7);
-    padding: 6px 14px;
-    border-radius: 12px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(0,0,0,0.06);
-    box-shadow: 0 10px 28px rgba(0,0,0,0.12);
-    z-index: 20;
-    opacity: 0;
-    pointer-events: none;
-}
-
-/* TIMELINE SLIDER */
-.timeline-wrapper {
-    position: absolute;
-    top: 36px;
-    right: 90px;
-    width: clamp(520px, 48vw, 760px);
+    width: clamp(560px, 50vw, 800px);
     z-index: 20;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     pointer-events: auto;
 }
 
@@ -122,77 +97,8 @@ svg.branches {
     width: fit-content;
     text-transform: uppercase;
     letter-spacing: 1.6px;
-    margin-bottom: -2px;
+    line-height: 1;
 }
-
-.time-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    background: transparent;
-    outline: none;
-    padding: 10px 0;
-}
-
-.time-slider::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 8px;
-    background: linear-gradient(90deg, #1a1a1a 0%, #111 100%);
-    border-radius: 999px;
-    cursor: pointer;
-}
-
-.time-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    height: 20px;
-    width: 20px;
-    background: #ffd000;
-    border: 2px solid #111;
-    cursor: pointer;
-    margin-top: -7px;
-    border-radius: 999px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
-    transition: transform 0.12s ease, box-shadow 0.3s ease, background 0.3s ease;
-}
-
-.time-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-    background: #ffd000;
-    box-shadow: 0 6px 14px rgba(255, 208, 0, 0.4);
-}
-
-.time-slider::-moz-range-track {
-    height: 8px;
-    background: linear-gradient(90deg, #1a1a1a 0%, #111 100%);
-    border-radius: 999px;
-}
-.time-slider::-moz-range-thumb {
-    height: 20px;
-    width: 20px;
-    border-radius: 999px;
-    border: 2px solid #111;
-    background: #f7f5f0;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
-}
-
-.timeline-labels {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 14px;
-    color: #6f6a61;
-    padding-top: 2px;
-    user-select: none;
-}
-.timeline-labels span { transition: color 0.3s, font-size 0.3s; }
-.timeline-labels span.active { color: #111; font-size: 16px; font-weight: 800; }
-
-.timeline-labels .tick { position: relative; padding-top: 10px; }
-.timeline-labels .tick::before {
-    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 1px; height: 8px; background: rgba(17,17,17,0.35);
-}
-.timeline-labels .tick.active::before { background: rgba(17, 17, 17, 0.9); height: 10px; }
 
 /* IT News annotation & Line */
 #news-strip-svg, #right-strip-svg { position: absolute; inset: 0; pointer-events: none; width: 100%; height: 100%; z-index: 4; }

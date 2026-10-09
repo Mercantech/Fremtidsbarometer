@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { t } from '../utils/translations';
+import { motion } from 'framer-motion';
 import { Play, Pause, ChevronLeft, ChevronRight, RotateCcw, FileText } from 'lucide-react';
 
 const DECADES = [
@@ -16,27 +17,41 @@ const DECADES = [
 
 const RULER_YEARS = [1960, 1965, 1970, 1975, 1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2026, 2035];
 
+const MIN_YEAR = 1960;
+const MAX_YEAR = 2035;
+
 export const TimelineSlider: React.FC = () => {
   const currentYear = useStore((s) => s.currentYear);
   const currentEraIndex = useStore((s) => s.currentEraIndex);
   const setCurrentYear = useStore((s) => s.setCurrentYear);
   const eras = useStore((s) => s.eras);
-  const trendsHistory = useStore((s) => s.trendsHistory);
   const lang = useStore((s) => s.lang);
   const setIsDossierOpen = useStore((s) => s.setIsDossierOpen);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragYear, setDragYear] = useState<number>(currentYear);
+
+  const trackRef = useRef<HTMLDivElement>(null);
   const playTimerRef = useRef<number | null>(null);
 
   const era = eras[currentEraIndex];
+  const eraTitle = lang === 'da' ? (era?.stats?.title_da as string || era?.title) : era?.title;
 
-  // Auto-Play effect
+  // Sync dragYear when not dragging
+  useEffect(() => {
+    if (!isDragging) {
+      setDragYear(currentYear);
+    }
+  }, [currentYear, isDragging]);
+
+  // Auto-play loop
   useEffect(() => {
     if (isPlaying) {
       playTimerRef.current = window.setInterval(() => {
-        const next = currentYear >= 2035 ? 1960 : currentYear + 1;
+        const next = currentYear >= MAX_YEAR ? MIN_YEAR : currentYear + 1;
         setCurrentYear(next);
-      }, 1200);
+      }, 1100);
     } else {
       if (playTimerRef.current !== null) {
         window.clearInterval(playTimerRef.current);
@@ -58,10 +73,10 @@ export const TimelineSlider: React.FC = () => {
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setCurrentYear(Math.max(1960, currentYear - 1));
+        setCurrentYear(Math.max(MIN_YEAR, currentYear - 1));
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setCurrentYear(Math.min(2035, currentYear + 1));
+        setCurrentYear(Math.min(MAX_YEAR, currentYear + 1));
       } else if (e.key === ' ') {
         e.preventDefault();
         setIsPlaying((p) => !p);
@@ -72,97 +87,87 @@ export const TimelineSlider: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentYear, setCurrentYear]);
 
-  // Find top tech trends for the selected year
-  const yearTrends = trendsHistory.find((h) => h.year === currentYear);
-  const topTechSummary = yearTrends?.data
-    ? [...yearTrends.data]
-        .sort((a, b) => b.popularity - a.popularity)
-        .slice(0, 3)
-        .map((x) => x.technology)
-        .join(' · ')
-    : null;
+  // Compute year from clientX
+  const getYearFromPointer = useCallback((clientX: number): number => {
+    if (!trackRef.current) return currentYear;
+    const rect = trackRef.current.getBoundingClientRect();
+    const clampedX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const ratio = clampedX / rect.width;
+    return Math.round(MIN_YEAR + ratio * (MAX_YEAR - MIN_YEAR));
+  }, [currentYear]);
 
-  const eraTitle = lang === 'da' ? (era?.stats?.title_da as string || era?.title) : era?.title;
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsDragging(true);
+    const yr = getYearFromPointer(e.clientX);
+    setDragYear(yr);
+    setCurrentYear(yr);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const yr = getYearFromPointer(e.clientX);
+    setDragYear(yr);
+    if (yr !== currentYear) {
+      setCurrentYear(yr);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignored
+    }
+    setIsDragging(false);
+  };
+
+  const activeDisplayYear = isDragging ? dragYear : currentYear;
+  const progressPercent = ((activeDisplayYear - MIN_YEAR) / (MAX_YEAR - MIN_YEAR)) * 100;
 
   return (
-    <>
-      {/* ── Native Minimalist Era Label ── */}
-      <div
-        className="era-label"
-        id="era-label"
-        style={{
-          opacity: 1,
-          transform: 'translateY(0)',
-          top: '20px',
-          right: '50px',
-          pointerEvents: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-        }}
-      >
-        <div>
-          <div>
-            <span style={{ color: '#111', fontWeight: 800 }}>{currentYear}</span> — {eraTitle || t('loading', lang)}
+    <div className="timeline-container">
+      {/* ── Row 1: Header / Navigation Bar ── */}
+      <div className="flex items-center justify-between gap-3">
+        {/* Left Side: Title + Era Badge + Dossier button */}
+        <div className="flex items-center gap-2.5">
+          <span className="timeline-badge text-xl text-[#111]">
+            {t('timeTravel', lang)}
+          </span>
+          <span className="text-neutral-400 font-light text-xs">•</span>
+          
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/90 border border-neutral-200/80 shadow-xs backdrop-blur-sm">
+            <span className="font-mono font-black text-xs text-[#111]">
+              {activeDisplayYear}
+            </span>
+            <span className="text-xs font-semibold text-neutral-800 uppercase tracking-tight truncate max-w-[200px] lg:max-w-[280px]">
+              {eraTitle || t('loading', lang)}
+            </span>
           </div>
-          {topTechSummary && (
-            <div style={{ fontSize: '11px', fontWeight: 500, color: 'rgba(0,0,0,0.6)', marginTop: '2px', fontFamily: 'Inter, sans-serif', textTransform: 'none' }}>
-              ⚡ {t('topTech', lang)}: <span style={{ color: '#92400e', fontWeight: 700 }}>{topTechSummary}</span>
-            </div>
-          )}
+
+          <button
+            onClick={() => setIsDossierOpen(true)}
+            className="px-2 py-0.5 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 text-[10px] font-bold tracking-wide transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+            title={t('eraDossier', lang)}
+          >
+            <FileText size={10} />
+            <span>{t('eraDossier', lang)}</span>
+          </button>
         </div>
 
-        {/* Discreet Apple HIG Dossier Button */}
-        <button
-          onClick={() => setIsDossierOpen(true)}
-          className="ml-2 px-2.5 py-1 rounded-full bg-[#111] hover:bg-black text-[#ffd000] text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-          style={{ letterSpacing: '0.5px' }}
-          title={t('eraDossier', lang)}
-        >
-          <FileText size={12} />
-          <span>{t('eraDossier', lang)}</span>
-        </button>
-      </div>
-
-      {/* ── Timeline Scrubber Bar ── */}
-      <div className="timeline-wrapper">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <div className="timeline-badge">{t('timeTravel', lang)}</div>
-
-            {/* Play/Pause Button */}
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="w-6 h-6 rounded-full bg-[#111] hover:bg-black text-white flex items-center justify-center transition-all cursor-pointer shadow-sm"
-              title={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
-            >
-              {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
-            </button>
-
-            {/* Return to Present (2026) Button */}
-            {currentYear !== 2026 && (
-              <button
-                onClick={() => setCurrentYear(2026)}
-                className="px-2 py-0.5 rounded-full bg-[#111] hover:bg-black text-[#ffd000] text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
-                title={t('returnToPresent', lang)}
-              >
-                <RotateCcw size={10} />
-                <span>2026</span>
-              </button>
-            )}
-          </div>
-
-          {/* ── Apple-Style Segmented Decades Pill Selector ── */}
-          <div className="flex items-center bg-[#111] p-0.5 rounded-full shadow-md">
+        {/* Right Side: Decades segmented capsule + Controls */}
+        <div className="flex items-center gap-2">
+          {/* Segmented Decades Pill Selector */}
+          <div className="flex items-center bg-[#111] p-0.5 rounded-full shadow-sm">
             {DECADES.map((d) => {
-              const isActive = currentYear >= d.min && currentYear <= d.max;
+              const isActive = activeDisplayYear >= d.min && activeDisplayYear <= d.max;
               return (
                 <button
                   key={d.label}
                   onClick={() => setCurrentYear(d.anchor)}
                   className={`px-2 py-0.5 rounded-full text-[10px] font-mono tracking-tight transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#ffd000] text-[#111] font-extrabold shadow-sm'
+                      ? 'bg-[#ffd000] text-[#111] font-extrabold shadow-2xs'
                       : 'text-white/60 hover:text-white'
                   }`}
                 >
@@ -171,73 +176,126 @@ export const TimelineSlider: React.FC = () => {
               );
             })}
           </div>
-        </div>
 
-        {/* ── Slider with Step Arrows ── */}
-        <div className="flex items-center gap-1">
+          {/* Auto-Play Toggle */}
           <button
-            onClick={() => setCurrentYear(Math.max(1960, currentYear - 1))}
-            className="w-5 h-5 rounded-full bg-black/5 hover:bg-black/10 text-[#111] flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            title={t('prevYear', lang)}
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="w-6 h-6 rounded-full bg-[#111] hover:bg-black text-white flex items-center justify-center transition-all cursor-pointer shadow-sm"
+            title={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
           >
-            <ChevronLeft size={12} />
+            {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
           </button>
 
-          <input
-            type="range"
-            className="time-slider flex-1"
-            id="era-slider"
-            min={1960}
-            max={2035}
-            step={1}
-            value={currentYear}
-            onChange={(e) => setCurrentYear(parseInt(e.target.value, 10))}
-          />
-
-          <button
-            onClick={() => setCurrentYear(Math.min(2035, currentYear + 1))}
-            className="w-5 h-5 rounded-full bg-black/5 hover:bg-black/10 text-[#111] flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            title={t('nextYear', lang)}
-          >
-            <ChevronRight size={12} />
-          </button>
-        </div>
-
-        {/* ── Fisheye Magnified Ruler Labels ── */}
-        <div className="timeline-labels" id="timeline-labels">
-          {RULER_YEARS.map((y) => {
-            const diff = Math.abs(y - currentYear);
-            const isExact = y === currentYear;
-            const isNear = diff <= 2;
-            const isMedium = diff <= 4;
-
-            // Fisheye scale factor & style
-            const scale = isExact ? 1.3 : isNear ? 1.15 : isMedium ? 1.05 : 0.95;
-            const opacity = isExact ? 1 : isNear ? 0.9 : isMedium ? 0.65 : 0.45;
-            const fontWeight = isExact ? 800 : isNear ? 700 : 500;
-            const color = isExact ? '#111' : isNear ? '#333' : '#6f6a61';
-
-            return (
-              <span
-                key={y}
-                className={`tick ${isExact ? 'active' : ''}`}
-                onClick={() => setCurrentYear(y)}
-                style={{
-                  cursor: 'pointer',
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'bottom center',
-                  opacity,
-                  fontWeight,
-                  color,
-                  transition: 'transform 0.15s ease, opacity 0.15s ease, color 0.15s ease',
-                }}
-              >
-                {y}
-              </span>
-            );
-          })}
+          {/* Return to Present (2026) */}
+          {activeDisplayYear !== 2026 && (
+            <button
+              onClick={() => setCurrentYear(2026)}
+              className="px-2 py-0.5 rounded-full bg-[#111] hover:bg-black text-[#ffd000] text-[10px] font-bold transition-all cursor-pointer shadow-sm flex items-center gap-1"
+              title={t('returnToPresent', lang)}
+            >
+              <RotateCcw size={10} />
+              <span>2026</span>
+            </button>
+          )}
         </div>
       </div>
-    </>
+
+      {/* ── Row 2: Fluid Spring Scrubber Runway ── */}
+      <div className="flex items-center gap-2 pt-1">
+        {/* Step Back -1Y */}
+        <button
+          onClick={() => setCurrentYear(Math.max(MIN_YEAR, currentYear - 1))}
+          className="w-5 h-5 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 flex items-center justify-center transition cursor-pointer shrink-0"
+          title={t('prevYear', lang)}
+        >
+          <ChevronLeft size={12} />
+        </button>
+
+        {/* Tactile Gliding Track */}
+        <div
+          ref={trackRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className="relative flex-1 h-7 flex items-center cursor-pointer select-none touch-none"
+        >
+          {/* Base Track */}
+          <div className="w-full h-1.5 rounded-full bg-neutral-300/80 overflow-hidden relative">
+            {/* Smooth Fill Line */}
+            <motion.div
+              className="h-full bg-[#111] rounded-full"
+              animate={{ width: `${progressPercent}%` }}
+              transition={
+                isDragging
+                  ? { duration: 0 }
+                  : { type: 'spring', stiffness: 350, damping: 30 }
+              }
+            />
+          </div>
+
+          {/* Gliding Thumb */}
+          <motion.div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
+            animate={{ left: `${progressPercent}%` }}
+            transition={
+              isDragging
+                ? { duration: 0 }
+                : { type: 'spring', stiffness: 350, damping: 30 }
+            }
+          >
+            <div className="w-5 h-5 rounded-full bg-[#ffd000] border-2 border-[#111] shadow-md flex items-center justify-center transition-transform hover:scale-110 active:scale-125">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#111]" />
+            </div>
+
+            {/* Floating Year Tooltip Pill on drag/hover */}
+            {isDragging && (
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-black text-[#ffd000] font-mono text-[10px] font-bold shadow-lg pointer-events-none whitespace-nowrap">
+                {activeDisplayYear}
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Step Forward +1Y */}
+        <button
+          onClick={() => setCurrentYear(Math.min(MAX_YEAR, currentYear + 1))}
+          className="w-5 h-5 rounded-full bg-neutral-200/80 hover:bg-neutral-300 text-neutral-800 flex items-center justify-center transition cursor-pointer shrink-0"
+          title={t('nextYear', lang)}
+        >
+          <ChevronRight size={12} />
+        </button>
+      </div>
+
+      {/* ── Row 3: Ruler Labels with Smooth Scaling ── */}
+      <div className="flex justify-between items-center px-6 font-['Bebas_Neue',sans-serif] text-sm select-none pt-0.5">
+        {RULER_YEARS.map((y) => {
+          const diff = Math.abs(y - activeDisplayYear);
+          const isExact = y === activeDisplayYear;
+          const isNear = diff <= 2;
+
+          return (
+            <span
+              key={y}
+              onClick={() => setCurrentYear(y)}
+              className="relative flex flex-col items-center cursor-pointer transition-all duration-150"
+              style={{
+                color: isExact ? '#111' : isNear ? '#333' : '#8e887f',
+                transform: isExact ? 'scale(1.25)' : isNear ? 'scale(1.1)' : 'scale(1)',
+                fontWeight: isExact ? 800 : 500,
+              }}
+            >
+              <span
+                className="w-px mb-0.5 transition-all"
+                style={{
+                  height: isExact ? '8px' : '4px',
+                  background: isExact ? '#111' : 'rgba(0,0,0,0.25)',
+                }}
+              />
+              <span>{y}</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 };
