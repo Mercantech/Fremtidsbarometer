@@ -97,7 +97,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="absolute inset-0 pointer-events-none"
+            className="absolute inset-0 pointer-events-none z-40"
           >
             <motion.div
               initial={{ y: -50, opacity: 0 }}

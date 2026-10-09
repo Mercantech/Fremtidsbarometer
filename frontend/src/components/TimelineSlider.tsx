@@ -163,9 +163,9 @@ export const TimelineSlider: React.FC = () => {
     : ((currentYear - MIN_YEAR) / TOTAL_SPAN) * 100;
 
   return (
-    <div className="timeline-container select-none">
+    <div className="timeline-container relative z-50 pointer-events-auto select-none">
       {/* ── Tier 1: Header Status Bar & Quick Actions ── */}
-      <div className="flex items-center justify-between gap-3 h-7">
+      <div className="flex items-center justify-between gap-3 h-7 pointer-events-auto">
         {/* Left: Brand + Active Year & Era Subtitle */}
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="timeline-badge text-xl text-[#111] shrink-0 tracking-widest">
@@ -184,11 +184,12 @@ export const TimelineSlider: React.FC = () => {
         </div>
 
         {/* Right: Discrete Apple Pill Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 pointer-events-auto">
           {/* Era Dossier Modal Button */}
           <button
+            type="button"
             onClick={() => setIsDossierOpen(true)}
-            className="px-2.5 py-1 rounded-full bg-black/5 hover:bg-black/10 text-[#111] border border-black/10 text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            className="px-2.5 py-1 rounded-full bg-black/5 hover:bg-black/10 text-[#111] border border-black/10 text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs pointer-events-auto"
             title={t('eraDossier', lang)}
           >
             <FileText size={11} />
@@ -200,7 +201,7 @@ export const TimelineSlider: React.FC = () => {
             <button
               type="button"
               onClick={handleReturnToPresent}
-              className="px-2.5 py-1 rounded-full bg-[#111] hover:bg-black active:scale-95 text-[#ffd000] text-[11px] font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1 shrink-0 select-none"
+              className="px-2.5 py-1 rounded-full bg-[#111] hover:bg-black active:scale-95 text-[#ffd000] text-[11px] font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1 shrink-0 select-none pointer-events-auto"
               title={t('returnToPresent', lang)}
               aria-label={t('returnToPresent', lang)}
             >
@@ -213,7 +214,7 @@ export const TimelineSlider: React.FC = () => {
           <button
             type="button"
             onClick={toggleTour}
-            className="w-6.5 h-6.5 rounded-full bg-[#111] hover:bg-black active:scale-90 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs select-none"
+            className="w-6.5 h-6.5 rounded-full bg-[#111] hover:bg-black active:scale-90 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs select-none pointer-events-auto"
             title={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
             aria-label={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
           >
@@ -223,14 +224,18 @@ export const TimelineSlider: React.FC = () => {
       </div>
 
       {/* ── Tier 2: Apple Segmented Decades Pill Selector (100% Width, Zero Overflow) ── */}
-      <div className="w-full flex items-center bg-[#111] p-0.5 rounded-full shadow-sm">
+      <div className="w-full flex items-center bg-[#111] p-0.5 rounded-full shadow-sm pointer-events-auto">
         {DECADES.map((d) => {
           const isActive = currentYear >= d.min && currentYear <= d.max;
           return (
             <button
               key={d.label}
-              onClick={() => setCurrentYear(d.anchor)}
-              className={`flex-1 py-1 rounded-full text-[11px] font-mono tracking-tight transition-all cursor-pointer text-center ${
+              type="button"
+              onClick={() => {
+                stopTour();
+                setCurrentYear(d.anchor);
+              }}
+              className={`flex-1 py-1 rounded-full text-[11px] font-mono tracking-tight transition-all cursor-pointer text-center pointer-events-auto ${
                 isActive
                   ? 'bg-[#ffd000] text-[#111] font-extrabold shadow-2xs'
                   : 'text-white/60 hover:text-white hover:bg-white/10'
@@ -319,8 +324,12 @@ export const TimelineSlider: React.FC = () => {
           return (
             <button
               key={tickYear}
-              onClick={() => setCurrentYear(tickYear)}
-              className="absolute top-0 flex flex-col items-center cursor-pointer transition-all duration-150 group"
+              type="button"
+              onClick={() => {
+                stopTour();
+                setCurrentYear(tickYear);
+              }}
+              className="absolute top-0 flex flex-col items-center cursor-pointer transition-all duration-150 group pointer-events-auto"
               style={{
                 left: `${pct}%`,
                 transform: `translateX(${transformX})`,
@@ -352,8 +361,12 @@ export const TimelineSlider: React.FC = () => {
           return (
             <button
               key={subYear}
-              onClick={() => setCurrentYear(subYear)}
-              className="absolute top-0 -translate-x-1/2 flex flex-col items-center cursor-pointer group"
+              type="button"
+              onClick={() => {
+                stopTour();
+                setCurrentYear(subYear);
+              }}
+              className="absolute top-0 -translate-x-1/2 flex flex-col items-center cursor-pointer group pointer-events-auto"
               style={{ left: `${pct}%` }}
               title={`${subYear}`}
             >
