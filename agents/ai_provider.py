@@ -150,18 +150,10 @@ class GeminiProvider:
         else:
             genai.configure(api_key=key)
 
-        # Normalize model name: strip "models/" prefix if present
+        # Normalize model name: strip "models/" prefix if present, otherwise pass exact ID
         cleaned_name = (model_name or "gemini-3.8-flash").strip()
         if cleaned_name.startswith("models/"):
             cleaned_name = cleaned_name[len("models/"):]
-
-        # Auto-redirect any legacy or discontinued Gemini models to gemini-3.8-flash
-        if cleaned_name in DEPRECATED_GEMINI_MODELS or "2.5-pro" in cleaned_name or "1.5-pro" in cleaned_name:
-            logger.warning(
-                f"Deprecated model '{cleaned_name}' requested. "
-                "Redirecting to supported 'gemini-3.8-flash'."
-            )
-            cleaned_name = "gemini-3.8-flash"
 
         self.model_name = cleaned_name
         self.model = genai.GenerativeModel(cleaned_name)
@@ -203,35 +195,8 @@ class GeminiProvider:
             }
             return parsed, meta
         except Exception as e:
-            err_str = str(e).lower()
-            # If model is unavailable (404 / no longer available / not found) and wasn't gemini-3.8-flash, retry with gemini-3.8-flash
-            if self.model_name != "gemini-3.8-flash" and ("not found" in err_str or "404" in err_str or "no longer available" in err_str):
-                logger.warning(f"Model '{self.model_name}' unavailable ({e}). Automatically retrying with 'gemini-3.8-flash'...")
-                try:
-                    fallback_model = genai.GenerativeModel("gemini-3.8-flash")
-                    fallback_resp = await fallback_model.generate_content_async(full_prompt)
-                    fb_text = fallback_resp.text
-                    fb_usage = getattr(fallback_resp, "usage_metadata", None)
-                    p_tok = getattr(fb_usage, "prompt_token_count", 0) if fb_usage else 0
-                    c_tok = getattr(fb_usage, "candidates_token_count", 0) if fb_usage else 0
-                    fb_cost = calculate_token_cost("gemini-3.8-flash", p_tok, c_tok)
-
-                    if "```json" in fb_text:
-                        fb_text = fb_text.split("```json")[1].split("```")[0]
-                    elif "```" in fb_text:
-                        fb_text = fb_text.split("```")[1].split("```")[0]
-                    return json.loads(fb_text.strip()), {
-                        "provider": "google",
-                        "model_name": "gemini-3.8-flash",
-                        "prompt_tokens": p_tok,
-                        "completion_tokens": c_tok,
-                        "cost_usd": fb_cost,
-                    }
-                except Exception as fb_err:
-                    logger.error(f"Automatic retry with gemini-3.8-flash also failed: {fb_err}")
-
             logger.error(f"Gemini API error ({self.model_name}): {e}")
-            raise AIProviderError(f"Gemini JSON generation failed: {e}") from e
+            raise AIProviderError(f"Gemini JSON generation failed for model '{self.model_name}': {e}") from e
 
     async def analyze_json(self, prompt: str, schema: str = "") -> Dict[str, Any]:
         """Backward-compatible helper returning only the data dict."""
@@ -378,3 +343,107 @@ async def analyze_with_fallback(
             logger.warning(f"Unexpected error with {provider}/{model_name}: {e}. Transitioning to fallback...")
 
     raise AIProviderError(f"All candidate AI models failed. Last error: {last_error}") from last_error
+
+
+async def test_model_connection(provider: str, model_name: str, max_tokens: int = 16) -> Dict[str, Any]:
+    """
+    Sends a minimal live prompt to verify provider API key validity and model availability.
+    Limit response to ~16 tokens.
+    Empty response with HTTP 200 is considered success ('ответ пустой').
+    """
+    import time
+    p_norm = (provider or "google").strip().lower()
+    m_name = (model_name or "").strip()
+    if m_name.startswith("models/"):
+        m_name = m_name[len("models/"):]
+
+    env_var, is_configured = check_provider_key_present(p_norm)
+    if not is_configured:
+        return {
+            "success": False,
+            "status": "error",
+            "latency_ms": 0,
+            "message": f"API-ключ не найден в переменных окружения ({env_var}). Добавьте его в .env."
+        }
+
+    start_time = time.time()
+    try:
+        if p_norm == "google":
+            api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(m_name)
+            generation_config = genai.types.GenerationConfig(max_output_tokens=max_tokens)
+            resp = await model.generate_content_async("ping", generation_config=generation_config)
+            latency_ms = int((time.time() - start_time) * 1000)
+            text_out = (getattr(resp, "text", None) or "").strip()
+            if not text_out:
+                return {
+                    "success": True,
+                    "status": "ok",
+                    "latency_ms": latency_ms,
+                    "message": f"Модель ответила за {latency_ms}мс (ответ пустой)"
+                }
+            return {
+                "success": True,
+                "status": "ok",
+                "latency_ms": latency_ms,
+                "message": f"Модель ответила за {latency_ms}мс: {text_out[:100]}"
+            }
+        else:
+            # OpenAI compatible (OpenAI, Mistral, Groq, custom)
+            if p_norm == "mistral":
+                api_key = os.getenv("MISTRAL_API_KEY", "")
+                base_url = "https://api.mistral.ai/v1"
+            elif p_norm == "groq":
+                api_key = os.getenv("GROQ_API_KEY", "")
+                base_url = "https://api.groq.com/openai/v1"
+            else:
+                api_key = os.getenv("OPENAI_API_KEY", "")
+                base_url = "https://api.openai.com/v1"
+
+            headers = {
+                "Authorization": f"Bearer {api_key.strip()}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": m_name,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": max_tokens
+            }
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+                latency_ms = int((time.time() - start_time) * 1000)
+                if res.status_code == 200:
+                    data = res.json()
+                    choices = data.get("choices", [])
+                    content = ""
+                    if choices:
+                        content = (choices[0].get("message", {}).get("content") or "").strip()
+                    if not content:
+                        return {
+                            "success": True,
+                            "status": "ok",
+                            "latency_ms": latency_ms,
+                            "message": f"Модель ответила за {latency_ms}мс (ответ пустой)"
+                        }
+                    return {
+                        "success": True,
+                        "status": "ok",
+                        "latency_ms": latency_ms,
+                        "message": f"Модель ответила за {latency_ms}мс: {content[:100]}"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "status": "error",
+                        "latency_ms": latency_ms,
+                        "message": f"Ошибка {res.status_code}: {res.text[:300]}"
+                    }
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        return {
+            "success": False,
+            "status": "error",
+            "latency_ms": latency_ms,
+            "message": f"Ошибка вызова модели: {str(e)}"
+        }

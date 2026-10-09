@@ -23,19 +23,23 @@ async def lifespan(app: FastAPI):
     # Ensure database columns exist on startup and neutralize legacy keys
     try:
         from database.session import engine, SessionLocal
+        from database.init_db import ensure_database_schema, repair_data_sources
         from sqlalchemy import text
         from agents.ai_provider import verify_provider_keys
 
+        # Apply schema auto-healing (idempotent, concurrency-safe)
+        ensure_database_schema(engine)
+
         with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);"))
             conn.execute(text("UPDATE ai_model_configs SET api_key = NULL WHERE api_key IS NOT NULL;"))
             conn.commit()
 
-        # Verify environment variables for all active and fallback AI providers
+        # Idempotently repair legacy data sources and verify environment keys
         with SessionLocal() as db_session:
+            repair_data_sources(db_session)
             verify_provider_keys(db_session)
     except Exception as mig_err:
-        logger.warning(f"Startup AI provider & DB verification error: {mig_err}")
+        logger.warning(f"Startup AI provider, schema & data source verification notice: {mig_err}")
 
     enable_scheduler = os.getenv("ENABLE_SCHEDULER", "true").lower() in ("true", "1", "yes")
     scheduler = None

@@ -178,3 +178,48 @@ def test_all_database_api_keys_are_null():
         assert len(non_null_keys) == 0, f"Found {len(non_null_keys)} records with non-null api_key in DB!"
     finally:
         db.close()
+
+
+def test_gemini_provider_does_not_silently_replace_model():
+    """Verify GeminiProvider does not silently substitute deprecated or custom model names."""
+    from agents.ai_provider import GeminiProvider
+
+    provider = GeminiProvider(model_name="gemini-2.5-pro")
+    assert provider.model_name == "gemini-2.5-pro"
+
+    provider_prefix = GeminiProvider(model_name="models/my-custom-model-v2")
+    assert provider_prefix.model_name == "my-custom-model-v2"
+
+
+def test_ai_model_test_connection_endpoint_missing_key():
+    """Verify test-connection returns informative error when key is missing."""
+    with patch.dict(os.environ, {"OPENAI_API_KEY": ""}, clear=False):
+        resp = client.post("/api/admin/ai-models/test-connection", json={
+            "provider": "openai",
+            "model_name": "gpt-4o-mini"
+        }, headers=AUTH_HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is False
+        assert "OPENAI_API_KEY" in data["message"]
+
+
+def test_ai_model_test_connection_endpoint_success():
+    """Verify test-connection mock success handling."""
+    from unittest.mock import AsyncMock
+    with patch("agents.ai_provider.test_model_connection", new_callable=AsyncMock) as mock_test:
+        mock_test.return_value = {
+            "success": True,
+            "status": "ok",
+            "latency_ms": 250,
+            "message": "Модель ответила за 250мс: OK"
+        }
+        resp = client.post("/api/admin/ai-models/test-connection", json={
+            "provider": "google",
+            "model_name": "gemini-3.8-flash"
+        }, headers=AUTH_HEADERS)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["latency_ms"] == 250
+        assert "OK" in data["message"]

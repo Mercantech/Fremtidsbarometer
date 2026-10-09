@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import httpx
+import feedparser
 from datetime import datetime, timezone
 from typing import List, Dict, Any
 
@@ -45,13 +46,67 @@ async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) 
 
     saved = 0
     for src in active_sources:
-        url = src.url
+        url = (src.url or "").strip()
+        # Normalize plain web URL to JSON API
+        if url.rstrip("/") == "https://lobste.rs" and src.source_type == "api":
+            url = "https://lobste.rs/hottest.json"
+
         try:
+            # Handle RSS Feed
+            if src.source_type == "rss" or url.endswith("/rss"):
+                feed = await asyncio.to_thread(feedparser.parse, url)
+                entries = getattr(feed, "entries", [])
+                for entry in entries[:20]:
+                    title = getattr(entry, "title", "").strip()
+                    summary = getattr(entry, "summary", "").strip()
+                    link = getattr(entry, "link", "")
+                    if not title:
+                        continue
+                    formatted_text = (
+                        f"PLATFORM: Lobste.rs (RSS)\n"
+                        f"TITLE: {title}\n"
+                        f"URL: {link}\n"
+                    )
+                    if summary:
+                        formatted_text += f"DESCRIPTION:\n{summary[:1200]}\n"
+                    raw_entry = RawScrapeData(
+                        source_id=src.id,
+                        country_code="GLOBAL",
+                        raw_text=formatted_text,
+                        extracted_urls=[link] if link else [],
+                        processed=0,
+                        created_at=datetime.now(timezone.utc)
+                    )
+                    db.add(raw_entry)
+                    saved += 1
+                db.commit()
+                logger.info(f"Saved {saved} discussions from Lobsters RSS [{src.name}].")
+                continue
+
+            # Handle JSON API
             resp = await client.get(url, timeout=12.0)
             if resp.status_code != 200:
+                logger.warning(f"Lobste.rs [{url}] returned status {resp.status_code}")
                 continue
-            stories = resp.json()
+
+            c_type = resp.headers.get("content-type", "").lower()
+            if "application/json" not in c_type and not url.endswith(".json"):
+                logger.warning(f"Lobste.rs endpoint [{url}] returned non-JSON content ({c_type}), skipping JSON parser.")
+                continue
+
+            try:
+                stories = resp.json()
+            except Exception as json_err:
+                logger.warning(f"Failed to decode JSON from Lobste.rs [{url}]: {json_err}")
+                continue
+
+            if not isinstance(stories, list):
+                logger.warning(f"Lobste.rs JSON from [{url}] is not a list")
+                continue
+
             for story in stories[:20]:
+                if not isinstance(story, dict):
+                    continue
                 title = story.get("title", "").strip()
                 description = story.get("description", "").strip()
                 story_url = story.get("url", "")
@@ -66,7 +121,7 @@ async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) 
                 formatted_text = (
                     f"PLATFORM: Lobste.rs\n"
                     f"TITLE: {title}\n"
-                    f"TAGS: {', '.join(tags)}\n"
+                    f"TAGS: {', '.join(tags) if isinstance(tags, list) else ''}\n"
                     f"SCORE: {score} | COMMENTS: {comments_count}\n"
                 )
                 if description:

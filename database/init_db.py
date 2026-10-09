@@ -22,6 +22,101 @@ load_dotenv()
 from database.models import Base, get_engine
 
 
+def ensure_database_schema(engine=None):
+    """
+    Guarantees that all required columns, types, and indexes exist across tables.
+    Idempotent and concurrency-safe: handles simultaneous startup of api and scheduler.
+    Logs every schema verification and addition.
+    """
+    if engine is None:
+        from database.session import engine as global_engine
+        engine = global_engine
+
+    from sqlalchemy import text
+    import logging
+    logger = logging.getLogger("DatabaseMigration")
+
+    statements = [
+        ("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);", "ai_model_configs.api_key"),
+        ("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;", "job_postings.salary_min"),
+        ("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;", "job_postings.salary_max"),
+        ("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);", "job_postings.salary_currency"),
+        ("CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);", "job_postings.idx_job_salary"),
+        ("ALTER TABLE pipeline_executions ADD COLUMN IF NOT EXISTS force INTEGER DEFAULT 0;", "pipeline_executions.force"),
+        ("ALTER TABLE data_sources ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"),
+    ]
+
+    for stmt, desc in statements:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text(stmt))
+                conn.commit()
+                logger.info(f"✅ Schema column/index verified: {desc}")
+        except Exception as e:
+            logger.warning(f"⚠️ Concurrent or non-fatal schema check notice for [{desc}]: {e}")
+
+    # Automatically apply Alembic migrations to head
+    try:
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("✅ Alembic migration applied to head.")
+    except Exception as mig_err:
+        logger.info(f"ℹ️ Alembic upgrade notice (safe to continue): {mig_err}")
+
+
+def repair_data_sources(session):
+    """
+    Repairs legacy or misconfigured data sources idempotently:
+    - Moves non-job dev.to feeds (e.g. watercooler) to category 'social'
+    - Fixes Lobste.rs API URLs to valid .json endpoints and ensures correct source_type
+    """
+    from database.models import DataSource
+    import logging
+    logger = logging.getLogger("DataSourcesRepair")
+
+    try:
+        # 1. dev.to/watercooler -> social
+        watercooler_sources = session.query(DataSource).filter(
+            DataSource.url.ilike("%watercooler%")
+        ).all()
+        for src in watercooler_sources:
+            if src.category != "social" or src.source_type != "rss":
+                old_cat = src.category
+                src.category = "social"
+                src.source_type = "rss"
+                logger.info(f"Repaired watercooler source #{src.id}: category {old_cat} -> social, source_type -> rss")
+
+        # 2. Lobste.rs root URL as API -> hottest.json
+        lobsters_sources = session.query(DataSource).filter(
+            DataSource.name.ilike("%Lobste.rs%"),
+        ).all()
+        hottest_exists = session.query(DataSource).filter(
+            DataSource.url == "https://lobste.rs/hottest.json"
+        ).first()
+
+        for src in lobsters_sources:
+            if src.category == "jobs":
+                src.category = "tech"
+                logger.info(f"Repaired Lobste.rs source #{src.id}: category jobs -> tech")
+            if src.url.rstrip("/") == "https://lobste.rs" and src.source_type == "api":
+                if hottest_exists and hottest_exists.id != src.id:
+                    src.is_active = 0
+                    logger.info(f"Deactivated redundant legacy Lobste.rs source #{src.id} (hottest.json already active as #{hottest_exists.id})")
+                else:
+                    src.url = "https://lobste.rs/hottest.json"
+                    logger.info(f"Repaired Lobste.rs API source #{src.id}: url updated to https://lobste.rs/hottest.json")
+            elif ("rss" in src.url or src.url.endswith("/rss")) and src.source_type != "rss":
+                src.source_type = "rss"
+                logger.info(f"Repaired Lobste.rs RSS source #{src.id}: source_type -> rss")
+
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.warning(f"Data source auto-repair notice: {e}")
+
+
 def init_db():
     """Creates all tables in the database."""
     try:
@@ -31,25 +126,7 @@ def init_db():
         Base.metadata.create_all(engine)
 
         # Ensure schema migrations for existing tables
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);"))
-            conn.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;"))
-            conn.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;"))
-            conn.execute(text("ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);"))
-            conn.commit()
-            print("   🔧 Schema columns verified (api_key in ai_model_configs, salary_min/max/currency in job_postings).")
-
-        # Automatically apply Alembic migrations to head
-        try:
-            from alembic.config import Config
-            from alembic import command
-            alembic_cfg = Config("alembic.ini")
-            command.upgrade(alembic_cfg, "head")
-            print("   🔧 Alembic migration applied to head.")
-        except Exception as mig_err:
-            print(f"   ℹ️ Alembic upgrade notice: {mig_err}")
+        ensure_database_schema(engine)
 
         # Show created tables
         table_names = list(Base.metadata.tables.keys())

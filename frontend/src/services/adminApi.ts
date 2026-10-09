@@ -193,6 +193,24 @@ export const updateAIModel = async (
   return response.data;
 };
 
+export interface TestModelConnectionResponse {
+  success: boolean;
+  status: string;
+  latency_ms: number;
+  message: string;
+}
+
+export const testAIModelConnection = async (
+  provider: string,
+  model_name: string
+): Promise<TestModelConnectionResponse> => {
+  const response = await adminApi.post<TestModelConnectionResponse>('/api/admin/ai-models/test-connection', {
+    provider,
+    model_name,
+  });
+  return response.data;
+};
+
 export const deleteAIModel = async (modelId: number): Promise<void> => {
   await adminApi.delete(`/api/admin/ai-models/${modelId}`);
 };

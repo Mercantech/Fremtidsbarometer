@@ -698,6 +698,12 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
             if resp.status_code != 200:
                 logger.warning(f"Failed to fetch job API [{src.name}]: HTTP {resp.status_code}")
                 return 0
+
+            c_type = resp.headers.get("content-type", "").lower()
+            if "application/json" not in c_type and not url.endswith(".json"):
+                logger.warning(f"Job API endpoint [{src.name}] returned non-JSON ({c_type}), skipping API parser.")
+                return 0
+
             data = resp.json()
         except Exception as e:
             logger.warning(f"Error requesting job API [{src.name}]: {e}")
@@ -945,10 +951,21 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
     saved_count = 0
     
     for src in active_sources:
-        rss_url = src.url
-        
+        rss_url = src.url or ""
+
+        # Skip misclassified social or discussion feeds
+        if "watercooler" in rss_url.lower():
+            logger.info(f"Skipping non-job discussion feed [{src.name}].")
+            continue
+
         # ── JSON API Dispatch (e.g. Arbeitnow, RemoteOK) ──
-        if getattr(src, "source_type", "rss") == "api" or (rss_url and "api" in rss_url.lower()):
+        is_api = (
+            getattr(src, "source_type", "rss") == "api"
+            and not rss_url.endswith(".rss")
+            and "/rss" not in rss_url
+            and "feed" not in rss_url
+        )
+        if is_api:
             try:
                 api_saved = await _scrape_job_api_source(src, db)
                 saved_count += api_saved

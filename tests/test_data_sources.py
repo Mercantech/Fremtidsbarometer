@@ -134,3 +134,62 @@ def test_update_data_source():
 
     finally:
         client.delete(f"/api/admin/data-sources/{source_id}", headers=AUTH_HEADERS)
+
+
+def test_repair_data_sources_idempotent():
+    import uuid
+    from database.session import SessionLocal
+    from database.models import DataSource
+    from database.init_db import repair_data_sources
+
+    db = SessionLocal()
+    uid = uuid.uuid4().hex[:8]
+    src1 = None
+    src2 = None
+    try:
+        # Create misconfigured watercooler and Lobsters records with unique test URLs
+        src1 = DataSource(
+            name=f"Misconfigured Watercooler {uid}",
+            url=f"https://dev.to/feed/tag/watercooler?uid={uid}",
+            category="jobs",
+            source_type="api",
+            is_active=1
+        )
+        src2 = DataSource(
+            name=f"Lobste.rs Discussions {uid}",
+            url=f"https://lobste.rs?uid={uid}",
+            category="jobs",
+            source_type="api",
+            is_active=1
+        )
+        db.add_all([src1, src2])
+        db.commit()
+        db.refresh(src1)
+        db.refresh(src2)
+
+        # Run repair
+        repair_data_sources(db)
+
+        db.refresh(src1)
+        db.refresh(src2)
+
+        assert src1.category == "social"
+        assert src1.source_type == "rss"
+        assert src2.category == "tech"
+    finally:
+        # Clean up any test records
+        try:
+            if src1:
+                db.delete(src1)
+            if src2:
+                db.delete(src2)
+            db.commit()
+        except Exception:
+            db.rollback()
+        # Also clean up any lingering test records from previous run
+        try:
+            db.query(DataSource).filter(DataSource.name.ilike("%Test%")).delete()
+            db.commit()
+        except Exception:
+            db.rollback()
+        db.close()

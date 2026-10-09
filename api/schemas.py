@@ -137,6 +137,18 @@ class ProviderStatusSchema(BaseModel):
     fallback_count: int = 0
 
 
+class AIModelTestConnectionRequest(BaseModel):
+    provider: str
+    model_name: str
+
+
+class AIModelTestConnectionResponse(BaseModel):
+    success: bool
+    status: str
+    latency_ms: int
+    message: str
+
+
 # --- Data Sources ---
 class DataSourceSchema(BaseModel):
     id: int

@@ -5,9 +5,11 @@ import {
     createAIModel,
     updateAIModel,
     deleteAIModel,
+    testAIModelConnection,
     type AIModelConfig,
     type CreateAIModelConfig,
     type ProviderStatus,
+    type TestModelConnectionResponse,
     getAdminErrorMessage,
 } from '../services/adminApi';
 import '../styles/admin.css';
@@ -21,6 +23,10 @@ export const AIModelManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [testingForm, setTestingForm] = useState(false);
+  const [formTestResult, setFormTestResult] = useState<TestModelConnectionResponse | null>(null);
+  const [testingModelId, setTestingModelId] = useState<number | null>(null);
+  const [modelTestResults, setModelTestResults] = useState<Record<number, TestModelConnectionResponse>>({});
   const [formData, setFormData] = useState<CreateAIModelConfig>({
     task_type: TASK_TYPES[0],
     model_name: '',
@@ -50,6 +56,48 @@ export const AIModelManager: React.FC = () => {
     }
   };
 
+  const handleTestFormModel = async () => {
+    if (!formData.model_name.trim()) {
+      setError('Впиши ID модели для проверки');
+      return;
+    }
+    setTestingForm(true);
+    setFormTestResult(null);
+    try {
+      const res = await testAIModelConnection(formData.provider, formData.model_name.trim());
+      setFormTestResult(res);
+    } catch (err) {
+      setFormTestResult({
+        success: false,
+        status: 'error',
+        latency_ms: 0,
+        message: getAdminErrorMessage(err, 'Ошибка вызова API'),
+      });
+    } finally {
+      setTestingForm(false);
+    }
+  };
+
+  const handleTestExistingModel = async (model: AIModelConfig) => {
+    setTestingModelId(model.id);
+    try {
+      const res = await testAIModelConnection(model.provider, model.model_name);
+      setModelTestResults((prev) => ({ ...prev, [model.id]: res }));
+    } catch (err) {
+      setModelTestResults((prev) => ({
+        ...prev,
+        [model.id]: {
+          success: false,
+          status: 'error',
+          latency_ms: 0,
+          message: getAdminErrorMessage(err, 'Ошибка вызова API'),
+        },
+      }));
+    } finally {
+      setTestingModelId(null);
+    }
+  };
+
   const handleCreate = async () => {
     try {
       if (!formData.model_name.trim()) {
@@ -59,6 +107,7 @@ export const AIModelManager: React.FC = () => {
 
       await createAIModel(formData);
       setShowForm(false);
+      setFormTestResult(null);
       setFormData({
         task_type: TASK_TYPES[0],
         model_name: '',
@@ -178,16 +227,40 @@ export const AIModelManager: React.FC = () => {
 
           <div className="form-group">
             <label>Model Identifier (Exact Model ID):</label>
-            <input
-              type="text"
-              placeholder="e.g., gemini-3.8-flash, gpt-4o-mini, open-mistral-nemo"
-              value={formData.model_name}
-              onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
-              className="form-input"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g., gemini-3.8-flash, gpt-4o-mini, open-mistral-nemo"
+                value={formData.model_name}
+                onChange={(e) => setFormData({ ...formData, model_name: e.target.value })}
+                className="form-input flex-1"
+              />
+              <button
+                type="button"
+                onClick={handleTestFormModel}
+                disabled={testingForm || !formData.model_name.trim()}
+                className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded border border-slate-300 disabled:opacity-50 transition cursor-pointer"
+              >
+                {testingForm ? '⏳ Проверка...' : '🔍 Проверить модель'}
+              </button>
+            </div>
             <span className="text-[11px] text-slate-500 mt-1 block">
-              Specify the exact API model version ID (e.g. <code>gemini-3.8-flash</code> or <code>gpt-4o-mini</code>) to be utilized by the pipeline engine.
+              Впиши точный ID модели из документации провайдера, он уходит в API без изменений
             </span>
+            {formTestResult && (
+              <div
+                className={`p-2 mt-2 rounded text-xs flex items-center justify-between border ${
+                  formTestResult.success
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                }`}
+              >
+                <span>{formTestResult.success ? '✅' : '❌'} {formTestResult.message}</span>
+                {formTestResult.latency_ms > 0 && (
+                  <span className="font-mono text-[10px] opacity-75">{formTestResult.latency_ms}ms</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="form-group">
@@ -255,10 +328,35 @@ export const AIModelManager: React.FC = () => {
                         )}
                         {model.is_active === 1 && <span className="active-badge">✓ Active</span>}
                         {model.is_fallback === 1 && <span className="fallback-badge">⚡ Fallback</span>}
+                        {modelTestResults[model.id] && (
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                              modelTestResults[model.id].success
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}
+                            title={modelTestResults[model.id].message}
+                          >
+                            {modelTestResults[model.id].success ? '✓ Тест: OK' : '✗ Ошибка теста'}
+                          </span>
+                        )}
                       </div>
+                      {modelTestResults[model.id] && (
+                        <div className="text-[11px] text-slate-600 mt-1">
+                          {modelTestResults[model.id].message}
+                        </div>
+                      )}
                     </div>
 
                     <div className="model-actions">
+                      <button
+                        onClick={() => handleTestExistingModel(model)}
+                        disabled={testingModelId === model.id}
+                        className="px-2 py-1 text-xs rounded font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 disabled:opacity-50 cursor-pointer"
+                        title="Проверить вызов модели через API провайдера"
+                      >
+                        {testingModelId === model.id ? '⏳ ...' : '🔍 Проверить'}
+                      </button>
                       <button
                         onClick={() => handleToggleActive(model.id, model.is_active)}
                         className={`btn-toggle ${model.is_active === 1 ? 'active' : 'inactive'}`}

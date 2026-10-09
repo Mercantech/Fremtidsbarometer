@@ -10,6 +10,8 @@ from api.schemas import (
     AIModelConfigCreateSchema,
     AIModelConfigUpdateSchema,
     ProviderStatusSchema,
+    AIModelTestConnectionRequest,
+    AIModelTestConnectionResponse,
 )
 from agents.ai_provider import check_provider_key_present, verify_provider_keys
 
@@ -55,12 +57,8 @@ def get_ai_models(
     except Exception:
         db.rollback()
 
-    from database.seeds.ai_models import seed_ai_models, DEPRECATED_MODELS
-    has_deprecated_active = db.query(AIModelConfig).filter(
-        AIModelConfig.is_active == 1,
-        AIModelConfig.model_name.in_(list(DEPRECATED_MODELS))
-    ).first()
-    if db.query(AIModelConfig).count() == 0 or has_deprecated_active:
+    from database.seeds.ai_models import seed_ai_models
+    if db.query(AIModelConfig).count() == 0:
         seed_ai_models(db)
 
     query = db.query(AIModelConfig)
@@ -70,6 +68,17 @@ def get_ai_models(
         query = query.filter(AIModelConfig.is_active == is_active)
     models = query.order_by(AIModelConfig.task_type, AIModelConfig.is_active.desc()).all()
     return [_format_model_response(m) for m in models]
+
+
+@router.post("/ai-models/test-connection", response_model=AIModelTestConnectionResponse)
+async def test_ai_model_connection(payload: AIModelTestConnectionRequest):
+    """
+    Performs a minimal live API query (~16 tokens limit) directly to the specified provider and model.
+    Verifies API keys and model availability without modifying database state.
+    """
+    from agents.ai_provider import test_model_connection
+    res = await test_model_connection(provider=payload.provider, model_name=payload.model_name, max_tokens=16)
+    return res
 
 
 @router.post("/ai-models", response_model=AIModelConfigSchema, status_code=status.HTTP_201_CREATED)
