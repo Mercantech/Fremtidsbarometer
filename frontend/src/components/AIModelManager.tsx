@@ -71,7 +71,7 @@ export const AIModelManager: React.FC = () => {
 
   const handleTestFormModel = async () => {
     if (!formData.model_name.trim()) {
-      setError('Впиши ID модели для проверки');
+      setError('Please enter a model ID to test');
       return;
     }
     setTestingForm(true);
@@ -84,7 +84,7 @@ export const AIModelManager: React.FC = () => {
         success: false,
         status: 'error',
         latency_ms: 0,
-        message: getAdminErrorMessage(err, 'Ошибка вызова API'),
+        message: getAdminErrorMessage(err, 'API call failed'),
       });
     } finally {
       setTestingForm(false);
@@ -103,7 +103,7 @@ export const AIModelManager: React.FC = () => {
           success: false,
           status: 'error',
           latency_ms: 0,
-          message: getAdminErrorMessage(err, 'Ошибка вызова API'),
+          message: getAdminErrorMessage(err, 'API call failed'),
         },
       }));
     } finally {
@@ -276,18 +276,18 @@ export const AIModelManager: React.FC = () => {
                 {testingForm ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                    <span>Проверка...</span>
+                    <span>Testing...</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Проверить модель</span>
+                    <span>Test Model</span>
                   </>
                 )}
               </button>
             </div>
             <span className="text-[11px] text-slate-400 mt-1 block">
-              Впиши точный ID модели из документации провайдера, он уходит в API без изменений
+              Enter the exact model ID from the provider documentation; sent directly to the API
             </span>
             {formTestResult && (
               <div

@@ -32,6 +32,29 @@ export interface TranslationDict {
   yearIndicator: string;
   prevYear: string;
   nextYear: string;
+  activeFocus: string;
+  hotVacancyDemand: string;
+  radarMatch: string;
+  stackInTrends: string;
+  verifiedSalary: string;
+  officialSalaryBracket: string;
+  primaryTechStack: string;
+  regionalMedianIncome: string;
+  vacanciesInRegion: string;
+  activeRoles: string;
+  verifiedPostingsIn: string;
+  marketDemandIn: string;
+  hiringCompaniesIn: string;
+  regionalBenchmarks: string;
+  marketIndex: string;
+  compensationModel: string;
+  positionContext: string;
+  goToSource: string;
+  companyLabel: string;
+  verifiedOpportunity: string;
+  regionalHorizon: string;
+  localDisclosures: string;
+  estimatedFromBenchmark: string;
 }
 
 export const translations: Record<'en' | 'da', TranslationDict> = {
@@ -69,6 +92,29 @@ export const translations: Record<'en' | 'da', TranslationDict> = {
     yearIndicator: 'Year',
     prevYear: 'Previous Year',
     nextYear: 'Next Year',
+    activeFocus: 'Active Focus',
+    hotVacancyDemand: 'High-Demand Global Vacancy',
+    radarMatch: 'Radar Match',
+    stackInTrends: 'Stack matches active tech trends (AI, Agents, Rust, Cloud).',
+    verifiedSalary: 'Verified Vacancy Compensation',
+    officialSalaryBracket: 'Official compensation bracket stated by the employer in primary listing',
+    primaryTechStack: 'Primary Technology Stack:',
+    regionalMedianIncome: 'Regional Median Compensation',
+    vacanciesInRegion: 'Vacancies in Region',
+    activeRoles: 'active roles',
+    verifiedPostingsIn: 'Verified postings in',
+    marketDemandIn: 'Market demand in',
+    hiringCompaniesIn: 'Active tech employers in region',
+    regionalBenchmarks: 'Regional Role Benchmarks',
+    marketIndex: 'Market Index',
+    compensationModel: 'Compensation Model',
+    positionContext: 'Position Context & Description',
+    goToSource: 'Open Source Listing',
+    companyLabel: 'Company:',
+    verifiedOpportunity: 'Verified Opportunity',
+    regionalHorizon: 'Regional Tech Horizon & Market Overview',
+    localDisclosures: 'Local Vacancy Disclosures',
+    estimatedFromBenchmark: 'Estimated from regional economic baseline',
   },
   da: {
     appTitle: 'Fremtidsbarometer',
@@ -104,6 +150,29 @@ export const translations: Record<'en' | 'da', TranslationDict> = {
     yearIndicator: 'År',
     prevYear: 'Forrige År',
     nextYear: 'Næste År',
+    activeFocus: 'Aktivt Fokus',
+    hotVacancyDemand: 'Højefterspurgt Global Stilling',
+    radarMatch: 'Radar Match',
+    stackInTrends: 'Stak matcher aktive teknologitendenser (AI, Agenter, Rust, Cloud).',
+    verifiedSalary: 'Bekræftet Lønramme for Stilling',
+    officialSalaryBracket: 'Officiel lønramme oplyst af arbejdsgiveren i det primære opslag',
+    primaryTechStack: 'Primær Teknologistak:',
+    regionalMedianIncome: 'Regional Medianløn',
+    vacanciesInRegion: 'Stillinger i Regionen',
+    activeRoles: 'aktive roller',
+    verifiedPostingsIn: 'Bekræftede opslag i',
+    marketDemandIn: 'Efterspørgsel i',
+    hiringCompaniesIn: 'Aktive IT-arbejdsgivere i region',
+    regionalBenchmarks: 'Regionale Lønreferencer efter Rolle',
+    marketIndex: 'Markedsindeks',
+    compensationModel: 'Lønmodel',
+    positionContext: 'Stillingskontekst & Beskrivelse',
+    goToSource: 'Gå til Kilde',
+    companyLabel: 'Virksomhed:',
+    verifiedOpportunity: 'Bekræftet Mulighed',
+    regionalHorizon: 'Regionalt IT-horisont & Markedsoverblik',
+    localDisclosures: 'Lokale Lønoplysninger',
+    estimatedFromBenchmark: 'Estimeret ud fra regionalt markedsindeks',
   },
 };
 
