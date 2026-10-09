@@ -237,18 +237,6 @@ def create_configured_scheduler(loop=None) -> AsyncIOScheduler:
         except RuntimeError:
             loop = None
 
-    # Ensure database schema is verified before running jobs
-    try:
-        from database.init_db import ensure_database_schema, repair_data_sources
-        ensure_database_schema()
-        db_temp = get_session()
-        try:
-            repair_data_sources(db_temp)
-        finally:
-            db_temp.close()
-    except Exception as init_err:
-        logger.warning(f"Scheduler startup schema/sources check notice: {init_err}")
-
     scheduler = AsyncIOScheduler(timezone=pytz.UTC, event_loop=loop)
 
     # Add event listener for DB logging

@@ -25,56 +25,94 @@ from database.models import Base, get_engine
 def ensure_database_schema(engine=None):
     """
     Guarantees that all required columns, types, and indexes exist across tables.
-    Idempotent and concurrency-safe: handles simultaneous startup of api and scheduler.
-    Logs every schema verification and addition.
+    Idempotent and concurrency-safe: inspects schema catalogs first so no ACCESS EXCLUSIVE
+    locks are acquired when the schema is already up to date.
     """
     if engine is None:
         from database.session import engine as global_engine
         engine = global_engine
 
-    from sqlalchemy import text
+    from sqlalchemy import text, inspect
     import logging
     logger = logging.getLogger("DatabaseMigration")
 
-    # Set short lock timeout to avoid blocking active queries during DDL checks
-    statements = [
-        ("SET lock_timeout = '3s'; ALTER TABLE ai_model_configs ADD COLUMN IF NOT EXISTS api_key VARCHAR(500);", "ai_model_configs.api_key"),
-        ("SET lock_timeout = '3s'; ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_min DOUBLE PRECISION;", "job_postings.salary_min"),
-        ("SET lock_timeout = '3s'; ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_max DOUBLE PRECISION;", "job_postings.salary_max"),
-        ("SET lock_timeout = '3s'; ALTER TABLE job_postings ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10);", "job_postings.salary_currency"),
-        ("SET lock_timeout = '3s'; CREATE INDEX IF NOT EXISTS idx_job_salary ON job_postings (salary_min, salary_max);", "job_postings.idx_job_salary"),
-        ("SET lock_timeout = '3s'; ALTER TABLE pipeline_executions ADD COLUMN IF NOT EXISTS force INTEGER DEFAULT 0;", "pipeline_executions.force"),
-        ("SET lock_timeout = '3s'; ALTER TABLE data_sources ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"),
-    ]
-
-    for stmt, desc in statements:
-        try:
-            with engine.connect() as conn:
-                conn.execute(text(stmt))
-                conn.commit()
-                logger.info(f"✅ Schema column/index verified: {desc}")
-        except Exception as e:
-            logger.warning(f"⚠️ Concurrent or non-fatal schema check notice for [{desc}]: {e}")
-
-    # Synchronize Alembic state without failing on pre-existing tables
     try:
-        from alembic.config import Config
-        from alembic import command
-        from sqlalchemy import inspect
         insp = inspect(engine)
         existing_tables = set(insp.get_table_names())
-        alembic_cfg = Config("alembic.ini")
 
-        if "ats_companies" in existing_tables or "job_postings" in existing_tables:
-            # Schema already initialized: stamp to head revision so Alembic
-            # does not attempt to rerun CREATE TABLE on existing relations
-            command.stamp(alembic_cfg, "head")
-            logger.info("✅ Database stamped to Alembic head revision.")
+        needed_ddls = []
+
+        if "ai_model_configs" in existing_tables:
+            cols = {c["name"] for c in insp.get_columns("ai_model_configs")}
+            if "api_key" not in cols:
+                needed_ddls.append(("ALTER TABLE ai_model_configs ADD COLUMN api_key VARCHAR(500);", "ai_model_configs.api_key"))
+
+        if "job_postings" in existing_tables:
+            cols = {c["name"] for c in insp.get_columns("job_postings")}
+            if "salary_min" not in cols:
+                needed_ddls.append(("ALTER TABLE job_postings ADD COLUMN salary_min DOUBLE PRECISION;", "job_postings.salary_min"))
+            if "salary_max" not in cols:
+                needed_ddls.append(("ALTER TABLE job_postings ADD COLUMN salary_max DOUBLE PRECISION;", "job_postings.salary_max"))
+            if "salary_currency" not in cols:
+                needed_ddls.append(("ALTER TABLE job_postings ADD COLUMN salary_currency VARCHAR(10);", "job_postings.salary_currency"))
+
+            indexes = {idx["name"] for idx in insp.get_indexes("job_postings")}
+            if "idx_job_salary" not in indexes:
+                needed_ddls.append(("CREATE INDEX idx_job_salary ON job_postings (salary_min, salary_max);", "job_postings.idx_job_salary"))
+
+        if "pipeline_executions" in existing_tables:
+            cols = {c["name"] for c in insp.get_columns("pipeline_executions")}
+            if "force" not in cols:
+                needed_ddls.append(("ALTER TABLE pipeline_executions ADD COLUMN force INTEGER DEFAULT 0;", "pipeline_executions.force"))
+
+        if "data_sources" in existing_tables:
+            cols = {c["name"] for c in insp.get_columns("data_sources")}
+            if "source_type" not in cols:
+                needed_ddls.append(("ALTER TABLE data_sources ADD COLUMN source_type VARCHAR(20) DEFAULT 'rss';", "data_sources.source_type"))
+
+        if needed_ddls:
+            for ddl_sql, desc in needed_ddls:
+                try:
+                    with engine.connect() as conn:
+                        conn.execute(text(f"SET lock_timeout = '3s'; {ddl_sql}"))
+                        conn.commit()
+                        logger.info(f"✅ Schema column/index added: {desc}")
+                except Exception as ddl_err:
+                    logger.warning(f"⚠️ Non-fatal schema migration notice for [{desc}]: {ddl_err}")
         else:
-            command.upgrade(alembic_cfg, "head")
-            logger.info("✅ Alembic migration applied to head.")
-    except Exception as mig_err:
-        logger.info(f"ℹ️ Alembic upgrade/stamp notice: {mig_err}")
+            logger.info("✅ Database schema is up-to-date (no DDL locks required).")
+
+        # Synchronize Alembic state without failing on pre-existing tables
+        if "ats_companies" in existing_tables or "job_postings" in existing_tables:
+            from alembic.config import Config
+            from alembic import command
+            alembic_cfg = Config("alembic.ini")
+            is_stamped = False
+            if "alembic_version" in existing_tables:
+                try:
+                    with engine.connect() as conn:
+                        res = conn.execute(text("SELECT version_num FROM alembic_version;")).fetchall()
+                        if res:
+                            is_stamped = True
+                except Exception:
+                    pass
+            if not is_stamped:
+                try:
+                    command.stamp(alembic_cfg, "head")
+                    logger.info("✅ Database stamped to Alembic head revision.")
+                except Exception as stamp_err:
+                    logger.info(f"ℹ️ Alembic stamp notice: {stamp_err}")
+        else:
+            from alembic.config import Config
+            from alembic import command
+            alembic_cfg = Config("alembic.ini")
+            try:
+                command.upgrade(alembic_cfg, "head")
+                logger.info("✅ Alembic migration applied to head.")
+            except Exception as mig_err:
+                logger.info(f"ℹ️ Alembic upgrade notice: {mig_err}")
+    except Exception as e:
+        logger.warning(f"Schema verification notice: {e}")
 
 
 def repair_data_sources(session):

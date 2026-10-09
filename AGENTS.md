@@ -19,9 +19,12 @@
   - In Dokploy, the production database tables may already exist from earlier initialization (`create_all`).
   - **NEVER** run unconditioned `alembic upgrade head` at runtime without checking if tables exist. If `ats_companies` or `job_postings` already exist in the database, running `op.create_table('ats_companies')` will fail with `relation "ats_companies" already exists` and abort the transaction.
   - When tables are already present, the database must be stamped (`alembic stamp head`).
-- **Idempotent DDL with Lock Timeouts**:
-  - All runtime DDL operations (`ensure_database_schema`) must be idempotent (`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
-  - **Always set a lock timeout** (`SET lock_timeout = '3s';`) before running `ALTER TABLE` to prevent `ACCESS EXCLUSIVE` lock deadlocks that block incoming `SELECT` queries.
+- **Idempotent DDL with Lock Timeouts & Catalog Inspection**:
+  - In PostgreSQL, even `ALTER TABLE tbl ADD COLUMN IF NOT EXISTS ...` acquires an `ACCESS EXCLUSIVE` lock on `tbl` during parse/rewrite.
+  - Runtime auto-healing routines (`ensure_database_schema`) must inspect existing columns and indexes via `inspect(engine)` (`pg_attribute` catalog check) *before* issuing any `ALTER TABLE`. If the column or index already exists, skip DDL entirely to eliminate unnecessary lock requests and prevent lock timeouts.
+  - When DDL is actually required, **always set a lock timeout** (`SET lock_timeout = '3s';`) before running `ALTER TABLE` to prevent `ACCESS EXCLUSIVE` lock deadlocks that block incoming `SELECT` queries.
+- **Worker Container Discipline**:
+  - Background workers (like `agents/scheduler.py`) must **NOT** execute DDL migrations or data source repairs on startup. All schema initialization belongs solely to the API container / entrypoint migration script.
 - **Strictly No DDL Inside HTTP Endpoints**:
   - **NEVER** execute `ALTER TABLE` or any DDL statements inside an API endpoint handler (e.g. `GET /api/jobs`).
   - Schema fixes belong solely in migration scripts or startup lifecycle hooks (`lifespan`), never in user-facing request paths.
