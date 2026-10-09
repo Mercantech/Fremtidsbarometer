@@ -138,6 +138,11 @@ async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) 
                 db.add(raw_entry)
                 saved += 1
             db.commit()
+            try:
+                db.query(SourceLog).filter(SourceLog.data_source_id == src.id).delete(synchronize_session=False)
+                db.commit()
+            except Exception:
+                pass
             logger.info(f"Saved {saved} discussions from Lobsters [{src.name}].")
         except Exception as e:
             db.rollback()
@@ -201,6 +206,11 @@ async def scrape_dev_to(client: httpx.AsyncClient, db, source_id: int = None) ->
                 db.add(raw_entry)
                 saved += 1
             db.commit()
+            try:
+                db.query(SourceLog).filter(SourceLog.data_source_id == src.id).delete(synchronize_session=False)
+                db.commit()
+            except Exception:
+                pass
         except Exception as e:
             db.rollback()
             logger.warning(f"Error scraping Dev.to [{src.name}]: {e}")

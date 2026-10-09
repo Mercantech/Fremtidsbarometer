@@ -186,6 +186,11 @@ async def scrape_github_trending(db, source_id: int = None) -> int:
                 )
                 db.add(raw_entry)
                 db.commit()
+                try:
+                    db.query(SourceLog).filter(SourceLog.data_source_id == src.id).delete(synchronize_session=False)
+                    db.commit()
+                except Exception:
+                    pass
                 saved_count = len(trending_summaries)
                 total_saved += saved_count
                 logger.info(f"Saved {saved_count} GitHub repos from [{src.name}].")

@@ -16,10 +16,12 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertOctagon,
+  Trash2,
 } from 'lucide-react';
 import {
   fetchSourceTelemetry,
   fetchSourceTelemetryHistory,
+  clearSourceLogs,
   type SourceTelemetry,
   type SourceTelemetryItem,
   type TelemetryHistoryBucket,
@@ -153,6 +155,7 @@ export const SourceTelemetryChart: React.FC = () => {
   const [windowHours, setWindowHours] = useState(24);
   const [activeSourceFilter, setActiveSourceFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -171,6 +174,21 @@ export const SourceTelemetryChart: React.FC = () => {
       setLoading(false);
     }
   }, [windowHours]);
+
+  const handleClearLogs = async () => {
+    if (!window.confirm('Clear all recorded source error logs? Telemetry statuses will reset.')) {
+      return;
+    }
+    try {
+      setClearing(true);
+      await clearSourceLogs();
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to clear error logs');
+    } finally {
+      setClearing(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -206,11 +224,19 @@ export const SourceTelemetryChart: React.FC = () => {
           ))}
           <button
             onClick={load}
-            disabled={loading}
+            disabled={loading || clearing}
             className="p-1 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 cursor-pointer disabled:opacity-50 transition"
             title="Refresh Telemetry"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={handleClearLogs}
+            disabled={loading || clearing}
+            className="p-1 rounded-md border border-white/10 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/20 text-slate-300 hover:text-rose-400 cursor-pointer disabled:opacity-50 transition"
+            title="Clear Error Logs (Reset Telemetry)"
+          >
+            <Trash2 className={`w-3.5 h-3.5 ${clearing ? 'animate-pulse' : ''}`} />
           </button>
         </div>
       </div>

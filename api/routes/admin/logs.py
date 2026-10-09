@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 
 from database.session import get_db
-from database.models import SystemLog, SourceLog, DataSource
+from database.models import SystemLog, SourceLog, DataSource, RawScrapeData
 from api.schemas import SystemLogSchema, SourceLogSchema
 
 router = APIRouter()
@@ -87,11 +87,27 @@ def get_sources_telemetry(db: Session = Depends(get_db)):
     total_count = len(sources)
     active_count = sum(1 for s in sources if s.is_active == 1)
 
-    # Get recent error logs from last 24h
-    recent_errors = db.query(SourceLog).filter(SourceLog.created_at >= since_24h).all()
+    # Get recent error logs from last 24h ordered by created_at desc
+    recent_errors = (
+        db.query(SourceLog)
+        .filter(SourceLog.created_at >= since_24h)
+        .order_by(SourceLog.created_at.desc())
+        .all()
+    )
     error_by_source: Dict[int, List[SourceLog]] = {}
     for err in recent_errors:
         error_by_source.setdefault(err.data_source_id, []).append(err)
+
+    # Get latest successful scrape timestamp per source
+    latest_scrapes = (
+        db.query(RawScrapeData.source_id, func.max(RawScrapeData.created_at))
+        .filter(RawScrapeData.source_id.isnot(None))
+        .group_by(RawScrapeData.source_id)
+        .all()
+    )
+    latest_success_by_source: Dict[int, datetime] = {
+        src_id: max_dt for src_id, max_dt in latest_scrapes if src_id is not None
+    }
 
     # Compile telemetry per source
     sources_data = []
@@ -102,17 +118,30 @@ def get_sources_telemetry(db: Session = Depends(get_db)):
     for s in sources:
         s_errs = error_by_source.get(s.id, [])
         last_err = s_errs[0] if s_errs else None
-        
-        status = "healthy"
-        if last_err:
-            if last_err.http_status == 403 or "403" in (last_err.error_message or ""):
-                status = "blocked_403"
-                blocked_count += 1
-            else:
-                status = "error"
-                failing_count += 1
-        else:
+        last_success = latest_success_by_source.get(s.id)
+
+        # Auto-recovery: If a source succeeded AFTER its last recorded error, it is operational!
+        is_recovered = (
+            last_err is not None
+            and last_success is not None
+            and last_success > last_err.created_at
+        )
+
+        if not last_err or is_recovered:
+            status = "healthy"
             healthy_count += 1
+            display_error = None
+            display_http = None
+        elif last_err.http_status == 403 or "403" in (last_err.error_message or ""):
+            status = "blocked_403"
+            blocked_count += 1
+            display_error = last_err.error_message
+            display_http = last_err.http_status
+        else:
+            status = "error"
+            failing_count += 1
+            display_error = last_err.error_message
+            display_http = last_err.http_status
 
         sources_data.append({
             "id": s.id,
@@ -122,9 +151,10 @@ def get_sources_telemetry(db: Session = Depends(get_db)):
             "source_type": s.source_type,
             "is_active": s.is_active,
             "status": status,
-            "last_http_status": last_err.http_status if last_err else None,
-            "last_error": last_err.error_message if last_err else None,
-            "last_error_at": last_err.created_at if last_err else None,
+            "last_http_status": display_http,
+            "last_error": display_error,
+            "last_error_at": last_err.created_at if (last_err and not is_recovered) else None,
+            "last_success_at": last_success,
             "errors_24h": len(s_errs)
         })
 
@@ -137,6 +167,20 @@ def get_sources_telemetry(db: Session = Depends(get_db)):
         "recent_errors_24h": len(recent_errors),
         "sources": sources_data
     }
+
+
+@router.delete("/source-logs")
+def clear_source_logs(
+    source_id: Optional[int] = Query(None, description="Optional specific source ID to clear"),
+    db: Session = Depends(get_db)
+):
+    """Clears source error logs so telemetry resets immediately without manual DB commands."""
+    query = db.query(SourceLog)
+    if source_id is not None:
+        query = query.filter(SourceLog.data_source_id == source_id)
+    deleted_count = query.delete(synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "deleted_logs": deleted_count}
 
 
 @router.get("/sources/telemetry/history")

@@ -1237,6 +1237,13 @@ async def scrape_teamtailor_jobs(db, source_id: int = None) -> int:
                 saved_count += len(deduped_jobs)
                 
             db.commit()
+
+            # Auto-heal: on successful scrape, clear previous failure logs for this source
+            try:
+                db.query(SourceLog).filter(SourceLog.data_source_id == src.id).delete(synchronize_session=False)
+                db.commit()
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"Error scraping ATS [{src.name}]: {e}")
             db.rollback()

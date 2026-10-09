@@ -328,6 +328,12 @@ export const fetchSourceTelemetry = async (): Promise<SourceTelemetry> => {
   return response.data;
 };
 
+export const clearSourceLogs = async (sourceId?: number): Promise<{ status: string; deleted_logs: number }> => {
+  const url = sourceId ? `/api/admin/source-logs?source_id=${sourceId}` : '/api/admin/source-logs';
+  const response = await adminApi.delete(url);
+  return response.data;
+};
+
 // ── Source Telemetry History (time-series) ───────────────────
 export interface TelemetryHistoryBucket {
   hour: string;       // ISO string "2024-01-01T14:00:00Z"
