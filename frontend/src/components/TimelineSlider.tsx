@@ -40,25 +40,34 @@ export const TimelineSlider: React.FC = () => {
   const era = eras[currentEraIndex];
   const eraTitle = lang === 'da' ? (era?.stats?.title_da as string || era?.title) : era?.title;
 
-  // Auto-Play tour loop
+  const currentYearRef = useRef<number>(currentYear);
   useEffect(() => {
-    if (isPlaying) {
-      playTimerRef.current = window.setInterval(() => {
-        const next = currentYear >= MAX_YEAR ? MIN_YEAR : currentYear + 1;
-        setCurrentYear(next);
-      }, 1200);
-    } else {
+    currentYearRef.current = currentYear;
+  }, [currentYear]);
+
+  // Reliable Auto-Play Tour loop: timer runs stably without getting recreated on every year change
+  useEffect(() => {
+    if (!isPlaying) {
       if (playTimerRef.current !== null) {
-        window.clearInterval(playTimerRef.current);
+        clearInterval(playTimerRef.current);
         playTimerRef.current = null;
       }
+      return;
     }
+
+    playTimerRef.current = window.setInterval(() => {
+      const yr = currentYearRef.current;
+      const next = yr >= MAX_YEAR ? MIN_YEAR : yr + 1;
+      setCurrentYear(next);
+    }, 1200);
+
     return () => {
       if (playTimerRef.current !== null) {
-        window.clearInterval(playTimerRef.current);
+        clearInterval(playTimerRef.current);
+        playTimerRef.current = null;
       }
     };
-  }, [isPlaying, currentYear, setCurrentYear]);
+  }, [isPlaying, setCurrentYear]);
 
   // Keep dragRatio synchronized when currentYear changes externally (not while dragging)
   useEffect(() => {
@@ -67,14 +76,28 @@ export const TimelineSlider: React.FC = () => {
     }
   }, [currentYear, isDragging]);
 
+  const stopTour = useCallback(() => {
+    if (playTimerRef.current !== null) {
+      clearInterval(playTimerRef.current);
+      playTimerRef.current = null;
+    }
+    setIsPlaying(false);
+  }, []);
+
   const handleReturnToPresent = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    setIsPlaying(false);
+    stopTour();
     setIsDragging(false);
     setDragRatio((2026 - MIN_YEAR) / TOTAL_SPAN);
     setCurrentYear(2026);
-  }, [setCurrentYear]);
+  }, [stopTour, setCurrentYear]);
+
+  const toggleTour = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsPlaying((prev) => !prev);
+  }, []);
 
   // Keyboard navigation (Left / Right / Space)
   useEffect(() => {
@@ -188,9 +211,11 @@ export const TimelineSlider: React.FC = () => {
 
           {/* Auto-Play Tour Toggle */}
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-6.5 h-6.5 rounded-full bg-[#111] hover:bg-black text-white flex items-center justify-center transition-all cursor-pointer shadow-xs"
+            type="button"
+            onClick={toggleTour}
+            className="w-6.5 h-6.5 rounded-full bg-[#111] hover:bg-black active:scale-90 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs select-none"
             title={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
+            aria-label={isPlaying ? t('pauseTour', lang) : t('playTour', lang)}
           >
             {isPlaying ? <Pause size={10} /> : <Play size={10} className="ml-0.5" />}
           </button>
