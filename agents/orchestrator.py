@@ -132,6 +132,16 @@ async def run_tech_sweep(db=None):
             logger.info("⏩ GitHub Trending scraping skipped: Disabled in Admin Panel.")
 
         logger.info(f"Partition 2 Complete: Scraped {hn_count} HN stories + {gh_count} GitHub dumps.")
+
+        # Stage 2: tech_extraction AI processing
+        try:
+            from agents.scrapers.tech_scraper import extract_tech_signals_with_ai
+            extracted_signals = await extract_tech_signals_with_ai(db=db)
+            signal_count = len(extracted_signals) if extracted_signals else 0
+            logger.info(f"Partition 2 AI Extraction Complete: Extracted {signal_count} grounded technical signals.")
+        except Exception as ai_err:
+            logger.warning(f"AI tech_extraction failed (non-blocking): {ai_err}")
+
         return hn_count, gh_count
     except Exception as e:
         logger.error(f"Tech sweep failed: {e}")
