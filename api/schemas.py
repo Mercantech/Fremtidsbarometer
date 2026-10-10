@@ -288,10 +288,10 @@ class TechExtractionPayload(BaseModel):
 
 class ExtractedDiscussion(GroundedFact):
     """
-    Developer discussion / sentiment extracted by AI from Reddit, Dev.to, Lobste.rs.
+    Developer discussion / sentiment extracted by AI from Dev.to, Lobste.rs, HackerNews.
     """
     topic: str = Field(..., min_length=2, description="Topic of developer discussion")
-    community: str = Field(..., description="Community source e.g. Reddit r/LocalLLaMA, Dev.to")
+    community: str = Field(..., description="Community source e.g. Dev.to, Lobste.rs, HackerNews")
     key_argument: str = Field(..., min_length=10, max_length=400, description="Core thesis or takeaway from discussion")
     sentiment_score: float = Field(default=0.0, ge=-1.0, le=1.0, description="Sentiment score from -1.0 to +1.0")
     tags: List[str] = Field(default_factory=list, description="Categorization tags")

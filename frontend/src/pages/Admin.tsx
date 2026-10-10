@@ -141,34 +141,8 @@ export default function Admin() {
       <div className="admin-container">
         <aside className="admin-sidebar">
           <nav className="admin-nav">
-            <button
-              className={`nav-item flex items-center gap-2.5 ${activeSection === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveSection('overview')}
-            >
-              <Activity className={`w-4 h-4 shrink-0 ${activeSection === 'overview' ? 'text-blue-400' : 'text-slate-400'}`} />
-              <span>Overview & Health</span>
-            </button>
-            <button
-              className={`nav-item flex items-center gap-2.5 ${activeSection === 'pipeline' ? 'active' : ''}`}
-              onClick={() => setActiveSection('pipeline')}
-            >
-              <Terminal className={`w-4 h-4 shrink-0 ${activeSection === 'pipeline' ? 'text-blue-400' : 'text-slate-400'}`} />
-              <span>Pipeline Control</span>
-            </button>
-            <button
-              className={`nav-item flex items-center gap-2.5 ${activeSection === 'ai-models' ? 'active' : ''}`}
-              onClick={() => setActiveSection('ai-models')}
-            >
-              <Cpu className={`w-4 h-4 shrink-0 ${activeSection === 'ai-models' ? 'text-blue-400' : 'text-slate-400'}`} />
-              <span>AI Models & Engines</span>
-            </button>
-            <button
-              className={`nav-item flex items-center gap-2.5 ${activeSection === 'data-sources' ? 'active' : ''}`}
-              onClick={() => setActiveSection('data-sources')}
-            >
-              <Radio className={`w-4 h-4 shrink-0 ${activeSection === 'data-sources' ? 'text-blue-400' : 'text-slate-400'}`} />
-              <span>Data Sources</span>
-            </button>
+            {/* 1. Radar & Spatial Content */}
+            <div className="nav-group-header">Radar & Content</div>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === '3d-radar' ? 'active' : ''}`}
               onClick={() => setActiveSection('3d-radar')}
@@ -197,6 +171,9 @@ export default function Admin() {
               <Calendar className={`w-4 h-4 shrink-0 ${activeSection === 'eras' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Eras & Timeline CMS</span>
             </button>
+
+            {/* 2. Labor Intelligence */}
+            <div className="nav-group-header">Labor Intelligence</div>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'jobs' ? 'active' : ''}`}
               onClick={() => setActiveSection('jobs')}
@@ -204,6 +181,40 @@ export default function Admin() {
               <Briefcase className={`w-4 h-4 shrink-0 ${activeSection === 'jobs' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Jobs & ATS Directory</span>
             </button>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveSection('overview')}
+            >
+              <Activity className={`w-4 h-4 shrink-0 ${activeSection === 'overview' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Overview & Health</span>
+            </button>
+
+            {/* 3. System Operations */}
+            <div className="nav-group-header">System Operations</div>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'pipeline' ? 'active' : ''}`}
+              onClick={() => setActiveSection('pipeline')}
+            >
+              <Terminal className={`w-4 h-4 shrink-0 ${activeSection === 'pipeline' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Pipeline Control</span>
+            </button>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'ai-models' ? 'active' : ''}`}
+              onClick={() => setActiveSection('ai-models')}
+            >
+              <Cpu className={`w-4 h-4 shrink-0 ${activeSection === 'ai-models' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>AI Models & Engines</span>
+            </button>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'data-sources' ? 'active' : ''}`}
+              onClick={() => setActiveSection('data-sources')}
+            >
+              <Radio className={`w-4 h-4 shrink-0 ${activeSection === 'data-sources' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Data Sources</span>
+            </button>
+
+            {/* 4. Security & Governance */}
+            <div className="nav-group-header">Security & Governance</div>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'audit' ? 'active' : ''}`}
               onClick={() => setActiveSection('audit')}

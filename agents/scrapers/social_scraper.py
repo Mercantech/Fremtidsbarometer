@@ -209,7 +209,6 @@ async def scrape_social_discussions(db, source_id: int = None, limit_per_sub: in
     """
     Scrapes developer discussions across active Lobste.rs and Dev.to sources.
     Respects active toggles in Admin Panel.
-    Note: Reddit is deprecated/blocked and never called.
     """
     saved_count = 0
     headers = {
@@ -226,8 +225,4 @@ async def scrape_social_discussions(db, source_id: int = None, limit_per_sub: in
 
     logger.info(f"Social sweep completed. Total discussions saved: {saved_count}")
     return saved_count
-
-
-# Backward-compatibility alias
-scrape_reddit_discussions = scrape_social_discussions
 

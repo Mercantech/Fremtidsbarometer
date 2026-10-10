@@ -246,3 +246,29 @@ export const fetchGlobeConfig = async (): Promise<GlobeConfig> => {
     };
   }
 };
+
+export interface GlobeBroadcastPin {
+  id: number;
+  title: string;
+  description: string;
+  category: 'education' | 'hackathon' | 'partner_job' | 'announcement';
+  institution: string;
+  location_name: string;
+  latitude: number;
+  longitude: number;
+  url?: string | null;
+  justification: string;
+  expires_at: string;
+  is_active: boolean;
+  created_at?: string | null;
+}
+
+export const fetchGlobeBroadcasts = async (): Promise<GlobeBroadcastPin[]> => {
+  try {
+    const res = await api.get<GlobeBroadcastPin[]>('/api/globe/broadcasts');
+    return res.data;
+  } catch (error) {
+    console.warn('Failed to fetch globe broadcasts', error);
+    return [];
+  }
+};

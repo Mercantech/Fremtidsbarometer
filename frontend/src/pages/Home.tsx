@@ -1,10 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Suspense, lazy } from 'react';
 import { Header } from '../components/Header';
 import { NewsFeed } from '../components/NewsFeed';
 import { RightPanel } from '../components/RightPanel';
 import { TimelineSlider } from '../components/TimelineSlider';
 import { GlobeCanvas } from '../components/GlobeCanvas';
-import { FlatMapView } from '../components/FlatMapView';
 import { BranchLabels } from '../components/BranchLabels';
 import { SpatialToggle } from '../components/SpatialToggle';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -12,6 +11,10 @@ import { TopicDetailsModal } from '../components/TopicDetailsModal';
 import { EraDossierModal } from '../components/EraDossierModal';
 import { useStore } from '../store/useStore';
 import { AnimatePresence, motion } from 'framer-motion';
+
+const FlatMapView = lazy(() =>
+  import('../components/FlatMapView').then((m) => ({ default: m.FlatMapView }))
+);
 
 export default function Home() {
   const loadInitialData = useStore((s) => s.loadInitialData);
@@ -86,7 +89,11 @@ export default function Home() {
       {/* 3D Globe / 2D Map in center */}
       <div id="canvas-wrap">
         <GlobeCanvas />
-        <FlatMapView />
+        {viewMode === 'map' && (
+          <Suspense fallback={null}>
+            <FlatMapView />
+          </Suspense>
+        )}
       </div>
 
       <AnimatePresence>

@@ -3,7 +3,7 @@ import type {
   NewsItem, TechTrend, JobPosting, HypeTopic, SalaryData, EraInfo, EraTrendHistory, GlobeConfig
 } from '../services/api';
 import {
-  fetchNews, fetchTrends, fetchTrendsHistory, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries, fetchGlobeConfig
+  fetchNews, fetchTrends, fetchTrendsHistory, fetchJobs, fetchHype, fetchSalary, fetchEras, fetchCountries, fetchGlobeConfig, fetchGlobeBroadcasts
 } from '../services/api';
 import { resolveCoordinates, resolveCountryForCity } from '../utils/GeoLookup';
 
@@ -15,7 +15,7 @@ export interface LiveTopic {
   city?: string;
   lat: number;
   lng: number;
-  type: 'job' | 'salary' | 'hype';
+  type: 'job' | 'salary' | 'hype' | 'broadcast';
   topic: string;
   details: string;
   color: string;
@@ -34,6 +34,9 @@ export interface LiveTopic {
     isInferred?: boolean;
     hype_score?: number;
     is_hot?: boolean;
+    category?: string;
+    justification?: string;
+    expires_at?: string;
   };
 }
 
@@ -98,9 +101,10 @@ interface AppState {
 
 // Semantic colors for the heatmap
 const SEMANTIC_COLORS = {
-  job: '#00d4ff',    // Blue: Corporate, stability, vacancies
-  hype: '#ff2a85',   // Pink: Hot trends, pulsing
-  salary: '#ffd000'  // Yellow: Money, stats, gold
+  job: '#00d4ff',       // Blue: Corporate, stability, vacancies
+  hype: '#ff2a85',      // Pink: Hot trends, pulsing
+  salary: '#ffd000',    // Yellow: Money, stats, gold
+  broadcast: '#10b981', // Emerald: Official Mercantec announcements & campus initiatives
 };
 
 // Returns null when a topic has no real geographic anchor, so we never invent a location.
@@ -347,6 +351,7 @@ export const useStore = create<AppState>()(
             fetchEras(),
             fetchCountries(),
             fetchGlobeConfig(),
+            fetchGlobeBroadcasts(),
           ]);
 
           const newsData = results[0].status === 'fulfilled' ? results[0].value : [];
@@ -358,9 +363,10 @@ export const useStore = create<AppState>()(
           const erasData = results[6].status === 'fulfilled' ? results[6].value : [];
           const countriesData = results[7].status === 'fulfilled' ? results[7].value : [];
           const globeConfigData = results[8].status === 'fulfilled' ? results[8].value : DEFAULT_GLOBE_CONFIG;
+          const broadcastsData = results[9].status === 'fulfilled' ? results[9].value : [];
 
           // Log degraded feeds if any failed
-          const endpointNames = ['News', 'Trends', 'History', 'Jobs', 'Hype', 'Salary', 'Eras', 'Countries'];
+          const endpointNames = ['News', 'Trends', 'History', 'Jobs', 'Hype', 'Salary', 'Eras', 'Countries', 'GlobeConfig', 'Broadcasts'];
           const failedFeeds = results
             .map((r, idx) => (r.status === 'rejected' ? endpointNames[idx] : null))
             .filter(Boolean) as string[];
@@ -390,6 +396,33 @@ export const useStore = create<AppState>()(
           const newLiveTopics: LiveTopic[] = [];
           const hiddenPinsSet = new Set(get().globeConfig?.hidden_pins || []);
           let idCounter = 0;
+
+          // Map manual broadcast pins (Mercantec announcements) - high visual priority
+          broadcastsData.forEach((b) => {
+            const pinId = `broadcast-${b.id}`;
+            if (hiddenPinsSet.has(pinId)) return;
+            const categoryEmoji = b.category === 'education' ? '🎓 ' : b.category === 'hackathon' ? '⚡ ' : '📢 ';
+            newLiveTopics.push({
+              id: pinId,
+              country: 'DK',
+              city: b.location_name,
+              lat: b.latitude,
+              lng: b.longitude,
+              type: 'broadcast',
+              topic: `${categoryEmoji}${b.title}`,
+              details: `${b.institution} • ${b.location_name}\n${b.description}`,
+              color: SEMANTIC_COLORS.broadcast,
+              is_hot: true,
+              hype_score: 1.0,
+              meta: {
+                company: b.institution,
+                url: b.url || undefined,
+                category: b.category,
+                justification: b.justification,
+                expires_at: b.expires_at,
+              }
+            });
+          });
 
           // Map jobs to live topics
           sampleJobsFairly(jobsData).forEach(j => {

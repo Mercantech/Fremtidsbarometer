@@ -30,16 +30,6 @@ def get_trends_history(
         .order_by(TechTrend.date.asc())\
         .all()
 
-    if not results and db.query(TechTrend).count() == 0:
-        from database.seeds.history import seed_historical_data
-        seed_historical_data(db)
-        results = db.query(TechTrend)\
-            .filter(TechTrend.country == country)\
-            .filter(TechTrend.date >= start_date)\
-            .filter(TechTrend.date <= end_date)\
-            .order_by(TechTrend.date.asc())\
-            .all()
-
     history_by_year = {}
     for r in results:
         year = r.date.year

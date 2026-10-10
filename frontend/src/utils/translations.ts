@@ -55,6 +55,11 @@ export interface TranslationDict {
   regionalHorizon: string;
   localDisclosures: string;
   estimatedFromBenchmark: string;
+  broadcastNotice: string;
+  broadcastCategory: string;
+  expiresAt: string;
+  institutionalJustification: string;
+  openBroadcastLink: string;
 }
 
 export const translations: Record<'en' | 'da', TranslationDict> = {
@@ -115,6 +120,11 @@ export const translations: Record<'en' | 'da', TranslationDict> = {
     regionalHorizon: 'Regional Tech Horizon & Market Overview',
     localDisclosures: 'Local Vacancy Disclosures',
     estimatedFromBenchmark: 'Estimated from regional economic baseline',
+    broadcastNotice: 'Official Mercantec Broadcast',
+    broadcastCategory: 'Category',
+    expiresAt: 'Expires',
+    institutionalJustification: 'Institutional Context & Purpose',
+    openBroadcastLink: 'Open Announcement',
   },
   da: {
     appTitle: 'Fremtidsbarometer',
@@ -173,6 +183,11 @@ export const translations: Record<'en' | 'da', TranslationDict> = {
     regionalHorizon: 'Regionalt IT-horisont & Markedsoverblik',
     localDisclosures: 'Lokale Lønoplysninger',
     estimatedFromBenchmark: 'Estimeret ud fra regionalt markedsindeks',
+    broadcastNotice: 'Officiel Mercantec Meddelelse',
+    broadcastCategory: 'Kategori',
+    expiresAt: 'Udløber',
+    institutionalJustification: 'Institutionel Kontekst & Formål',
+    openBroadcastLink: 'Åbn Meddelelse',
   },
 };
 

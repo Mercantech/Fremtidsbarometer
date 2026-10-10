@@ -162,20 +162,6 @@ class Era(Base):
         return f"<Era {self.year}: {self.title}>"
 
 
-# ── 7. ATS Companies (Auto-Discovery) ────────────────────────
-class ATSCompany(Base):
-    __tablename__ = "ats_companies"
-    __table_args__ = (
-        UniqueConstraint("domain", "ats_type", name="uq_ats_domain"),
-    )
-
-    id         = Column(Integer, primary_key=True, autoincrement=True)
-    domain     = Column(String(200), nullable=False) # e.g. "polestar" (subdomain) or "polestar.teamtailor.com"
-    ats_type   = Column(String(50), nullable=False)  # "teamtailor", "emply"
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
-    def __repr__(self):
-        return f"<ATSCompany {self.domain} ({self.ats_type})>"
 
 # ── 8. System Logs (Admin Panel) ─────────────────────────────
 class SystemLog(Base):

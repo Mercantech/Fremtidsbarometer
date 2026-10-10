@@ -19,9 +19,9 @@ export const BranchLabels: React.FC = () => {
   const setSelectedTopic = useStore((s) => s.setSelectedTopic);
   const globeConfig = useStore((s) => s.globeConfig);
 
-  // Filter all live topics matching active filters
+  // Filter all live topics matching active filters (broadcast pins are always visible)
   const filteredTopics = useMemo(() => {
-    return liveTopics.filter((t) => activeFilters.includes(t.type));
+    return liveTopics.filter((t) => t.type === 'broadcast' || activeFilters.includes(t.type));
   }, [liveTopics, activeFilters]);
 
   // Generate spatially dispersed rotating batches

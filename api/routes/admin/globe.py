@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
@@ -6,6 +6,7 @@ from database.session import get_db
 from database.models import SystemSetting
 from api.schemas import GlobeConfigSchema
 from api.routes.globe import DEFAULT_GLOBE_CONFIG
+from api.services.audit_logger import log_admin_action
 
 router = APIRouter(tags=["Admin - Globe"])
 
@@ -20,7 +21,7 @@ def get_admin_globe_config(db: Session = Depends(get_db)):
 
 
 @router.put("/globe/config", response_model=GlobeConfigSchema)
-def update_admin_globe_config(config: GlobeConfigSchema, db: Session = Depends(get_db)):
+def update_admin_globe_config(config: GlobeConfigSchema, request: Request, db: Session = Depends(get_db)):
     """Updates 3D Globe Radar settings from the Admin Panel."""
     setting = db.query(SystemSetting).filter(SystemSetting.key == "globe_config").first()
     new_data = config.model_dump()
@@ -38,4 +39,15 @@ def update_admin_globe_config(config: GlobeConfigSchema, db: Session = Depends(g
 
     db.commit()
     db.refresh(setting)
+
+    log_admin_action(
+        db,
+        action="CONFIG_UPDATE",
+        entity_type="system_setting",
+        entity_id="globe_config",
+        details={"config_keys": list(new_data.keys())},
+        request=request,
+    )
+
     return GlobeConfigSchema(**setting.value)
+

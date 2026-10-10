@@ -71,6 +71,8 @@ export function generateDispersedBatches(
   });
 
   // Separate and prioritize items by type
+  const broadcastTopics = topics.filter((t) => t.type === 'broadcast');
+
   const hypeTopics = topics
     .filter((t) => t.type === 'hype')
     .sort((a, b) => (b.hype_score || 0) - (a.hype_score || 0));
@@ -114,6 +116,15 @@ export function generateDispersedBatches(
   // Populate batches round-robin with spatial dispersion
   for (let b = 0; b < numBatches; b++) {
     const currentBatch = batches[b];
+
+    // 0. High-Priority: Official Mercantec Broadcasts
+    for (const br of broadcastTopics) {
+      if (currentBatch.length >= limit) break;
+      if (isSpatiallyDispersed(br, currentBatch, 0.2)) {
+        currentBatch.push(br);
+        usageCount.set(br.id, (usageCount.get(br.id) || 0) + 1);
+      }
+    }
 
     // 1. Pick Hype topics for this batch
     const candidateHypes = [...hypeTopics].sort(

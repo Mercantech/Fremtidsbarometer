@@ -64,6 +64,16 @@
   gap: 0.25rem;
 }
 
+.nav-group-header {
+  padding: 0.85rem 1.1rem 0.25rem 1.1rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+  user-select: none;
+}
+
 .nav-item {
   display: flex;
   align-items: center;

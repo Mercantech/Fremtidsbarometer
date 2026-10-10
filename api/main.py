@@ -34,10 +34,17 @@ async def lifespan(app: FastAPI):
             conn.execute(text("UPDATE ai_model_configs SET api_key = NULL WHERE api_key IS NOT NULL;"))
             conn.commit()
 
-        # Idempotently repair legacy data sources and verify environment keys
+        # Idempotently repair legacy data sources, verify environment keys, and seed essential history
         with SessionLocal() as db_session:
             repair_data_sources(db_session)
             verify_provider_keys(db_session)
+            from database.models import Era, TechTrend
+            from database.seeds.eras import seed_eras
+            from database.seeds.history import seed_historical_data
+            if db_session.query(Era).count() == 0:
+                seed_eras(db_session)
+            if db_session.query(TechTrend).count() == 0:
+                seed_historical_data(db_session)
     except Exception as mig_err:
         logger.warning(f"Startup AI provider, schema & data source verification notice: {mig_err}")
 

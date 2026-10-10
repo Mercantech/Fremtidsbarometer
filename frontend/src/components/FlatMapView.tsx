@@ -74,7 +74,7 @@ export const FlatMapView: React.FC = () => {
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
         >
-          {liveTopics.filter(t => activeFilters.includes(t.type)).map((t) => {
+          {liveTopics.filter(t => t.type === 'broadcast' || activeFilters.includes(t.type as ('job' | 'salary' | 'hype'))).map((t) => {
             const isHot = Boolean(t.is_hot || t.meta?.is_hot);
             return (
               <Marker

@@ -180,7 +180,7 @@ async def run_mathematical_synthesis(db, model_config: Dict[str, str] = None) ->
                 direction=direction,
                 summary=summary,
                 status="published",
-                sources=["reddit", "hackernews", "github", "teamtailor"]
+                sources=["hackernews", "lobsters", "devto", "github", "teamtailor"]
             )
             db.add(new_hype)
 

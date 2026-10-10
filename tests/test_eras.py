@@ -43,7 +43,7 @@ def test_eras_api_endpoint():
     """Verify GET /api/eras returns all enriched historical eras."""
     session = get_session()
     try:
-        seed_eras(session)
+        seed_eras(session, force=True)
     finally:
         session.close()
 

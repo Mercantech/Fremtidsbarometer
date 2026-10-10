@@ -506,7 +506,7 @@ export const PipelineControl: React.FC = () => {
               className="control-select"
             >
               <option value="all">Full Cycle (Partitions 1-4: Social, Tech, Jobs, Synthesis)</option>
-              <option value="social">Partition 1: Social Discussions (Lobste.rs, Dev.to, Reddit)</option>
+              <option value="social">Partition 1: Developer Discussions (Lobste.rs, Dev.to)</option>
               <option value="tech">Partition 2: Technical Trends (HackerNews, GitHub Trending)</option>
               <option value="jobs">Partition 3: ATS Tech Jobs (Teamtailor)</option>
               <option value="salary">Partition Salary: Developer Salaries (RemoteOK API)</option>

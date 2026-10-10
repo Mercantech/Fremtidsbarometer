@@ -1,10 +1,11 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from database.session import get_db
 from database.models import Era
 from api.schemas import EraSchema, EraCreateSchema, EraUpdateSchema
+from api.services.audit_logger import log_admin_action
 
 router = APIRouter()
 
@@ -18,7 +19,7 @@ def list_admin_eras(db: Session = Depends(get_db)):
 
 
 @router.post("/eras", response_model=EraSchema, status_code=status.HTTP_201_CREATED)
-def create_admin_era(payload: EraCreateSchema, db: Session = Depends(get_db)):
+def create_admin_era(payload: EraCreateSchema, request: Request, db: Session = Depends(get_db)):
     """
     Creates a new historical or future IT era.
     Validates that the year is unique.
@@ -39,6 +40,15 @@ def create_admin_era(payload: EraCreateSchema, db: Session = Depends(get_db)):
     db.add(era)
     db.commit()
     db.refresh(era)
+
+    log_admin_action(
+        db,
+        action="ERA_CREATE",
+        entity_type="era",
+        entity_id=str(era.id),
+        details={"year": era.year, "title": era.title},
+        request=request,
+    )
     return era
 
 
@@ -54,7 +64,7 @@ def get_admin_era(era_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/eras/{era_id}", response_model=EraSchema)
-def update_admin_era(era_id: int, payload: EraUpdateSchema, db: Session = Depends(get_db)):
+def update_admin_era(era_id: int, payload: EraUpdateSchema, request: Request, db: Session = Depends(get_db)):
     """
     Updates an existing era's year, title, subtitle, or stats payload.
     """
@@ -83,11 +93,20 @@ def update_admin_era(era_id: int, payload: EraUpdateSchema, db: Session = Depend
 
     db.commit()
     db.refresh(era)
+
+    log_admin_action(
+        db,
+        action="ERA_UPDATE",
+        entity_type="era",
+        entity_id=str(era.id),
+        details={"year": era.year, "title": era.title},
+        request=request,
+    )
     return era
 
 
 @router.delete("/eras/{era_id}", status_code=status.HTTP_200_OK)
-def delete_admin_era(era_id: int, db: Session = Depends(get_db)):
+def delete_admin_era(era_id: int, request: Request, db: Session = Depends(get_db)):
     """
     Deletes an era from the database.
     """
@@ -99,14 +118,31 @@ def delete_admin_era(era_id: int, db: Session = Depends(get_db)):
     title = era.title
     db.delete(era)
     db.commit()
+
+    log_admin_action(
+        db,
+        action="ERA_DELETE",
+        entity_type="era",
+        entity_id=str(era_id),
+        details={"year": year, "title": title},
+        request=request,
+    )
     return {"status": "deleted", "id": era_id, "year": year, "title": title}
 
 
 @router.post("/eras/reset-defaults", response_model=List[EraSchema])
-def reset_default_eras(db: Session = Depends(get_db)):
+def reset_default_eras(request: Request, db: Session = Depends(get_db)):
     """
     Explicitly forces re-synchronization with default seed eras.
     """
     from database.seeds.eras import seed_eras
     seed_eras(db, force=True)
+
+    log_admin_action(
+        db,
+        action="ERA_RESET_DEFAULTS",
+        entity_type="era",
+        details={"action": "reset_to_seeds"},
+        request=request,
+    )
     return db.query(Era).order_by(Era.year.asc()).all()
