@@ -357,7 +357,7 @@ export const GlobeConfigManager: React.FC = () => {
                   <div className="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
                     <Flame className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-semibold text-white">Hot AI/ML Stack</span>
+                  <span className="text-sm font-semibold text-white">Match Live Tech Trends</span>
                 </div>
                 {/* Switch indicator */}
                 <div
@@ -369,7 +369,7 @@ export const GlobeConfigManager: React.FC = () => {
                 </div>
               </div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Postings featuring AI, LLM, Agents, Rust, or CUDA are tagged Hot 🔥 and given higher weight.
+                Postings matching active community discussion trends and emerging technologies are tagged Hot 🔥 and prioritized.
               </p>
             </div>
 

@@ -6,7 +6,7 @@ from sqlalchemy import or_, desc, func
 
 from database.session import get_db
 from database.models import JobPosting
-from api.services.job_scoring import enrich_job_posting
+from api.services.job_scoring import enrich_job_posting, get_live_trending_keywords
 from api.schemas import JobBulkDeleteRequest, JobCleanupExpiredRequest
 from api.services.audit_logger import log_admin_action
 
@@ -69,9 +69,10 @@ def list_admin_jobs(
 
     raw_jobs = query.order_by(desc(JobPosting.created_at)).offset(offset).limit(limit).all()
 
+    trends = get_live_trending_keywords(db)
     items = []
     for j in raw_jobs:
-        enrich_job_posting(j)
+        enrich_job_posting(j, custom_trending_keywords=trends)
         if only_hot and not j.is_hot:
             continue
         items.append({

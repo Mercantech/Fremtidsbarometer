@@ -167,3 +167,35 @@ def test_api_jobs_returns_scoring_fields():
     jobs_hot = response_hot.json()
     for j in jobs_hot:
         assert j["is_hot"] is True
+
+
+def test_dynamic_custom_trending_keywords():
+    now = datetime.now(timezone.utc)
+    # Suppose "robotics" and "quantum" are currently trending in live discussions
+    custom_trends = {"robotics", "quantum"}
+
+    score, is_hot = calculate_job_hype_score(
+        title="Industrial Robotics Control Engineer",
+        technology="C++",
+        tags=["ROS", "Robotics", "Automation"],
+        salary_min=None,
+        date=now - timedelta(hours=2),
+        now=now,
+        custom_trending_keywords=custom_trends,
+    )
+    assert score >= 0.65
+    assert is_hot is True
+
+    # If live trends do not match and job is older:
+    score_cold, is_hot_cold = calculate_job_hype_score(
+        title="Industrial Robotics Control Engineer",
+        technology="C++",
+        tags=["ROS", "Robotics", "Automation"],
+        salary_min=None,
+        date=now - timedelta(days=5),
+        now=now,
+        custom_trending_keywords={"blockchain"},
+    )
+    assert score_cold < 0.60
+    assert is_hot_cold is False
+

@@ -2,18 +2,15 @@ import re
 from datetime import datetime, timezone
 from typing import Optional, List, Tuple, Any, Set
 
-# Tier 1 AI & Cutting-edge Tech keywords (+40%)
-TIER1_AI_KEYWORDS = {
-    "ai", "artificial intelligence", "llm", "large language model",
-    "agent", "agents", "langchain", "llamaindex", "rag", "pytorch",
-    "tensorflow", "cuda", "openai", "anthropic", "gpu", "genai",
-    "generative ai", "deep learning", "machine learning", "ml", "nlp",
-    "computer vision", "prompt engineer", "prompt engineering",
-    "diffusion", "transformers", "fine-tuning", "vllm", "ollama",
-    "mistral", "claude", "gemini"
+import time
+
+# Tier 1 Fallback / Baseline keywords used only when database has zero active trend records
+DEFAULT_TRENDING_FALLBACK = {
+    "ai", "artificial intelligence", "llm", "agent", "agents",
+    "rust", "cuda", "rag", "pytorch", "kubernetes", "k8s", "golang"
 }
 
-# Tier 2 High-Demand Modern Tech keywords (+25%)
+# Tier 2 Modern Engineering keywords (+25%)
 TIER2_TECH_KEYWORDS = {
     "rust", "kubernetes", "k8s", "golang", "go", "solana", "web3",
     "blockchain", "crypto", "distributed systems", "devops", "cloud architect",
@@ -26,6 +23,62 @@ WORD_PATTERNS = {
     kw: re.compile(rf"\b{re.escape(kw)}\b", re.IGNORECASE)
     for kw in SHORT_KEYWORDS
 }
+
+_CACHED_LIVE_TRENDS: Set[str] = set()
+_LAST_TRENDS_FETCH_TIME: float = 0.0
+
+
+def get_live_trending_keywords(db: Optional[Any] = None) -> Set[str]:
+    """
+    Returns active trending topics and technologies dynamically loaded from the database.
+    Pulls whatever the community is actively talking about right now.
+    Caches in memory for 300 seconds to eliminate redundant database queries.
+    """
+    global _CACHED_LIVE_TRENDS, _LAST_TRENDS_FETCH_TIME
+    now_ts = time.time()
+    if _CACHED_LIVE_TRENDS and (now_ts - _LAST_TRENDS_FETCH_TIME) < 300:
+        return _CACHED_LIVE_TRENDS
+
+    if db is None:
+        return _CACHED_LIVE_TRENDS or DEFAULT_TRENDING_FALLBACK
+
+    live_keywords = set()
+    try:
+        from database.models import HypeAnalysis, TechTrend
+
+        # 1. Top active hype topics identified by AI synthesizer from community discussions
+        hypes = (
+            db.query(HypeAnalysis.topic)
+            .filter(HypeAnalysis.status != "archived")
+            .order_by(HypeAnalysis.score.desc())
+            .limit(25)
+            .all()
+        )
+        for (topic,) in hypes:
+            if topic:
+                live_keywords.add(topic.lower().strip())
+                for token in re.findall(r"\b[a-zA-Z0-9+#.-]{2,}\b", topic.lower()):
+                    live_keywords.add(token)
+
+        # 2. Trending technologies from scrapers
+        trends = (
+            db.query(TechTrend.name)
+            .order_by(TechTrend.hype_factor.desc())
+            .limit(30)
+            .all()
+        )
+        for (tname,) in trends:
+            if tname:
+                live_keywords.add(tname.lower().strip())
+
+        if live_keywords:
+            _CACHED_LIVE_TRENDS = live_keywords
+            _LAST_TRENDS_FETCH_TIME = now_ts
+    except Exception:
+        pass
+
+    return _CACHED_LIVE_TRENDS or DEFAULT_TRENDING_FALLBACK
+
 
 def _contains_keyword(text: str, keyword: str) -> bool:
     if not text:
@@ -64,19 +117,14 @@ def calculate_job_hype_score(
     tech_score = 0.0
     corpus = " ".join(filter(None, [title, technology] + (tags or []))).lower()
 
-    # Check custom trending keywords first if provided
+    # Check dynamic live trending keywords from database
     matched_tier1 = False
-    if custom_trending_keywords:
-        for kw in custom_trending_keywords:
-            if _contains_keyword(corpus, kw.lower()):
-                matched_tier1 = True
-                break
+    active_trends = custom_trending_keywords if custom_trending_keywords is not None else get_live_trending_keywords()
 
-    if not matched_tier1:
-        for kw in TIER1_AI_KEYWORDS:
-            if _contains_keyword(corpus, kw):
-                matched_tier1 = True
-                break
+    for kw in active_trends:
+        if len(kw) >= 2 and _contains_keyword(corpus, kw.lower()):
+            matched_tier1 = True
+            break
 
     if matched_tier1:
         tech_score = 0.40
@@ -167,10 +215,18 @@ def calculate_job_hype_score(
     return hype_score, is_hot
 
 
-def enrich_job_posting(job: Any, now: Optional[datetime] = None) -> Any:
+def enrich_job_posting(
+    job: Any,
+    now: Optional[datetime] = None,
+    custom_trending_keywords: Optional[Set[str]] = None,
+    db: Optional[Any] = None,
+) -> Any:
     """
     Enriches a JobPosting SQLAlchemy model or dictionary with hype_score and is_hot attributes.
+    Supports dynamic live trending keywords.
     """
+    trends = custom_trending_keywords if custom_trending_keywords is not None else get_live_trending_keywords(db)
+
     if isinstance(job, dict):
         score, is_hot = calculate_job_hype_score(
             title=job.get("title"),
@@ -182,6 +238,7 @@ def enrich_job_posting(job: Any, now: Optional[datetime] = None) -> Any:
             date=job.get("date"),
             created_at=job.get("created_at"),
             now=now,
+            custom_trending_keywords=trends,
         )
         job["hype_score"] = score
         job["is_hot"] = is_hot
@@ -198,6 +255,7 @@ def enrich_job_posting(job: Any, now: Optional[datetime] = None) -> Any:
         date=getattr(job, "date", None),
         created_at=getattr(job, "created_at", None),
         now=now,
+        custom_trending_keywords=trends,
     )
     setattr(job, "hype_score", score)
     setattr(job, "is_hot", is_hot)

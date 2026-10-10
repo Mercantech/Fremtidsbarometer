@@ -6,7 +6,7 @@ from typing import Optional, List
 from database.models import JobPosting
 from database.session import get_db
 from api.schemas import JobPostingSchema
-from api.services.job_scoring import enrich_job_posting
+from api.services.job_scoring import enrich_job_posting, get_live_trending_keywords
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 
@@ -38,7 +38,8 @@ def get_jobs(
         db_results = query.order_by(JobPosting.date.desc()).limit(db_limit).all()
 
         now = datetime.now(timezone.utc)
-        scored_jobs = [enrich_job_posting(job, now=now) for job in db_results]
+        trends = get_live_trending_keywords(db)
+        scored_jobs = [enrich_job_posting(job, now=now, custom_trending_keywords=trends) for job in db_results]
 
         if only_hot:
             scored_jobs = [j for j in scored_jobs if getattr(j, "is_hot", False)]
