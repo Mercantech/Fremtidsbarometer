@@ -12,7 +12,10 @@ from api.services.audit_logger import log_admin_action
 
 router = APIRouter()
 
-DANISH_REGIONS = ["Viborg", "Aarhus", "København", "Copenhagen", "Silkeborg", "Aalborg", "Odense", "Herning", "Randers"]
+from agents.scrapers.geo_data import DANISH_COMMUNES_TO_CITIES
+
+DANISH_CANONICAL_CITIES = sorted(list(set(DANISH_COMMUNES_TO_CITIES.values())))
+DANISH_REGIONS = DANISH_CANONICAL_CITIES
 
 
 @router.get("/jobs")
@@ -36,8 +39,8 @@ def list_admin_jobs(
         query = query.filter(
             or_(
                 JobPosting.country == "DK",
-                JobPosting.city.in_(DANISH_REGIONS),
-                *[JobPosting.city.ilike(f"%{r}%") for r in DANISH_REGIONS]
+                JobPosting.city.in_(DANISH_CANONICAL_CITIES),
+                *[JobPosting.city.ilike(f"%{r}%") for r in DANISH_CANONICAL_CITIES]
             )
         )
     elif country:
@@ -105,13 +108,15 @@ def get_jobs_statistics(db: Session = Depends(get_db)):
     """
     total = db.query(JobPosting).filter(JobPosting.status != "archived").count()
 
+    danish_filter = or_(
+        JobPosting.country == "DK",
+        JobPosting.city.in_(DANISH_CANONICAL_CITIES),
+        *[JobPosting.city.ilike(f"%{r}%") for r in DANISH_CANONICAL_CITIES]
+    )
+
     danish_count = db.query(JobPosting).filter(
         JobPosting.status != "archived",
-        or_(
-            JobPosting.country == "DK",
-            JobPosting.city.in_(DANISH_REGIONS),
-            *[JobPosting.city.ilike(f"%{r}%") for r in DANISH_REGIONS]
-        )
+        danish_filter
     ).count()
 
     salary_count = db.query(JobPosting).filter(
@@ -119,22 +124,48 @@ def get_jobs_statistics(db: Session = Depends(get_db)):
         JobPosting.salary_min.isnot(None)
     ).count()
 
-    # City breakdown
-    cities_query = (
+    # Danish city breakdown: strictly filter for Danish jobs and exclude non-geographical 'Remote' markers
+    danish_cities_query = (
         db.query(JobPosting.city, func.count(JobPosting.id).label("cnt"))
-        .filter(JobPosting.status != "archived", JobPosting.city.isnot(None), JobPosting.city != "")
+        .filter(
+            JobPosting.status != "archived",
+            JobPosting.city.isnot(None),
+            JobPosting.city != "",
+            JobPosting.city.notin_(["Remote", "remote", "Hybrid", "hybrid", "Anywhere", "Worldwide"]),
+            danish_filter,
+        )
         .group_by(JobPosting.city)
         .order_by(desc("cnt"))
-        .limit(8)
+        .limit(10)
         .all()
     )
+
+    # Consolidate and normalize city names
+    consolidated: Dict[str, int] = {}
+    for city_name, cnt in danish_cities_query:
+        norm_city = DANISH_COMMUNES_TO_CITIES.get(city_name.lower().strip(), city_name.strip())
+        consolidated[norm_city] = consolidated.get(norm_city, 0) + cnt
+
+    top_danish_cities = [
+        {"city": k, "count": v}
+        for k, v in sorted(consolidated.items(), key=lambda x: x[1], reverse=True)[:6]
+    ]
+
+    # If no Danish city postings have explicit city yet (e.g. initial seed), provide canonical regional anchors
+    if not top_danish_cities:
+        top_danish_cities = [
+            {"city": "Viborg", "count": 0},
+            {"city": "Aarhus", "count": 0},
+            {"city": "Silkeborg", "count": 0},
+            {"city": "Copenhagen", "count": 0},
+        ]
 
     return {
         "total_jobs": total,
         "danish_jobs": danish_count,
         "salary_disclosed_count": salary_count,
-        "danish_focus_regions": DANISH_REGIONS,
-        "top_cities": [{"city": c[0], "count": c[1]} for c in cities_query],
+        "danish_focus_regions": DANISH_CANONICAL_CITIES,
+        "top_cities": top_danish_cities,
     }
 
 

@@ -179,7 +179,7 @@ export default function Admin() {
               onClick={() => setActiveSection('jobs')}
             >
               <Briefcase className={`w-4 h-4 shrink-0 ${activeSection === 'jobs' ? 'text-blue-400' : 'text-slate-400'}`} />
-              <span>Jobs & ATS Directory</span>
+              <span>Jobs Directory</span>
             </button>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'overview' ? 'active' : ''}`}

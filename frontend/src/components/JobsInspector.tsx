@@ -228,7 +228,7 @@ export const JobsInspector: React.FC = () => {
           <div className="text-2xl font-black text-white font-mono">
             {stats ? stats.total_jobs.toLocaleString() : '—'}
           </div>
-          <p className="text-[11px] text-slate-500">Collected from ATS & Job portals</p>
+          <p className="text-[11px] text-slate-500">Global IT sources & Jobindex DK</p>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#14121a] border border-cyan-500/20 space-y-1">

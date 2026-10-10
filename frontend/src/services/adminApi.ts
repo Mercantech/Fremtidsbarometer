@@ -661,7 +661,7 @@ export const bulkTogglePins = async (
   return response.data;
 };
 
-// ── Jobs & ATS Directory ────────────────────────────────
+// ── Jobs Directory & Labor Market ───────────────────────
 export interface AdminJobItem {
   id: number;
   title: string;

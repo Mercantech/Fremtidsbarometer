@@ -41,6 +41,10 @@ def test_jobs_inspector_flow():
     assert "danish_jobs" in stats
     assert "danish_focus_regions" in stats
     assert "top_cities" in stats
+    # Verify no Remote or pure remote entries leaked into top_cities
+    for c in stats["top_cities"]:
+        assert c["city"].lower() != "remote"
+        assert c["city"].lower() != "hybrid"
 
     # 2. Listing
     jobs_res = client.get("/api/admin/jobs?page=1&limit=5", headers={"x-api-key": ADMIN_KEY})
