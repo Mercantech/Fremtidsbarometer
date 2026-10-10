@@ -469,7 +469,7 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
     url = src.url
     logger.info(f"Fetching job API [{src.name}]: {url}")
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Fremtidsbarometer/1.0"
+        "User-Agent": "Fremtidsbarometer-Bot/1.0 (+https://fremtidsbarometer.dk; tech trend observatory)"
     }
     async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
         try:

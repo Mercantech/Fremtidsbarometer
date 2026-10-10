@@ -144,7 +144,7 @@ async def test_data_source(payload: DataSourceTestRequest):
         )
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Fremtidsbarometer/1.0",
+        "User-Agent": "Fremtidsbarometer-Bot/1.0 (+https://fremtidsbarometer.dk; tech trend observatory)",
         "Accept": "application/rss+xml, application/atom+xml, application/xml, application/json, text/xml, text/html, */*"
     }
 

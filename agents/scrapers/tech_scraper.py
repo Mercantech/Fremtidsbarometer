@@ -128,7 +128,7 @@ async def scrape_github_trending(db, source_id: int = None) -> int:
         active_sources = [type("DummyGH", (), {"id": source_id or 1, "name": "GitHub Trending", "url": "https://github.com/trending"})()]
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Fremtidsbarometer-Bot/1.0 (+https://fremtidsbarometer.dk; tech trend observatory)",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }

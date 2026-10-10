@@ -83,7 +83,7 @@ async def scrape_developer_salaries(db=None, source_id: Optional[int] = None) ->
     empirical_salaries = defaultdict(list)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Fremtidsbarometer/1.0"
+        "User-Agent": "Fremtidsbarometer-Bot/1.0 (+https://fremtidsbarometer.dk; tech trend observatory)"
     }
 
     # 1. Fetch remote dev vacancies from registered dynamic Salary data sources
