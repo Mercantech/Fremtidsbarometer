@@ -138,6 +138,84 @@ class NewsAgent:
         finally:
             db.close()
 
+
+async def scrape_single_news_source(src: DataSource, db) -> int:
+    """
+    Parses a single registered news RSS DataSource and inserts new NewsItem records.
+    """
+    url = (src.url or "").strip()
+    if not url:
+        return 0
+
+    parsed = await asyncio.to_thread(feedparser.parse, url)
+    entries = getattr(parsed, "entries", [])
+    if not entries:
+        return 0
+
+    existing_ids = set(r[0] for r in db.query(NewsItem.id).all())
+    existing_urls = set(r[0] for r in db.query(NewsItem.url).all() if r[0])
+    existing_title_sources = set(
+        (r[0].strip(), (r[1] or '').strip())
+        for r in db.query(NewsItem.title, NewsItem.source).all()
+        if r[0]
+    )
+
+    is_pg = getattr(db.bind, 'dialect', None) and db.bind.dialect.name == "postgresql"
+    new_items = 0
+
+    for entry in entries[:50]:
+        link = entry.get("link", "").strip()
+        if not link:
+            continue
+
+        item_id = hashlib.sha256(link.encode('utf-8')).hexdigest()[:16]
+        title = entry.get("title", "").strip()[:500]
+        source_name = (entry.get("source", {}).get("title") or src.name).strip()[:100]
+
+        if not title:
+            continue
+
+        if item_id in existing_ids or link in existing_urls or (title, source_name) in existing_title_sources:
+            continue
+
+        existing_ids.add(item_id)
+        existing_urls.add(link)
+        existing_title_sources.add((title, source_name))
+
+        pub_date = datetime.now(timezone.utc)
+        if hasattr(entry, 'published_parsed') and entry.published_parsed:
+            pub_date = datetime.fromtimestamp(time.mktime(entry.published_parsed), tz=timezone.utc)
+
+        country = src.country_code or "GLOBAL"
+        if is_pg:
+            stmt = pg_insert(NewsItem).values(
+                id=item_id,
+                title=title,
+                url=link,
+                source=source_name,
+                country=country,
+                score=0,
+                created_at=pub_date
+            ).on_conflict_do_nothing()
+            db.execute(stmt)
+        else:
+            new_item = NewsItem(
+                id=item_id,
+                title=title,
+                url=link,
+                source=source_name,
+                country=country,
+                score=0,
+                created_at=pub_date
+            )
+            db.add(new_item)
+        new_items += 1
+
+    db.commit()
+    return new_items
+
+
 if __name__ == "__main__":
     agent = NewsAgent()
     asyncio.run(agent.fetch_news())
+

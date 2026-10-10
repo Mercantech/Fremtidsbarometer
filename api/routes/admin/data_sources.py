@@ -256,22 +256,39 @@ async def ingest_single_data_source(source_id: int, db: Session = Depends(get_db
 
     saved = 0
     try:
+        url_lower = (source.url or "").lower()
+        name_lower = (source.name or "").lower()
+
         if source.category == "jobs":
             from agents.scrapers.jobs_scraper import scrape_single_job_source
             saved = await scrape_single_job_source(source, db)
-        elif source.category in ("social", "tech"):
-            from agents.scrapers.social_scraper import scrape_lobsters, scrape_dev_to
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                if "lobste.rs" in source.url.lower():
-                    saved = await scrape_lobsters(client, db)
-                elif "dev.to" in source.url.lower():
-                    saved = await scrape_dev_to(client, db)
-                else:
-                    from agents.scrapers.jobs_scraper import scrape_single_job_source
-                    saved = await scrape_single_job_source(source, db)
         elif source.category == "salary":
             from agents.scrapers.salary_scraper import scrape_developer_salaries
             saved = await scrape_developer_salaries(db, source_id=source.id)
+        elif source.category == "news":
+            from agents.news_agent import scrape_single_news_source
+            saved = await scrape_single_news_source(source, db)
+        elif source.category in ("social", "tech"):
+            if "hackernews" in name_lower or "news.ycombinator.com" in url_lower:
+                from agents.scrapers.tech_scraper import scrape_hackernews
+                saved = await scrape_hackernews(db, source_id=source.id)
+            elif "github" in name_lower or "github.com" in url_lower:
+                from agents.scrapers.tech_scraper import scrape_github_trending
+                saved = await scrape_github_trending(db, source_id=source.id)
+            elif "lobste.rs" in url_lower:
+                from agents.scrapers.social_scraper import scrape_lobsters
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    saved = await scrape_lobsters(client, db, source_id=source.id)
+            elif "dev.to" in url_lower:
+                from agents.scrapers.social_scraper import scrape_dev_to
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    saved = await scrape_dev_to(client, db, source_id=source.id)
+            elif source.source_type == "rss" or url_lower.endswith((".rss", ".xml", ".atom")) or "/rss" in url_lower:
+                from agents.scrapers.social_scraper import scrape_generic_discussion_rss
+                saved = await scrape_generic_discussion_rss(source, db)
+            else:
+                from agents.scrapers.jobs_scraper import scrape_single_job_source
+                saved = await scrape_single_job_source(source, db)
         else:
             from agents.scrapers.jobs_scraper import scrape_single_job_source
             saved = await scrape_single_job_source(source, db)
@@ -285,7 +302,7 @@ async def ingest_single_data_source(source_id: int, db: Session = Depends(get_db
             source_id=source.id,
             source_name=source.name,
             items_saved=saved,
-            message=f"Успешно обработано: сохранено/обновлено {saved} записей."
+            message=f"Successfully ingested: {saved} records saved/updated."
         )
     except Exception as e:
         db.rollback()
@@ -299,7 +316,7 @@ async def ingest_single_data_source(source_id: int, db: Session = Depends(get_db
             source_id=source.id,
             source_name=source.name,
             items_saved=0,
-            message=f"Ошибка сбора источника: {str(e)}"
+            message=f"Source ingestion failed: {str(e)}"
         )
 
 

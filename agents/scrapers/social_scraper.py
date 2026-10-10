@@ -3,6 +3,7 @@ import asyncio
 import logging
 import httpx
 import feedparser
+import re
 from datetime import datetime, timezone
 from typing import List, Dict, Any
 
@@ -17,10 +18,15 @@ logger = get_centralized_logger("SocialScraper")
 
 async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) -> int:
     """Scrapes top technical discussions from active Lobste.rs endpoints in DataSource."""
-    active_sources = db.query(DataSource).filter(
-        DataSource.name.ilike("%Lobste.rs%"),
-        DataSource.is_active == 1
-    ).all()
+    query = db.query(DataSource)
+    if source_id:
+        query = query.filter(DataSource.id == source_id)
+    else:
+        query = query.filter(
+            DataSource.name.ilike("%Lobste.rs%"),
+            DataSource.is_active == 1
+        )
+    active_sources = query.all()
 
     if not active_sources:
         logger.info("Lobste.rs sources disabled or not configured.")
@@ -139,10 +145,15 @@ async def scrape_lobsters(client: httpx.AsyncClient, db, source_id: int = None) 
 
 async def scrape_dev_to(client: httpx.AsyncClient, db, source_id: int = None) -> int:
     """Scrapes trending technical articles from active Dev.to sources in DataSource."""
-    active_sources = db.query(DataSource).filter(
-        DataSource.name.ilike("%Dev.to%"),
-        DataSource.is_active == 1
-    ).all()
+    query = db.query(DataSource)
+    if source_id:
+        query = query.filter(DataSource.id == source_id)
+    else:
+        query = query.filter(
+            DataSource.name.ilike("%Dev.to%"),
+            DataSource.is_active == 1
+        )
+    active_sources = query.all()
 
     if not active_sources:
         logger.info("Dev.to sources disabled or not configured.")
@@ -225,4 +236,71 @@ async def scrape_social_discussions(db, source_id: int = None, limit_per_sub: in
 
     logger.info(f"Social sweep completed. Total discussions saved: {saved_count}")
     return saved_count
+
+
+async def scrape_generic_discussion_rss(src: DataSource, db) -> int:
+    """
+    Parses an arbitrary technical or discussion RSS feed registered in DataSource.
+    Saves entries into RawScrapeData for cross-platform topic clustering and trend synthesis.
+    """
+    url = (src.url or "").strip()
+    if not url:
+        return 0
+
+    try:
+        feed = await asyncio.to_thread(feedparser.parse, url)
+        entries = getattr(feed, "entries", [])
+        if not entries:
+            return 0
+
+        saved = 0
+        for entry in entries[:25]:
+            title = getattr(entry, "title", "").strip()
+            summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
+            link = getattr(entry, "link", "")
+            if not title:
+                continue
+
+            clean_summary = ""
+            if summary:
+                clean_summary = re.sub(r"<[^>]+>", " ", str(summary))
+                clean_summary = re.sub(r"\s+", " ", clean_summary).strip()
+
+            formatted_text = (
+                f"PLATFORM: {src.name}\n"
+                f"TITLE: {title}\n"
+                f"URL: {link}\n"
+            )
+            if clean_summary:
+                formatted_text += f"DESCRIPTION:\n{clean_summary[:1200]}\n"
+
+            raw_entry = RawScrapeData(
+                source_id=src.id,
+                country_code=src.country_code or "GLOBAL",
+                raw_text=formatted_text,
+                extracted_urls=[link] if link else [],
+                processed=0,
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(raw_entry)
+            saved += 1
+
+        db.commit()
+        try:
+            db.query(SourceLog).filter(SourceLog.data_source_id == src.id).delete(synchronize_session=False)
+            db.commit()
+        except Exception:
+            pass
+        logger.info(f"Saved {saved} discussions from generic RSS [{src.name}].")
+        return saved
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Error scraping discussion RSS [{src.name}]: {e}")
+        try:
+            db.add(SourceLog(data_source_id=src.id, error_message=str(e)[:500]))
+            db.commit()
+        except Exception:
+            db.rollback()
+        raise e
+
 

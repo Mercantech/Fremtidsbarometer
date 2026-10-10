@@ -264,3 +264,48 @@ def test_instant_ingest_endpoint():
     finally:
         client.delete(f"/api/admin/data-sources/{source_id}", headers=AUTH_HEADERS)
 
+
+def test_instant_ingest_news_and_social_routing():
+    # 1. News RSS Source
+    create_news = client.post("/api/admin/data-sources", json={
+        "name": "Test News RSS",
+        "url": "https://httpbin.org/status/200?type=news_rss",
+        "category": "news",
+        "source_type": "rss",
+        "country_code": "GLOBAL",
+    }, headers=AUTH_HEADERS)
+    assert create_news.status_code == 201
+    news_id = create_news.json()["id"]
+
+    # 2. Social Generic RSS Source
+    create_social = client.post("/api/admin/data-sources", json={
+        "name": "Test Engineering Blog RSS",
+        "url": "https://httpbin.org/status/200?type=social_rss",
+        "category": "social",
+        "source_type": "rss",
+        "country_code": "GLOBAL",
+    }, headers=AUTH_HEADERS)
+    assert create_social.status_code == 201
+    social_id = create_social.json()["id"]
+
+    try:
+        # Test News Ingest
+        resp_news = client.post(f"/api/admin/data-sources/{news_id}/ingest", headers=AUTH_HEADERS)
+        assert resp_news.status_code == 200
+        news_data = resp_news.json()
+        assert news_data["success"] is True
+        assert news_data["source_id"] == news_id
+        assert "Successfully ingested" in news_data["message"]
+
+        # Test Social Ingest
+        resp_social = client.post(f"/api/admin/data-sources/{social_id}/ingest", headers=AUTH_HEADERS)
+        assert resp_social.status_code == 200
+        social_data = resp_social.json()
+        assert social_data["success"] is True
+        assert social_data["source_id"] == social_id
+        assert "Successfully ingested" in social_data["message"]
+    finally:
+        client.delete(f"/api/admin/data-sources/{news_id}", headers=AUTH_HEADERS)
+        client.delete(f"/api/admin/data-sources/{social_id}", headers=AUTH_HEADERS)
+
+
