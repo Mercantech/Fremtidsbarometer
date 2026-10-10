@@ -212,7 +212,7 @@ def test_ai_model_test_connection_endpoint_success():
             "success": True,
             "status": "ok",
             "latency_ms": 250,
-            "message": "Модель ответила за 250мс: OK"
+            "message": "Model responded in 250ms: OK"
         }
         resp = client.post("/api/admin/ai-models/test-connection", json={
             "provider": "google",

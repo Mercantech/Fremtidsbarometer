@@ -383,7 +383,7 @@ async def test_model_connection(provider: str, model_name: str, max_tokens: int 
             "success": False,
             "status": "error",
             "latency_ms": 0,
-            "message": f"API-ключ не найден в переменных окружения ({env_var}). Добавьте его в .env."
+            "message": f"API key not found in environment ({env_var}). Please add it to your .env file."
         }
 
     start_time = time.time()
@@ -401,13 +401,13 @@ async def test_model_connection(provider: str, model_name: str, max_tokens: int 
                     "success": True,
                     "status": "ok",
                     "latency_ms": latency_ms,
-                    "message": f"Модель ответила за {latency_ms}мс (ответ пустой)"
+                    "message": f"Model responded in {latency_ms}ms (empty response)"
                 }
             return {
                 "success": True,
                 "status": "ok",
                 "latency_ms": latency_ms,
-                "message": f"Модель ответила за {latency_ms}мс: {text_out[:100]}"
+                "message": f"Model responded in {latency_ms}ms: {text_out[:100]}"
             }
         else:
             # OpenAI compatible (OpenAI, Mistral, Groq, custom)
@@ -444,20 +444,20 @@ async def test_model_connection(provider: str, model_name: str, max_tokens: int 
                             "success": True,
                             "status": "ok",
                             "latency_ms": latency_ms,
-                            "message": f"Модель ответила за {latency_ms}мс (ответ пустой)"
+                            "message": f"Model responded in {latency_ms}ms (empty response)"
                         }
                     return {
                         "success": True,
                         "status": "ok",
                         "latency_ms": latency_ms,
-                        "message": f"Модель ответила за {latency_ms}мс: {content[:100]}"
+                        "message": f"Model responded in {latency_ms}ms: {content[:100]}"
                     }
                 else:
                     return {
                         "success": False,
                         "status": "error",
                         "latency_ms": latency_ms,
-                        "message": f"Ошибка {res.status_code}: {res.text[:300]}"
+                        "message": f"HTTP {res.status_code}: {res.text[:300]}"
                     }
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
@@ -465,5 +465,5 @@ async def test_model_connection(provider: str, model_name: str, max_tokens: int 
             "success": False,
             "status": "error",
             "latency_ms": latency_ms,
-            "message": f"Ошибка вызова модели: {str(e)}"
+            "message": f"Model invocation failed: {str(e)}"
         }
