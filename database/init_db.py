@@ -80,6 +80,22 @@ def ensure_database_schema(engine=None):
             except Exception as tbl_err:
                 logger.warning(f"Notice creating system_settings table: {tbl_err}")
 
+        if "broadcast_pins" not in existing_tables:
+            try:
+                from database.models import BroadcastPin
+                BroadcastPin.__table__.create(engine, checkfirst=True)
+                logger.info("✅ Table broadcast_pins created.")
+            except Exception as tbl_err:
+                logger.warning(f"Notice creating broadcast_pins table: {tbl_err}")
+
+        if "admin_audit_logs" not in existing_tables:
+            try:
+                from database.models import AdminAuditLog
+                AdminAuditLog.__table__.create(engine, checkfirst=True)
+                logger.info("✅ Table admin_audit_logs created.")
+            except Exception as tbl_err:
+                logger.warning(f"Notice creating admin_audit_logs table: {tbl_err}")
+
         # Seed default globe_config if not present
         try:
             from database.models import SystemSetting

@@ -12,11 +12,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
+  CheckSquare,
+  Square,
+  Loader2,
 } from 'lucide-react';
 import {
   fetchAdminPins,
   toggleHidePin,
   unhideAllPins,
+  bulkTogglePins,
   getAdminErrorMessage,
 } from '../services/adminApi';
 import type { AdminPinItem, AdminPinsResponse } from '../services/adminApi';
@@ -33,6 +37,10 @@ export const PinsModerationManager: React.FC = () => {
   const [pinType, setPinType] = useState<string>(''); // '' | 'job' | 'hype'
   const [onlyHidden, setOnlyHidden] = useState(false);
 
+  // Multi-select state
+  const [selectedPinIds, setSelectedPinIds] = useState<string[]>([]);
+  const [isBulkToggling, setIsBulkToggling] = useState(false);
+
   const loadPins = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -45,6 +53,7 @@ export const PinsModerationManager: React.FC = () => {
         only_hidden: onlyHidden,
       });
       setData(res);
+      setSelectedPinIds([]);
     } catch (err) {
       console.error('Failed to load pins:', err);
       setFeedback({
@@ -108,6 +117,50 @@ export const PinsModerationManager: React.FC = () => {
       });
     }
   };
+
+  // ── Multi-select handlers ──
+  const toggleSelectAll = () => {
+    if (!data?.items) return;
+    const currentPageIds = data.items.map((p) => p.id);
+    const allSelected = currentPageIds.every((id) => selectedPinIds.includes(id));
+    if (allSelected) {
+      setSelectedPinIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      setSelectedPinIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedPinIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkToggle = async (action: 'hide' | 'unhide') => {
+    if (selectedPinIds.length === 0) return;
+    try {
+      setIsBulkToggling(true);
+      setFeedback(null);
+      const res = await bulkTogglePins(selectedPinIds, action);
+      setFeedback({
+        type: 'success',
+        message: `Successfully ${action === 'hide' ? 'hidden' : 'restored'} ${res.affected_count} pins on the 3D radar.`,
+      });
+      setSelectedPinIds([]);
+      await loadPins();
+    } catch (err) {
+      console.error('Failed to bulk toggle pins:', err);
+      setFeedback({
+        type: 'error',
+        message: getAdminErrorMessage(err, 'Bulk pin operation failed'),
+      });
+    } finally {
+      setIsBulkToggling(false);
+    }
+  };
+
+  const isCurrentPageAllSelected =
+    data?.items && data.items.length > 0 && data.items.every((p) => selectedPinIds.includes(p.id));
 
   return (
     <div className="space-y-6">
@@ -233,10 +286,58 @@ export const PinsModerationManager: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Floating Action Bar for Selected Pins ── */}
+      {selectedPinIds.length > 0 && (
+        <div className="p-3.5 px-5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 backdrop-blur-xl shadow-2xl flex items-center justify-between gap-4 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-mono font-bold border border-cyan-500/30">
+              {selectedPinIds.length} selected
+            </span>
+            <span className="text-slate-300">Pins chosen for bulk moderation</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedPinIds([])}
+              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              Deselect All
+            </button>
+            <button
+              onClick={() => handleBulkToggle('hide')}
+              disabled={isBulkToggling}
+              className="px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-amber-600/20"
+            >
+              {isBulkToggling ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5" />
+              )}
+              <span>Hide Selected ({selectedPinIds.length})</span>
+            </button>
+            <button
+              onClick={() => handleBulkToggle('unhide')}
+              disabled={isBulkToggling}
+              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-600/20"
+            >
+              {isBulkToggling ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Eye className="w-3.5 h-3.5" />
+              )}
+              <span>Show Selected ({selectedPinIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Table of Pins ── */}
       <div className="rounded-2xl bg-[#14121a] border border-white/10 overflow-hidden shadow-xl">
         {isLoading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">Loading pins from database...</div>
+          <div className="p-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+            <span>Loading pins from database...</span>
+          </div>
         ) : !data || data.items.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs space-y-2">
             <ShieldAlert className="w-8 h-8 mx-auto text-slate-500 opacity-60" />
@@ -247,6 +348,19 @@ export const PinsModerationManager: React.FC = () => {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-white/10 text-slate-400 bg-white/2">
+                  <th className="py-3 px-4 w-10">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="text-slate-400 hover:text-white transition cursor-pointer"
+                      title={isCurrentPageAllSelected ? 'Deselect all' : 'Select all on page'}
+                    >
+                      {isCurrentPageAllSelected ? (
+                        <CheckSquare className="w-4 h-4 text-cyan-400" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3 px-4 font-semibold">Status</th>
                   <th className="py-3 px-4 font-semibold">Type</th>
                   <th className="py-3 px-4 font-semibold">Topic / Job Title</th>
@@ -256,93 +370,114 @@ export const PinsModerationManager: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {data.items.map((pin) => (
-                  <tr
-                    key={pin.id}
-                    className={`hover:bg-white/3 transition ${
-                      pin.is_hidden ? 'opacity-50 bg-black/20' : ''
-                    }`}
-                  >
-                    {/* Status badge */}
-                    <td className="py-3 px-4">
-                      {pin.is_hidden ? (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <EyeOff className="w-3 h-3" />
-                          <span>Hidden</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <Eye className="w-3 h-3" />
-                          <span>Visible</span>
-                        </span>
-                      )}
-                    </td>
+                {data.items.map((pin) => {
+                  const isSelected = selectedPinIds.includes(pin.id);
+                  return (
+                    <tr
+                      key={pin.id}
+                      className={`transition ${
+                        isSelected
+                          ? 'bg-cyan-950/20'
+                          : pin.is_hidden
+                          ? 'opacity-50 bg-black/20'
+                          : 'hover:bg-white/3'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => toggleSelectOne(pin.id)}
+                          className="text-slate-400 hover:text-white transition cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-cyan-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-600" />
+                          )}
+                        </button>
+                      </td>
 
-                    {/* Type badge */}
-                    <td className="py-3 px-4">
-                      {pin.type === 'job' ? (
-                        <span className="px-2 py-0.5 rounded-md bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <Briefcase className="w-3 h-3" />
-                          <span>Job</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-pink-950/60 text-pink-300 border border-pink-800/50 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <Flame className="w-3 h-3" />
-                          <span>Hype</span>
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Title */}
-                    <td className="py-3 px-4 font-medium text-white max-w-[280px]">
-                      <div className="truncate font-semibold">{pin.title}</div>
-                      <div className="text-[11px] text-slate-400 truncate">{pin.subtitle}</div>
-                    </td>
-
-                    {/* Location */}
-                    <td className="py-3 px-4 text-slate-300">
-                      <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-mono text-[10px]">
-                        {pin.city} ({pin.country})
-                      </span>
-                    </td>
-
-                    {/* Details (Salary or Score) */}
-                    <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">
-                      {pin.salary ? (
-                        <span className="text-emerald-400 font-bold">{pin.salary}</span>
-                      ) : pin.score !== undefined && pin.score !== null ? (
-                        <span className="text-cyan-400 font-bold">{pin.score}/100</span>
-                      ) : (
-                        <span>—</span>
-                      )}
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => handleToggleHide(pin)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ml-auto ${
-                          pin.is_hidden
-                            ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                            : 'bg-white/5 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border-white/10'
-                        }`}
-                        title={pin.is_hidden ? 'Show on radar' : 'Hide from radar'}
-                      >
+                      {/* Status badge */}
+                      <td className="py-3 px-4">
                         {pin.is_hidden ? (
-                          <>
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Unhide</span>
-                          </>
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[10px] flex items-center gap-1 w-fit">
+                            <EyeOff className="w-3 h-3" />
+                            <span>Hidden</span>
+                          </span>
                         ) : (
-                          <>
-                            <EyeOff className="w-3.5 h-3.5" />
-                            <span>Hide</span>
-                          </>
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-[10px] flex items-center gap-1 w-fit">
+                            <Eye className="w-3 h-3" />
+                            <span>Visible</span>
+                          </span>
                         )}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* Type badge */}
+                      <td className="py-3 px-4">
+                        {pin.type === 'job' ? (
+                          <span className="px-2 py-0.5 rounded-md bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 font-bold text-[10px] flex items-center gap-1 w-fit">
+                            <Briefcase className="w-3 h-3" />
+                            <span>Job</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-pink-950/60 text-pink-300 border border-pink-800/50 font-bold text-[10px] flex items-center gap-1 w-fit">
+                            <Flame className="w-3 h-3" />
+                            <span>Hype</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Title */}
+                      <td className="py-3 px-4 font-medium text-white max-w-[280px]">
+                        <div className="truncate font-semibold">{pin.title}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{pin.subtitle}</div>
+                      </td>
+
+                      {/* Location */}
+                      <td className="py-3 px-4 text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-mono text-[10px]">
+                          {pin.city} ({pin.country})
+                        </span>
+                      </td>
+
+                      {/* Details (Salary or Score) */}
+                      <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">
+                        {pin.salary ? (
+                          <span className="text-emerald-400 font-bold">{pin.salary}</span>
+                        ) : pin.score !== undefined && pin.score !== null ? (
+                          <span className="text-cyan-400 font-bold">{pin.score}/100</span>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </td>
+
+                      {/* Action */}
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          onClick={() => handleToggleHide(pin)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ml-auto ${
+                            pin.is_hidden
+                              ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-white/5 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border-white/10'
+                          }`}
+                          title={pin.is_hidden ? 'Show on radar' : 'Hide from radar'}
+                        >
+                          {pin.is_hidden ? (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Unhide</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5" />
+                              <span>Hide</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

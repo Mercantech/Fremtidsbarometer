@@ -6,7 +6,7 @@ Compatible with Neon (serverless PostgreSQL) and local Docker PostgreSQL.
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, String, Float, Integer, DateTime, Text,
+    Column, String, Float, Integer, DateTime, Text, Boolean,
     UniqueConstraint, Index, create_engine
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -309,10 +309,57 @@ class SystemSetting(Base):
         return f"<SystemSetting {self.key}>"
 
 
+# ── 16. Broadcast Pins (Manual Announcements & Events) ───────
+class BroadcastPin(Base):
+    """
+    Manual high-priority pins published by administrators (e.g. Mercantec education courses,
+    tech hackathons, partner hiring initiatives). Visible on the 3D globe radar until expiration.
+    """
+    __tablename__ = "broadcast_pins"
+
+    id                    = Column(Integer, primary_key=True, autoincrement=True)
+    title                 = Column(String(300), nullable=False)
+    description           = Column(Text, nullable=False)
+    category              = Column(String(50), default="education")  # "education", "hackathon", "partner_job", "announcement"
+    institution           = Column(String(200), default="Mercantec")
+    location_name         = Column(String(100), default="Viborg, Denmark")
+    latitude              = Column(Float, nullable=False)
+    longitude             = Column(Float, nullable=False)
+    url                   = Column(String(500), nullable=True)
+    justification         = Column(Text, nullable=False)
+    expires_at            = Column(DateTime(timezone=True), nullable=False)
+    is_active             = Column(Boolean, default=True, index=True)
+    created_at            = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<BroadcastPin {self.id}: {self.title[:30]}>"
+
+
+# ── 17. Admin Audit Log ──────────────────────────────────────
+class AdminAuditLog(Base):
+    """
+    Audit trail recording administrative actions (pin moderation, broadcast creation,
+    job deletions, backup imports, config changes) for accountability and security.
+    """
+    __tablename__ = "admin_audit_logs"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    action      = Column(String(50), nullable=False, index=True)   # "PIN_HIDE", "PIN_SHOW", "PIN_BULK_TOGGLE", "JOB_DELETE", "JOB_BULK_DELETE", "JOB_CLEANUP_EXPIRED", "BROADCAST_CREATE", "BROADCAST_DELETE", "BROADCAST_TOGGLE", "BACKUP_IMPORT", "ERA_CREATE", "ERA_UPDATE", "ERA_DELETE", "CONFIG_UPDATE"
+    entity_type = Column(String(50), nullable=True)                # "pin", "job", "broadcast_pin", "era", "backup", "system_settings"
+    entity_id   = Column(String(100), nullable=True)               # ID or comma-separated list of IDs
+    details     = Column(JSONB, nullable=True)                     # Arbitrary payload/context (e.g. affected_count, title, reason)
+    ip_address  = Column(String(50), nullable=True)
+    created_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+
+    def __repr__(self):
+        return f"<AdminAuditLog {self.id}: {self.action}>"
+
+
 # ── Engine & Session Factory ─────────────────────────────────
 from database.session import engine, get_session
 
 def get_engine():
     """Returns global engine singleton"""
     return engine
+
 

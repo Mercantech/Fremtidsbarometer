@@ -1,10 +1,12 @@
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc
 
 from database.session import get_db
 from database.models import JobPosting, HypeAnalysis, SystemSetting
+from api.schemas import PinBulkToggleRequest
+from api.services.audit_logger import log_admin_action
 
 router = APIRouter()
 
@@ -113,7 +115,7 @@ def list_admin_pins(
 
 
 @router.post("/pins/{pin_id}/toggle-hide")
-def toggle_hide_pin(pin_id: str, db: Session = Depends(get_db)):
+def toggle_hide_pin(pin_id: str, request: Request, db: Session = Depends(get_db)):
     """
     Toggles whether a pin is hidden on the live 3D radar and public API.
     """
@@ -126,13 +128,76 @@ def toggle_hide_pin(pin_id: str, db: Session = Depends(get_db)):
         is_hidden = True
 
     _save_hidden_pins(db, hidden_set)
+    action_name = "PIN_HIDE" if is_hidden else "PIN_SHOW"
+    log_admin_action(
+        db,
+        action=action_name,
+        entity_type="pin",
+        entity_id=pin_id,
+        details={"is_hidden": is_hidden, "total_hidden": len(hidden_set)},
+        request=request,
+    )
     return {"id": pin_id, "is_hidden": is_hidden, "total_hidden": len(hidden_set)}
 
 
 @router.post("/pins/unhide-all")
-def unhide_all_pins(db: Session = Depends(get_db)):
+def unhide_all_pins(request: Request, db: Session = Depends(get_db)):
     """
     Restores visibility for all previously hidden pins.
     """
+    hidden_set = _get_hidden_pins(db)
+    count = len(hidden_set)
     _save_hidden_pins(db, set())
+    log_admin_action(
+        db,
+        action="PIN_UNHIDE_ALL",
+        entity_type="pin",
+        details={"restored_count": count},
+        request=request,
+    )
     return {"message": "All pins restored to visible on live radar", "total_hidden": 0}
+
+
+@router.post("/pins/bulk-toggle")
+def bulk_toggle_pins(
+    payload: PinBulkToggleRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk hides or unhides selected pins.
+    """
+    hidden_set = _get_hidden_pins(db)
+    changed = 0
+    if payload.action == "hide":
+        for pid in payload.pin_ids:
+            if pid not in hidden_set:
+                hidden_set.add(pid)
+                changed += 1
+    elif payload.action == "unhide":
+        for pid in payload.pin_ids:
+            if pid in hidden_set:
+                hidden_set.remove(pid)
+                changed += 1
+
+    _save_hidden_pins(db, hidden_set)
+    action_name = "PIN_BULK_HIDE" if payload.action == "hide" else "PIN_BULK_UNHIDE"
+    log_admin_action(
+        db,
+        action=action_name,
+        entity_type="pin",
+        details={
+            "action": payload.action,
+            "affected_count": changed,
+            "total_hidden": len(hidden_set),
+            "requested_count": len(payload.pin_ids),
+        },
+        request=request,
+    )
+    return {
+        "action": payload.action,
+        "affected_count": changed,
+        "total_hidden": len(hidden_set),
+        "requested_count": len(payload.pin_ids)
+    }
+

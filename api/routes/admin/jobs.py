@@ -1,11 +1,14 @@
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc, func
 
 from database.session import get_db
 from database.models import JobPosting
 from api.services.job_scoring import enrich_job_posting
+from api.schemas import JobBulkDeleteRequest, JobCleanupExpiredRequest
+from api.services.audit_logger import log_admin_action
 
 router = APIRouter()
 
@@ -136,7 +139,7 @@ def get_jobs_statistics(db: Session = Depends(get_db)):
 
 
 @router.delete("/jobs/{job_id}", status_code=status.HTTP_200_OK)
-def delete_admin_job(job_id: int, db: Session = Depends(get_db)):
+def delete_admin_job(job_id: int, request: Request, db: Session = Depends(get_db)):
     """
     Deletes or archives an unwanted/spam job posting.
     """
@@ -147,5 +150,101 @@ def delete_admin_job(job_id: int, db: Session = Depends(get_db)):
     title = job.title
     company = job.company
     db.delete(job)
+    log_admin_action(
+        db,
+        action="JOB_DELETE",
+        entity_type="job",
+        entity_id=str(job_id),
+        details={"title": title, "company": company},
+        request=request,
+    )
     db.commit()
     return {"status": "deleted", "id": job_id, "title": title, "company": company}
+
+
+@router.get("/jobs/expired-count")
+def get_expired_jobs_count(
+    days: int = Query(30, ge=1, le=365),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns exact count of job postings published or created more than `days` ago.
+    Zero fiction: checks database timestamps directly.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    count = db.query(JobPosting).filter(
+        func.coalesce(JobPosting.date, JobPosting.created_at) < cutoff
+    ).count()
+    return {
+        "days": days,
+        "cutoff_date": cutoff.isoformat(),
+        "expired_count": count
+    }
+
+
+@router.post("/jobs/cleanup-expired")
+def cleanup_expired_jobs(
+    payload: JobCleanupExpiredRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Deletes job postings older than specified days with verified count return.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=payload.days)
+    expired_q = db.query(JobPosting).filter(
+        func.coalesce(JobPosting.date, JobPosting.created_at) < cutoff
+    )
+    count = expired_q.count()
+    expired_q.delete(synchronize_session=False)
+    log_admin_action(
+        db,
+        action="JOB_CLEANUP_EXPIRED",
+        entity_type="job",
+        details={"deleted_count": count, "days": payload.days, "cutoff_date": cutoff.isoformat()},
+        request=request,
+    )
+    db.commit()
+    return {
+        "status": "cleaned",
+        "deleted_count": count,
+        "days": payload.days,
+        "cutoff_date": cutoff.isoformat()
+    }
+
+
+@router.post("/jobs/bulk-delete")
+def bulk_delete_jobs(
+    payload: JobBulkDeleteRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk deletes a list of jobs by IDs.
+    """
+    if not payload.job_ids:
+        return {"status": "noop", "deleted_count": 0, "deleted_ids": []}
+
+    deleted_count = db.query(JobPosting).filter(
+        JobPosting.id.in_(payload.job_ids)
+    ).delete(synchronize_session=False)
+    log_admin_action(
+        db,
+        action="JOB_BULK_DELETE",
+        entity_type="job",
+        details={
+            "deleted_count": deleted_count,
+            "requested_count": len(payload.job_ids),
+            "job_ids": payload.job_ids[:50],
+        },
+        request=request,
+    )
+    db.commit()
+
+    return {
+        "status": "bulk_deleted",
+        "deleted_count": deleted_count,
+        "requested_count": len(payload.job_ids)
+    }
+
+

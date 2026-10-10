@@ -10,6 +10,9 @@ from api.routes.admin.globe import router as globe_router
 from api.routes.admin.eras import router as eras_router
 from api.routes.admin.pins import router as pins_router
 from api.routes.admin.jobs import router as jobs_router
+from api.routes.admin.broadcasts import router as broadcasts_router
+from api.routes.admin.backup import router as backup_router
+from api.routes.admin.audit import router as audit_router
 
 load_dotenv()
 
@@ -24,5 +27,8 @@ router.include_router(globe_router)
 router.include_router(eras_router)
 router.include_router(pins_router)
 router.include_router(jobs_router)
+router.include_router(broadcasts_router)
+router.include_router(backup_router)
+router.include_router(audit_router)
 
 __all__ = ["router", "verify_api_key"]

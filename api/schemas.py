@@ -315,3 +315,87 @@ class GlobeConfigSchema(BaseModel):
     prioritize_trending_tech: bool = Field(default=True, description="Prioritize vacancies matching rising tech trends")
     pause_on_hover: bool = Field(default=True, description="Pause rotation while hovering on pins")
     hidden_pins: List[str] = Field(default_factory=list, description="List of pin IDs hidden by moderator")
+
+
+# --- Bulk Moderation & Cleanup ---
+class JobBulkDeleteRequest(BaseModel):
+    job_ids: List[int] = Field(..., min_length=1, description="List of job IDs to delete")
+
+
+class JobCleanupExpiredRequest(BaseModel):
+    days: int = Field(default=30, ge=1, le=365, description="Threshold age in days for expired postings")
+
+
+class PinBulkToggleRequest(BaseModel):
+    pin_ids: List[str] = Field(..., min_length=1, description="List of pin IDs to toggle")
+    action: str = Field(default="hide", pattern="^(hide|unhide)$", description="Action: 'hide' or 'unhide'")
+
+
+# --- Broadcast Pins (Manual Announcements) ---
+class BroadcastPinCreateSchema(BaseModel):
+    title: str = Field(..., min_length=3, max_length=300, description="Broadcast title")
+    description: str = Field(..., min_length=10, description="Detailed text or announcement body")
+    category: str = Field(default="education", pattern="^(education|hackathon|partner_job|announcement)$", description="Broadcast category")
+    institution: str = Field(default="Mercantec", max_length=200, description="Issuing entity or department")
+    location_name: str = Field(default="Viborg, Denmark", max_length=100, description="City or campus name")
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="Latitude coordinate")
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="Longitude coordinate")
+    url: Optional[str] = Field(default=None, max_length=500, description="Direct URL to registration or details")
+    justification: str = Field(..., min_length=10, max_length=1000, description="Moderator reason/purpose for broadcasting")
+    expires_at: datetime = Field(..., description="Timestamp when the pin automatically expires and hides")
+
+
+class BroadcastPinUpdateSchema(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=3, max_length=300)
+    description: Optional[str] = Field(default=None, min_length=10)
+    category: Optional[str] = Field(default=None, pattern="^(education|hackathon|partner_job|announcement)$")
+    institution: Optional[str] = Field(default=None, max_length=200)
+    location_name: Optional[str] = Field(default=None, max_length=100)
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+    url: Optional[str] = Field(default=None, max_length=500)
+    justification: Optional[str] = Field(default=None, min_length=10, max_length=1000)
+    expires_at: Optional[datetime] = None
+    is_active: Optional[bool] = None
+
+
+class BroadcastPinSchema(BaseModel):
+    id: int
+    title: str
+    description: str
+    category: str
+    institution: str
+    location_name: str
+    latitude: float
+    longitude: float
+    url: Optional[str] = None
+    justification: str
+    expires_at: datetime
+    is_active: bool
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminAuditLogSchema(BaseModel):
+    id: int
+    action: str
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    ip_address: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminAuditLogListResponse(BaseModel):
+    items: List[AdminAuditLogSchema]
+    total: int
+    page: int
+    limit: int
+    pages: int
+
+
+
+

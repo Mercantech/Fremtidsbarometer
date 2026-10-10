@@ -13,6 +13,9 @@ import {
   Calendar,
   Eye,
   Briefcase,
+  Megaphone,
+  Database,
+  ShieldCheck,
 } from 'lucide-react';
 import { SystemStatusDisplay } from '../components/SystemStatusDisplay';
 import { PipelineControl } from '../components/PipelineControl';
@@ -23,6 +26,9 @@ import { GlobeConfigManager } from '../components/GlobeConfigManager';
 import { ErasManager } from '../components/ErasManager';
 import { PinsModerationManager } from '../components/PinsModerationManager';
 import { JobsInspector } from '../components/JobsInspector';
+import { BroadcastPinsManager } from '../components/BroadcastPinsManager';
+import { BackupManagerModal } from '../components/BackupManagerModal';
+import { AuditLogViewer } from '../components/AuditLogViewer';
 import '../styles/admin.css';
 
 type SectionType =
@@ -33,7 +39,9 @@ type SectionType =
   | '3d-radar'
   | 'eras'
   | 'pins'
+  | 'broadcasts'
   | 'jobs'
+  | 'audit'
   | 'logs';
 
 const VALID_SECTIONS: SectionType[] = [
@@ -44,7 +52,9 @@ const VALID_SECTIONS: SectionType[] = [
   '3d-radar',
   'eras',
   'pins',
+  'broadcasts',
   'jobs',
+  'audit',
   'logs',
 ];
 
@@ -69,6 +79,7 @@ export default function Admin() {
   };
 
   const [activeSection, setActiveSectionState] = useState<SectionType>(getInitialSection);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   const setActiveSection = (section: SectionType) => {
     setActiveSectionState(section);
@@ -98,6 +109,14 @@ export default function Admin() {
           </div>
         </div>
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsBackupModalOpen(true)}
+            className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
+            title="Export or restore system JSON snapshots"
+          >
+            <Database className="w-3.5 h-3.5 text-blue-400" />
+            <span>Backup & Restore</span>
+          </button>
           <Link
             to="/"
             className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 text-xs font-medium transition flex items-center gap-1.5"
@@ -165,6 +184,13 @@ export default function Admin() {
               <span>Live Pins Moderation</span>
             </button>
             <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'broadcasts' ? 'active' : ''}`}
+              onClick={() => setActiveSection('broadcasts')}
+            >
+              <Megaphone className={`w-4 h-4 shrink-0 ${activeSection === 'broadcasts' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Broadcast Pins</span>
+            </button>
+            <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'eras' ? 'active' : ''}`}
               onClick={() => setActiveSection('eras')}
             >
@@ -177,6 +203,13 @@ export default function Admin() {
             >
               <Briefcase className={`w-4 h-4 shrink-0 ${activeSection === 'jobs' ? 'text-blue-400' : 'text-slate-400'}`} />
               <span>Jobs & ATS Directory</span>
+            </button>
+            <button
+              className={`nav-item flex items-center gap-2.5 ${activeSection === 'audit' ? 'active' : ''}`}
+              onClick={() => setActiveSection('audit')}
+            >
+              <ShieldCheck className={`w-4 h-4 shrink-0 ${activeSection === 'audit' ? 'text-blue-400' : 'text-slate-400'}`} />
+              <span>Audit Trail</span>
             </button>
             <button
               className={`nav-item flex items-center gap-2.5 ${activeSection === 'logs' ? 'active' : ''}`}
@@ -225,6 +258,12 @@ export default function Admin() {
             </div>
           )}
 
+          {activeSection === 'broadcasts' && (
+            <div className="section-broadcasts">
+              <BroadcastPinsManager />
+            </div>
+          )}
+
           {activeSection === 'eras' && (
             <div className="section-eras">
               <ErasManager />
@@ -237,6 +276,12 @@ export default function Admin() {
             </div>
           )}
 
+          {activeSection === 'audit' && (
+            <div className="section-audit">
+              <AuditLogViewer />
+            </div>
+          )}
+
           {activeSection === 'logs' && (
             <div className="section-logs">
               <LogsViewer />
@@ -244,6 +289,12 @@ export default function Admin() {
           )}
         </main>
       </div>
+
+      <BackupManagerModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        onRestoreSuccess={() => window.location.reload()}
+      />
     </div>
   );
 }

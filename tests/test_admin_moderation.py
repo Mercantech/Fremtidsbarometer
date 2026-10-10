@@ -63,3 +63,48 @@ def test_scheduler_jobs_api():
         first = data["jobs"][0]
         assert "id" in first
         assert "name" in first
+
+
+def test_pins_bulk_toggle_flow():
+    """Verify bulk hiding and unhiding pins."""
+    res = client.post(
+        "/api/admin/pins/bulk-toggle",
+        json={"pin_ids": ["test-bulk-1", "test-bulk-2"], "action": "hide"},
+        headers={"x-api-key": ADMIN_KEY}
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["action"] == "hide"
+    assert data["requested_count"] == 2
+
+    # Unhide
+    unhide_res = client.post(
+        "/api/admin/pins/bulk-toggle",
+        json={"pin_ids": ["test-bulk-1", "test-bulk-2"], "action": "unhide"},
+        headers={"x-api-key": ADMIN_KEY}
+    )
+    assert unhide_res.status_code == 200
+    assert unhide_res.json()["action"] == "unhide"
+
+
+def test_jobs_expired_count_and_bulk_operations():
+    """Verify expired count and bulk delete flow."""
+    # 1. Expired count query
+    count_res = client.get("/api/admin/jobs/expired-count?days=30", headers={"x-api-key": ADMIN_KEY})
+    assert count_res.status_code == 200
+    count_data = count_res.json()
+    assert "expired_count" in count_data
+    assert "cutoff_date" in count_data
+    assert count_data["days"] == 30
+
+    # 2. Bulk delete (with non-existent IDs to test safe execution)
+    bulk_del_res = client.post(
+        "/api/admin/jobs/bulk-delete",
+        json={"job_ids": [9999991, 9999992]},
+        headers={"x-api-key": ADMIN_KEY}
+    )
+    assert bulk_del_res.status_code == 200
+    bulk_data = bulk_del_res.json()
+    assert bulk_data["status"] == "bulk_deleted"
+    assert bulk_data["requested_count"] == 2
+

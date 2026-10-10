@@ -12,11 +12,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Building,
+  Clock,
+  CheckSquare,
+  Square,
+  X,
+  Loader2,
 } from 'lucide-react';
 import {
   fetchAdminJobs,
   fetchAdminJobsStats,
   deleteAdminJob,
+  bulkDeleteAdminJobs,
+  fetchExpiredJobsCount,
+  cleanupExpiredJobs,
   getAdminErrorMessage,
 } from '../services/adminApi';
 import type { AdminJobItem, AdminJobsResponse, AdminJobsStats } from '../services/adminApi';
@@ -35,6 +43,17 @@ export const JobsInspector: React.FC = () => {
   const [onlyHot, setOnlyHot] = useState(false);
   const [onlySalary, setOnlySalary] = useState(false);
   const [selectedCity, setSelectedCity] = useState('');
+
+  // Multi-selection state
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Expired cleanup modal state
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [cleanupDays, setCleanupDays] = useState(30);
+  const [expiredStats, setExpiredStats] = useState<{ days: number; cutoff_date: string; expired_count: number } | null>(null);
+  const [isCheckingExpired, setIsCheckingExpired] = useState(false);
+  const [isCleaningExpired, setIsCleaningExpired] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -59,6 +78,8 @@ export const JobsInspector: React.FC = () => {
         only_salary: onlySalary,
       });
       setData(res);
+      // Clear selection if items no longer match
+      setSelectedIds([]);
     } catch (err) {
       console.error('Failed to load jobs:', err);
       setFeedback({
@@ -98,6 +119,102 @@ export const JobsInspector: React.FC = () => {
       });
     }
   };
+
+  // ── Multi-Select Handlers ──
+  const toggleSelectAll = () => {
+    if (!data?.items) return;
+    const currentPageIds = data.items.map((j) => j.id);
+    const allSelected = currentPageIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !currentPageIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...currentPageIds])));
+    }
+  };
+
+  const toggleSelectOne = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = window.confirm(
+      `Permanently delete ${selectedIds.length} selected job postings from the database?\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsBulkDeleting(true);
+      setFeedback(null);
+      const res = await bulkDeleteAdminJobs(selectedIds);
+      setFeedback({
+        type: 'success',
+        message: `Successfully deleted ${res.deleted_count} vacancies from PostgreSQL.`,
+      });
+      setSelectedIds([]);
+      await loadJobs();
+      await loadStats();
+    } catch (err) {
+      console.error('Failed to bulk delete jobs:', err);
+      setFeedback({
+        type: 'error',
+        message: getAdminErrorMessage(err, 'Bulk deletion failed'),
+      });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  // ── Expired Cleanup Modal Handlers ──
+  const handleOpenCleanupModal = async () => {
+    setShowCleanupModal(true);
+    await checkExpiredCount(cleanupDays);
+  };
+
+  const checkExpiredCount = async (days: number) => {
+    try {
+      setIsCheckingExpired(true);
+      const res = await fetchExpiredJobsCount(days);
+      setExpiredStats(res);
+    } catch (err) {
+      console.error('Failed to check expired count:', err);
+    } finally {
+      setIsCheckingExpired(false);
+    }
+  };
+
+  const handleExecuteCleanup = async () => {
+    if (!expiredStats || expiredStats.expired_count === 0) return;
+    const confirmed = window.confirm(
+      `Confirm permanent deletion of ${expiredStats.expired_count} postings older than ${cleanupDays} days?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsCleaningExpired(true);
+      const res = await cleanupExpiredJobs(cleanupDays);
+      setFeedback({
+        type: 'success',
+        message: `Database cleanup complete: ${res.deleted_count} expired postings removed.`,
+      });
+      setShowCleanupModal(false);
+      await loadJobs();
+      await loadStats();
+    } catch (err) {
+      console.error('Failed to cleanup expired jobs:', err);
+      setFeedback({
+        type: 'error',
+        message: getAdminErrorMessage(err, 'Cleanup failed'),
+      });
+    } finally {
+      setIsCleaningExpired(false);
+    }
+  };
+
+  const isCurrentPageAllSelected =
+    data?.items && data.items.length > 0 && data.items.every((j) => selectedIds.includes(j.id));
 
   return (
     <div className="space-y-6">
@@ -250,13 +367,64 @@ export const JobsInspector: React.FC = () => {
               </option>
             ))}
           </select>
+
+          {/* Cleanup Expired Button */}
+          <button
+            onClick={handleOpenCleanupModal}
+            className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
+            title="Clean up outdated job postings"
+          >
+            <Clock className="w-3.5 h-3.5 text-rose-400" />
+            <span>Cleanup Expired</span>
+          </button>
         </div>
       </div>
+
+      {/* ── Floating Action Bar for Selected Items ── */}
+      {selectedIds.length > 0 && (
+        <div className="p-3.5 px-5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 backdrop-blur-xl shadow-2xl flex items-center justify-between gap-4 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-3">
+            <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-mono font-bold border border-cyan-500/30">
+              {selectedIds.length} selected
+            </span>
+            <span className="text-slate-300">Vacancies chosen across current page</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds([])}
+              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+            >
+              Deselect All
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-rose-600/20"
+            >
+              {isBulkDeleting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Selected ({selectedIds.length})</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Table of Vacancies ── */}
       <div className="rounded-2xl bg-[#14121a] border border-white/10 overflow-hidden shadow-xl">
         {isLoading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">Loading vacancies from database...</div>
+          <div className="p-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+            <span>Loading vacancies from database...</span>
+          </div>
         ) : !data || data.items.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs space-y-2">
             <Briefcase className="w-8 h-8 mx-auto text-slate-500 opacity-60" />
@@ -267,6 +435,19 @@ export const JobsInspector: React.FC = () => {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-white/10 text-slate-400 bg-white/2">
+                  <th className="py-3 px-4 w-10">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="text-slate-400 hover:text-white transition cursor-pointer"
+                      title={isCurrentPageAllSelected ? 'Deselect all' : 'Select all on page'}
+                    >
+                      {isCurrentPageAllSelected ? (
+                        <CheckSquare className="w-4 h-4 text-cyan-400" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3 px-4 font-semibold">Job Title & Company</th>
                   <th className="py-3 px-4 font-semibold">Location</th>
                   <th className="py-3 px-4 font-semibold">Stack / Technology</th>
@@ -276,101 +457,123 @@ export const JobsInspector: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {data.items.map((job) => (
-                  <tr key={job.id} className="hover:bg-white/3 transition group">
-                    {/* Title & Company */}
-                    <td className="py-3 px-4 max-w-[280px]">
-                      <div className="flex items-center gap-1.5 font-bold text-white">
-                        <span className="truncate">{job.title}</span>
-                        {job.url && (
-                          <a
-                            href={job.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-slate-500 hover:text-cyan-400 transition"
-                            title="Open external job posting"
-                          >
-                            <ExternalLink className="w-3 h-3 shrink-0" />
-                          </a>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                        <span>{job.company}</span>
-                        {job.source && (
-                          <span className="text-[10px] text-slate-500 font-mono">via {job.source}</span>
-                        )}
-                      </div>
-                    </td>
+                {data.items.map((job) => {
+                  const isSelected = selectedIds.includes(job.id);
+                  return (
+                    <tr
+                      key={job.id}
+                      className={`transition group ${
+                        isSelected ? 'bg-cyan-950/20' : 'hover:bg-white/3'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => toggleSelectOne(job.id)}
+                          className="text-slate-400 hover:text-white transition cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-cyan-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-600" />
+                          )}
+                        </button>
+                      </td>
 
-                    {/* Location */}
-                    <td className="py-3 px-4 text-slate-300">
-                      <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-mono text-[10px]">
-                        {job.city} ({job.country})
-                      </span>
-                    </td>
-
-                    {/* Stack / Technology */}
-                    <td className="py-3 px-4 max-w-[200px]">
-                      <div className="flex flex-wrap gap-1">
-                        {job.technology && (
-                          <span className="px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/40 font-mono text-[10px] font-bold">
-                            {job.technology}
-                          </span>
-                        )}
-                        {job.tags &&
-                          job.tags.slice(0, 3).map((t, i) => (
-                            <span
-                              key={i}
-                              className="px-1.5 py-0.5 rounded bg-white/5 text-slate-300 font-mono text-[10px]"
+                      {/* Title & Company */}
+                      <td className="py-3 px-4 max-w-[280px]">
+                        <div className="flex items-center gap-1.5 font-bold text-white">
+                          <span className="truncate">{job.title}</span>
+                          {job.url && (
+                            <a
+                              href={job.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-500 hover:text-cyan-400 transition"
+                              title="Open external job posting"
                             >
-                              {t}
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                          <span>{job.company}</span>
+                          {job.source && (
+                            <span className="text-[10px] text-slate-500 font-mono">via {job.source}</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Location */}
+                      <td className="py-3 px-4 text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 font-mono text-[10px]">
+                          {job.city} ({job.country})
+                        </span>
+                      </td>
+
+                      {/* Stack / Technology */}
+                      <td className="py-3 px-4 max-w-[200px]">
+                        <div className="flex flex-wrap gap-1">
+                          {job.technology && (
+                            <span className="px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/40 font-mono text-[10px] font-bold">
+                              {job.technology}
                             </span>
-                          ))}
-                      </div>
-                    </td>
+                          )}
+                          {job.tags &&
+                            job.tags.slice(0, 3).map((t, i) => (
+                              <span
+                                key={i}
+                                className="px-1.5 py-0.5 rounded bg-white/5 text-slate-300 font-mono text-[10px]"
+                              >
+                                {t}
+                              </span>
+                            ))}
+                        </div>
+                      </td>
 
-                    {/* Salary Range */}
-                    <td className="py-3 px-4 font-mono text-[11px]">
-                      {job.salary_min && job.salary_max ? (
-                        <span className="text-emerald-400 font-bold">
-                          {job.salary_min.toLocaleString()} – {job.salary_max.toLocaleString()} {job.salary_currency}
-                        </span>
-                      ) : job.salary_min ? (
-                        <span className="text-emerald-400 font-bold">
-                          from {job.salary_min.toLocaleString()} {job.salary_currency}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </td>
-
-                    {/* Scoring & Hot Indicator */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[11px] text-slate-300">
-                          {Math.round(job.hype_score * 100)}%
-                        </span>
-                        {job.is_hot && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-0.5">
-                            <Flame className="w-2.5 h-2.5 text-amber-400" />
-                            <span>HOT</span>
+                      {/* Salary Range */}
+                      <td className="py-3 px-4 font-mono text-[11px]">
+                        {job.salary_min && job.salary_max ? (
+                          <span className="text-emerald-400 font-bold">
+                            {job.salary_min.toLocaleString()} – {job.salary_max.toLocaleString()} {job.salary_currency}
                           </span>
+                        ) : job.salary_min ? (
+                          <span className="text-emerald-400 font-bold">
+                            from {job.salary_min.toLocaleString()} {job.salary_currency}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">—</span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Actions */}
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => handleDelete(job)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition cursor-pointer"
-                        title="Delete vacancy"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      {/* Scoring & Hot Indicator */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[11px] text-slate-300">
+                            {Math.round(job.hype_score * 100)}%
+                          </span>
+                          {job.is_hot && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-0.5">
+                              <Flame className="w-2.5 h-2.5 text-amber-400" />
+                              <span>HOT</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          onClick={() => handleDelete(job)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                          title="Delete vacancy"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -404,6 +607,114 @@ export const JobsInspector: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ── Cleanup Expired Modal (Zero Fiction / Real Database Stats) ── */}
+      {showCleanupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-2xl bg-[#181622] border border-white/15 p-6 shadow-2xl space-y-5 text-xs">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Database Expired Cleanup</h3>
+                  <p className="text-[11px] text-slate-400">Remove stale postings older than chosen days</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCleanupModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Threshold Selector */}
+            <div className="space-y-1.5">
+              <label className="text-slate-300 font-semibold block">Select Age Threshold:</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[30, 45, 60].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      setCleanupDays(d);
+                      checkExpiredCount(d);
+                    }}
+                    className={`py-2 rounded-xl border text-center font-semibold transition cursor-pointer ${
+                      cleanupDays === d
+                        ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {d} Days
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Real Stats Verification Block */}
+            <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-2">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Verified Expired in DB:</span>
+                {isCheckingExpired ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                ) : (
+                  <span className="font-mono text-white font-bold text-sm">
+                    {expiredStats ? expiredStats.expired_count.toLocaleString() : '—'}
+                  </span>
+                )}
+              </div>
+              {expiredStats && (
+                <div className="text-[11px] text-slate-400 leading-relaxed">
+                  Published or ingested prior to{' '}
+                  <span className="text-slate-200 font-mono">
+                    {new Date(expiredStats.cutoff_date).toLocaleDateString()}
+                  </span>
+                  .
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCleanupModal(false)}
+                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition cursor-pointer font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteCleanup}
+                disabled={
+                  isCleaningExpired ||
+                  isCheckingExpired ||
+                  !expiredStats ||
+                  expiredStats.expired_count === 0
+                }
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg shadow-rose-600/20"
+              >
+                {isCleaningExpired ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Cleaning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      Delete {expiredStats?.expired_count || 0} Expired Postings
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

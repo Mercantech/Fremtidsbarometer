@@ -653,6 +653,14 @@ export const unhideAllPins = async (): Promise<{ message: string; total_hidden: 
   return response.data;
 };
 
+export const bulkTogglePins = async (
+  pin_ids: string[],
+  action: 'hide' | 'unhide' = 'hide'
+): Promise<{ action: string; affected_count: number; total_hidden: number; requested_count: number }> => {
+  const response = await adminApi.post('/api/admin/pins/bulk-toggle', { pin_ids, action });
+  return response.data;
+};
+
 // ── Jobs & ATS Directory ────────────────────────────────
 export interface AdminJobItem {
   id: number;
@@ -712,5 +720,148 @@ export const deleteAdminJob = async (jobId: number): Promise<{ status: string; i
   return response.data;
 };
 
+export const fetchExpiredJobsCount = async (
+  days: number = 30
+): Promise<{ days: number; cutoff_date: string; expired_count: number }> => {
+  const response = await adminApi.get('/api/admin/jobs/expired-count', { params: { days } });
+  return response.data;
+};
 
+export const cleanupExpiredJobs = async (
+  days: number = 30
+): Promise<{ status: string; deleted_count: number; days: number; cutoff_date: string }> => {
+  const response = await adminApi.post('/api/admin/jobs/cleanup-expired', { days });
+  return response.data;
+};
 
+export const bulkDeleteAdminJobs = async (
+  job_ids: number[]
+): Promise<{ status: string; deleted_count: number; requested_count: number }> => {
+  const response = await adminApi.post('/api/admin/jobs/bulk-delete', { job_ids });
+  return response.data;
+};
+
+// ── Broadcast Pins (Manual Announcements) ───────────────
+export interface AdminBroadcastPin {
+  id: number;
+  title: string;
+  description: string;
+  category: 'education' | 'hackathon' | 'partner_job' | 'announcement';
+  institution: string;
+  location_name: string;
+  latitude: number;
+  longitude: number;
+  url?: string | null;
+  justification: string;
+  expires_at: string;
+  is_active: boolean;
+  created_at?: string | null;
+}
+
+export interface CreateBroadcastPinPayload {
+  title: string;
+  description: string;
+  category?: 'education' | 'hackathon' | 'partner_job' | 'announcement';
+  institution?: string;
+  location_name?: string;
+  latitude: number;
+  longitude: number;
+  url?: string;
+  justification: string;
+  expires_at: string;
+}
+
+export const fetchAdminBroadcasts = async (
+  activeOnly: boolean = false
+): Promise<AdminBroadcastPin[]> => {
+  const response = await adminApi.get<AdminBroadcastPin[]>('/api/admin/broadcasts', {
+    params: { active_only: activeOnly },
+  });
+  return response.data;
+};
+
+export const createAdminBroadcast = async (
+  payload: CreateBroadcastPinPayload
+): Promise<AdminBroadcastPin> => {
+  const response = await adminApi.post<AdminBroadcastPin>('/api/admin/broadcasts', payload);
+  return response.data;
+};
+
+export const deleteAdminBroadcast = async (
+  pinId: number
+): Promise<{ status: string; id: number; title: string }> => {
+  const response = await adminApi.delete(`/api/admin/broadcasts/${pinId}`);
+  return response.data;
+};
+
+export const toggleAdminBroadcast = async (
+  pinId: number
+): Promise<AdminBroadcastPin> => {
+  const response = await adminApi.post<AdminBroadcastPin>(`/api/admin/broadcasts/${pinId}/toggle`);
+  return response.data;
+};
+
+// ── Backup & Snapshot ───────────────────────────────────
+export interface BackupSnapshot {
+  version: string;
+  exported_at: string;
+  eras_count: number;
+  eras: any[];
+  globe_config: any;
+  broadcasts_count: number;
+  broadcasts: any[];
+}
+
+export const exportAdminBackup = async (): Promise<BackupSnapshot> => {
+  const response = await adminApi.get<BackupSnapshot>('/api/admin/backup/export');
+  return response.data;
+};
+
+export const importAdminBackup = async (
+  payload: any
+): Promise<{
+  status: string;
+  eras_imported: number;
+  globe_config_restored: boolean;
+  broadcasts_imported: number;
+  restored_at: string;
+}> => {
+  const response = await adminApi.post('/api/admin/backup/import', payload);
+  return response.data;
+};
+
+// ── Audit Logs ─────────────────────────────────────────
+export interface AdminAuditLogItem {
+  id: number;
+  action: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  details?: Record<string, any> | null;
+  ip_address?: string | null;
+  created_at?: string | null;
+}
+
+export interface AdminAuditLogResponse {
+  items: AdminAuditLogItem[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface FetchAuditLogsParams {
+  action?: string;
+  entity_type?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export const fetchAdminAuditLogs = async (
+  params?: FetchAuditLogsParams
+): Promise<AdminAuditLogResponse> => {
+  const response = await adminApi.get<AdminAuditLogResponse>('/api/admin/audit-logs', {
+    params,
+  });
+  return response.data;
+};
