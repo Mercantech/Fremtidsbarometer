@@ -16,14 +16,58 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 logger = get_centralized_logger("JobsScraper")
 
 TECH_KEYWORDS = (
-    "developer", "software", "engineer", "data", "cloud", "devops", "architect",
-    "security", "fullstack", "frontend", "backend", "system", "it ", "tech",
-    "qa", "tester", "programmer", "analyst", "product", "scrum", "ai ", "machine learning",
-    "python", "java", "react", "c#", ".net", "c++", "rust", "golang", "kubernetes", "aws", "azure",
-    # Ukrainian, Russian & Eastern European tech terms
+    # Core engineering & software development
+    "developer", "software", "engineer", "engineering", "programmer", "coder",
+    "architect", "fullstack", "full stack", "full-stack", "frontend", "front-end",
+    "backend", "back-end", "web dev", "webdev", "mobile dev", "ios", "android",
+    
+    # Systems, Cloud, DevOps, Infrastructure, SRE
+    "cloud", "devops", "platform", "infrastructure", "infra", "sre", "site reliability",
+    "sysadmin", "system administrator", "systems", "system", "system architect",
+    "kubernetes", "docker", "terraform", "ansible", "aws", "azure", "gcp",
+    
+    # Data, AI, Machine Learning, Analytics
+    "data", "data scientist", "data engineer", "data analyst", "bi analyst",
+    "machine learning", "ml engineer", "deep learning", "ai engineer", "ai ", "llm",
+    "nlp", "computer vision", "big data", "analytics", "database", "dba",
+    
+    # QA, Testing, Security, SecOps
+    "qa", "quality assurance", "test engineer", "tester", "testing", "automation",
+    "sdet", "security", "cybersecurity", "infosec", "soc", "penetration", "pentest",
+    "network engineer", "secops", "devsecops",
+    
+    # Tech leadership & Management
+    "cto", "tech lead", "lead developer", "lead engineer", "engineering manager",
+    "head of engineering", "vp of engineering", "scrum master", "product owner",
+    "product manager", "technical project manager",
+    
+    # Programming Languages & Stacks (globally recognized)
+    "python", "javascript", "typescript", "golang", "rust", "c#", ".net", "c++",
+    "java", "scala", "kotlin", "swift", "php", "ruby", "elixir",
+    "react", "vue", "angular", "node", "next.js", "django", "fastapi", "spring",
+    
+    # General IT / Technology indicators
+    "it ", "it-", "it specialist", "information technology", "tech ",
+    
+    # German IT terms (Bund.de, DACH region)
+    "entwickler", "softwareentwickler", "webentwickler", "anwendungsentwickler",
+    "informatiker", "fachinformatiker", "wirtschaftsinformatiker",
+    "systemadministrator", "it-spezialist", "it-administrator", "programmierer",
+    
+    # Swedish & Nordic IT terms (JobTech SE, Denmark, Norway)
+    "utvecklare", "mjukvaruutvecklare", "systemutvecklare", "applikationsutvecklare",
+    "systemadministratör", "programmerare", "it-tekniker", "it-konsult",
+    "udvikler", "softwareudvikler", "systemkonsulent",
+    
+    # Ukrainian & Slavic IT terms (Djinni, DOU, Eastern Europe)
     "розробник", "програміст", "інженер", "тестувальник", "аналітик", "архітектор",
-    "разработчик", "программист", "инженер", "тестировщик", "аналитик", "веб-розробник"
+    "разработчик", "программист", "тестировщик", "веб-розробник", "девопс", "адміністратор",
+    
+    # French & Romance terms
+    "développeur", "developpeur", "ingénieur logiciel", "architecte logiciel",
+    "desarrollador", "ingeniero de software", "programador"
 )
+
 
 EXCLUDE_KEYWORDS = (
     "driver", "warehouse", "officier", "steward", "stewardess", "chef", "cook",
@@ -54,11 +98,11 @@ def infer_technology(title: str) -> str:
     t = title.lower()
     if any(k in t for k in ["python", "django", "fastapi", "пайтон"]):
         return "Python"
-    if any(k in t for k in ["react", "vue", "angular", "frontend", "web dev", "фронтенд", "front-end"]):
+    if any(k in t for k in ["react", "vue", "angular", "frontend", "web dev", "фронтенд", "front-end", "webentwickler"]):
         return "Frontend"
-    if any(k in t for k in ["backend", "node", "golang", "rust", "java", "c#", ".net", "бэкенд", "бекенд", "back-end"]):
+    if any(k in t for k in ["backend", "node", "golang", "rust", "java", "c#", ".net", "бэкенд", "бекенд", "back-end", "systemutvecklare"]):
         return "Backend"
-    if any(k in t for k in ["cloud", "devops", "kubernetes", "docker", "aws", "azure", "sre", "platform", "девопс"]):
+    if any(k in t for k in ["cloud", "devops", "kubernetes", "docker", "aws", "azure", "sre", "platform", "девопс", "systemadministrator", "systemadministratör", "it-administrator"]):
         return "Cloud & DevOps"
     if any(k in t for k in ["data", "machine learning", "ai ", "bi ", "scientist", "штучний інтелект", "дата"]):
         return "Data & AI"
@@ -106,7 +150,7 @@ def infer_location(
         if clean_domain in COMPANY_DEFAULT_LOCATIONS:
             return COMPANY_DEFAULT_LOCATIONS[clean_domain]
 
-    # 3. Source hint mapping (e.g., Ukrainian job boards like Djinni, DOU)
+    # 3. Source hint mapping (e.g., Ukrainian job boards like Djinni, DOU, Jobicy geo hints)
     if source_hint:
         s_lower = source_hint.lower()
         if any(w in s_lower for w in ["djinni", "dou", "ukraine", "україна", "украина", ".ua"]):
@@ -115,14 +159,28 @@ def infer_location(
             return ("DK", "Copenhagen")
         if any(w in s_lower for w in ["norway", "norge", ".no"]):
             return ("NO", "Oslo")
-        if any(w in s_lower for w in ["sweden", "sverige", ".se"]):
+        if any(w in s_lower for w in ["sweden", "swedish", "sverige", ".se", "jobtech"]):
             return ("SE", "Stockholm")
-        if any(w in s_lower for w in ["germany", "deutschland", ".de"]):
+        if any(w in s_lower for w in ["germany", "german", "deutschland", ".de", "bund.de"]):
             return ("DE", "Berlin")
         if any(w in s_lower for w in ["poland", "polska", ".pl"]):
             return ("PL", "Warsaw")
         if any(w in s_lower for w in ["finland", ".fi"]):
             return ("FI", "Helsinki")
+        if any(w in s_lower for w in ["france", "french", ".fr"]):
+            return ("FR", "Paris")
+        if any(w in s_lower for w in ["netherlands", "dutch", "holland", ".nl"]):
+            return ("NL", "Amsterdam")
+        if any(w in s_lower for w in ["czech", "czechia", ".cz"]):
+            return ("CZ", "Prague")
+        if any(w in s_lower for w in ["austria", "österreich", ".at"]):
+            return ("AT", "Vienna")
+        if any(w in s_lower for w in ["switzerland", "schweiz", "suisse", ".ch"]):
+            return ("CH", "Zurich")
+        if any(w in s_lower for w in ["united kingdom", "britain", "uk", ".uk"]):
+            return ("UK", "London")
+        if any(w in s_lower for w in ["united states", "usa", "us"]):
+            return ("US", "San Francisco")
 
     # 4. Default fallback
     return ("GLOBAL", "Remote")
@@ -471,7 +529,7 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
     headers = {
         "User-Agent": "Fremtidsbarometer-Bot/1.0 (+https://fremtidsbarometer.dk; tech trend observatory)"
     }
-    async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
+    async with httpx.AsyncClient(headers=headers, timeout=20.0, follow_redirects=True) as client:
         try:
             resp = await client.get(url)
             if resp.status_code != 200:
@@ -479,7 +537,9 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
                 return 0
 
             c_type = resp.headers.get("content-type", "").lower()
-            if "application/json" not in c_type and not url.endswith(".json"):
+            # Allow JSON endpoints even if content-type header is text/plain or missing
+            is_probably_json = "application/json" in c_type or url.endswith(".json") or "api" in url or resp.text.strip().startswith(("{", "["))
+            if not is_probably_json:
                 logger.warning(f"Job API endpoint [{src.name}] returned non-JSON ({c_type}), skipping API parser.")
                 return 0
 
@@ -488,23 +548,55 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
             logger.warning(f"Error requesting job API [{src.name}]: {e}")
             return 0
 
-    raw_items = []
-    source_slug = "arbeitnow" if "arbeitnow" in url else "job_api"
-    if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
-        raw_items = data["data"]
+    # Determine source slug
+    if "jobicy" in url:
+        source_slug = "jobicy"
+    elif "jobtechdev" in url or "jobsearch" in url:
+        source_slug = "jobtech_se"
+    elif "arbeitnow" in url:
         source_slug = "arbeitnow"
+    elif "remoteok" in url:
+        source_slug = "remoteok"
+    else:
+        clean_name = re.sub(r"[^a-zA-Z0-9_]", "", src.name.lower().replace(" ", "_"))[:30]
+        source_slug = clean_name or "job_api"
+
+    # Universal root list extractor (Jobicy: 'jobs', JobTech SE: 'hits', Arbeitnow: 'data', generic lists)
+    raw_items = []
+    if isinstance(data, dict):
+        for candidate_key in ("jobs", "hits", "data", "results", "vacancies", "items"):
+            if isinstance(data.get(candidate_key), list):
+                raw_items = [i for i in data[candidate_key] if isinstance(i, dict)]
+                break
     elif isinstance(data, list):
         raw_items = [i for i in data if isinstance(i, dict)]
-        source_slug = "remoteok" if "remoteok" in url else "job_api"
 
     if not raw_items:
+        logger.info(f"No job records found in API payload from [{src.name}].")
         return 0
 
     candidates = []
     candidate_links = []
     for item in raw_items:
-        title = (item.get("title") or item.get("position") or "").strip()
-        link = (item.get("url") or item.get("link") or "").strip()
+        # Title extraction (Jobicy 'jobTitle', JobTech 'headline', standard 'title' / 'position')
+        title = (
+            item.get("title")
+            or item.get("jobTitle")
+            or item.get("headline")
+            or item.get("position")
+            or item.get("name")
+            or ""
+        ).strip()
+
+        # Link extraction (JobTech 'webpage_url', Jobicy 'url', standard 'url' / 'link')
+        link = (
+            item.get("url")
+            or item.get("webpage_url")
+            or item.get("link")
+            or item.get("apply_url")
+            or ""
+        ).strip()
+
         if not title or not link:
             continue
 
@@ -514,16 +606,94 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
         if not any(k in t_lower for k in TECH_KEYWORDS):
             continue
 
-        company = (item.get("company_name") or item.get("company") or "").strip() or "Tech Enterprise"
-        raw_desc = (item.get("description") or "").strip()
-        clean_desc = re.sub(r"<[^>]+>", " ", raw_desc)
+        # Company extraction (JobTech nested employer.name, Jobicy 'companyName', standard 'company_name' / 'company')
+        company = ""
+        employer_obj = item.get("employer")
+        if isinstance(employer_obj, dict):
+            company = (employer_obj.get("name") or "").strip()
+        elif isinstance(employer_obj, str):
+            company = employer_obj.strip()
+
+        if not company:
+            company = (
+                item.get("company_name")
+                or item.get("companyName")
+                or item.get("company")
+                or item.get("hiring_organization")
+                or ""
+            ).strip()
+        company = company or "Tech Enterprise"
+
+        # Description extraction (JobTech nested description.text, Jobicy 'jobDescription', standard 'description')
+        raw_desc = ""
+        desc_obj = item.get("description")
+        if isinstance(desc_obj, dict):
+            raw_desc = desc_obj.get("text") or desc_obj.get("formatted") or ""
+        elif isinstance(desc_obj, str):
+            raw_desc = desc_obj
+
+        if not raw_desc:
+            raw_desc = (
+                item.get("jobDescription")
+                or item.get("jobExcerpt")
+                or item.get("excerpt")
+                or item.get("snippet")
+                or ""
+            )
+
+        clean_desc = re.sub(r"<[^>]+>", " ", str(raw_desc))
         clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
 
-        loc_hint = (item.get("location") or "").strip()
-        is_remote = bool(item.get("remote"))
+        # Location extraction (JobTech workplace_address.municipality, Jobicy 'jobGeo', standard 'location')
+        loc_hint = ""
+        workplace_addr = item.get("workplace_address")
+        if isinstance(workplace_addr, dict):
+            loc_hint = (
+                workplace_addr.get("municipality")
+                or workplace_addr.get("city")
+                or workplace_addr.get("region")
+                or ""
+            ).strip()
 
-        sal_min_direct = item.get("salary_min")
-        sal_max_direct = item.get("salary_max")
+        if not loc_hint:
+            loc_hint = (
+                item.get("jobGeo")
+                or item.get("location")
+                or item.get("city")
+                or item.get("candidate_required_location")
+                or ""
+            ).strip()
+
+        # Contextual country hint from registered DataSource metadata
+        src_country = getattr(src, "country_code", None)
+        if src_country and src_country not in ("GLOBAL", ""):
+            if src_country not in loc_hint:
+                loc_hint = f"{loc_hint}, {src_country}".strip(", ")
+
+        is_remote = bool(
+            item.get("remote")
+            or item.get("is_remote")
+            or (item.get("workplace_model") == "remote")
+            or (isinstance(item.get("jobType"), list) and "Remote" in item.get("jobType"))
+            or ("remote" in loc_hint.lower())
+        )
+
+        sal_min_direct = item.get("salary_min") or item.get("min_salary") or item.get("salary_from")
+        sal_max_direct = item.get("salary_max") or item.get("max_salary") or item.get("salary_to")
+        sal_desc = item.get("salary_description") or ""
+        if not sal_min_direct and sal_desc:
+            clean_desc += f" SALARY_HINT: {sal_desc}"
+
+        raw_tags = item.get("tags") or item.get("jobIndustry") or item.get("skills") or []
+        tags_list = []
+        if isinstance(raw_tags, list):
+            tags_list = [str(t).strip() for t in raw_tags if str(t).strip()]
+        elif isinstance(raw_tags, str):
+            tags_list = [t.strip() for t in raw_tags.split(",") if t.strip()]
+
+        job_level = item.get("jobLevel")
+        if job_level and isinstance(job_level, str):
+            tags_list.append(job_level.lower())
 
         candidates.append({
             "title": title,
@@ -532,7 +702,7 @@ async def _scrape_job_api_source(src: DataSource, db) -> int:
             "description": clean_desc,
             "loc_hint": loc_hint,
             "is_remote": is_remote,
-            "tags": item.get("tags") or [],
+            "tags": tags_list,
             "sal_min_direct": float(sal_min_direct) if isinstance(sal_min_direct, (int, float)) and sal_min_direct > 0 else None,
             "sal_max_direct": float(sal_max_direct) if isinstance(sal_max_direct, (int, float)) and sal_max_direct > 0 else None,
         })

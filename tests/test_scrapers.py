@@ -180,3 +180,50 @@ def test_news_agent_isolation():
     assert agent.primary_rss.startswith("https://news.google.com")
     assert any("TechCrunch" in name for name, _ in agent.fallback_rss)
 
+
+def test_global_tech_keywords_matching():
+    """Verify that TECH_KEYWORDS covers all global IT professions without exclusions."""
+    test_titles = [
+        # German
+        "Senior Softwareentwickler (m/w/d) Python",
+        "Fachinformatiker für Systemintegration",
+        "IT-Systemadministrator Cloud & Infrastructure",
+        "Wirtschaftsinformatiker / IT-Consultant",
+        # Swedish / Nordic
+        "Senior Mjukvaruutvecklare / Software Engineer",
+        "Fullstack Utvecklare inom React & Node.js",
+        "Systemadministratör Linux & AWS",
+        # French & Romance
+        "Développeur Backend Go / Microservices",
+        "Ingénieur Logiciel Embarqué",
+        # Global English
+        "Staff AI Research Scientist",
+        "Platform & Site Reliability Engineer (SRE)",
+        "Lead Cybersecurity SOC Analyst",
+    ]
+    for title in test_titles:
+        t_lower = title.lower()
+        has_tech = any(k in t_lower for k in TECH_KEYWORDS)
+        has_exclude = any(ex in t_lower for ex in EXCLUDE_KEYWORDS)
+        assert has_tech is True, f"Failed to detect tech keyword in: {title}"
+        assert has_exclude is False, f"Erroneously excluded tech role: {title}"
+
+
+def test_infer_technology_global_roles():
+    """Verify infer_technology maps German and Nordic roles appropriately."""
+    assert infer_technology("Fullstack Webentwickler React/Node") == "Frontend"
+    assert infer_technology("Systemutvecklare C# / .NET") == "Backend"
+    assert infer_technology("IT-Systemadministrator Linux & Kubernetes") == "Cloud & DevOps"
+
+
+def test_infer_location_new_country_hints():
+    """Verify infer_location correctly maps new countries from source hints."""
+    assert infer_location("Senior Dev", "", "", "", "Jobicy: France remote dev") == ("FR", "Paris")
+    assert infer_location("Backend Eng", "", "", "", "Jobicy: Netherlands dev") == ("NL", "Amsterdam")
+    assert infer_location("React Dev", "", "", "", "Jobicy: Sweden dev") == ("SE", "Stockholm")
+    assert infer_location("Python Dev", "", "", "", "Jobicy: Germany dev") == ("DE", "Berlin")
+    assert infer_location("Fullstack Dev", "", "", "", "JobTech: Swedish developer jobs") == ("SE", "Stockholm")
+    assert infer_location("Cloud Eng", "", "", "", "Jobicy: Switzerland dev") == ("CH", "Zurich")
+    assert infer_location("DevOps", "", "", "", "Jobicy: UK dev") == ("UK", "London")
+    assert infer_location("AI Dev", "", "", "", "Jobicy: USA dev") == ("US", "San Francisco")
+

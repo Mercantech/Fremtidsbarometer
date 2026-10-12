@@ -208,7 +208,7 @@ async def test_data_source(payload: DataSourceTestRequest):
             if isinstance(data, list):
                 items = data
             elif isinstance(data, dict):
-                for key in ["jobs", "data", "results", "articles", "stories", "items", "vacancies"]:
+                for key in ["jobs", "hits", "data", "results", "articles", "stories", "items", "vacancies"]:
                     if key in data and isinstance(data[key], list):
                         items = data[key]
                         break
@@ -218,7 +218,13 @@ async def test_data_source(payload: DataSourceTestRequest):
             sample_titles = []
             for item in items[:3]:
                 if isinstance(item, dict):
-                    t = item.get("title") or item.get("name") or item.get("headline") or item.get("position")
+                    t = (
+                        item.get("title")
+                        or item.get("jobTitle")
+                        or item.get("headline")
+                        or item.get("position")
+                        or item.get("name")
+                    )
                     if t:
                         sample_titles.append(str(t).strip())
 
