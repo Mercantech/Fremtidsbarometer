@@ -333,3 +333,19 @@ svg.branches {
 .custom-leaflet-tooltip::before {
     display: none;
 }
+
+/* ── HIDE DESKTOP HUD PANELS ON MOBILE / NARROW VIEWPORTS (< 1024px or < 620px) ── */
+@media (max-width: 1023px), (max-height: 619px) {
+  .timeline-container,
+  #news-chat,
+  #right-panel,
+  #news-strip-svg,
+  #right-strip-svg,
+  #news-label,
+  .branches,
+  #labels-wrap,
+  .spatial-toggle,
+  .lang-switcher {
+    display: none !important;
+  }
+}

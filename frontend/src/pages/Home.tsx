@@ -1,4 +1,4 @@
-import { useEffect, useRef, Suspense, lazy } from 'react';
+import { useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { Header } from '../components/Header';
 import { NewsFeed } from '../components/NewsFeed';
 import { RightPanel } from '../components/RightPanel';
@@ -9,7 +9,7 @@ import { SpatialToggle } from '../components/SpatialToggle';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { TopicDetailsModal } from '../components/TopicDetailsModal';
 import { EraDossierModal } from '../components/EraDossierModal';
-import { DesktopAdvisoryBanner } from '../components/DesktopAdvisoryBanner';
+import { DesktopAdvisoryBanner, BREAKPOINT_WIDTH, BREAKPOINT_HEIGHT } from '../components/DesktopAdvisoryBanner';
 import { useStore } from '../store/useStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -25,6 +25,19 @@ export default function Home() {
   const apiWarning = useStore((s) => s.apiWarning);
   const clearApiWarning = useStore((s) => s.clearApiWarning);
   const initialized = useRef(false);
+
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= BREAKPOINT_WIDTH && window.innerHeight >= BREAKPOINT_HEIGHT;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= BREAKPOINT_WIDTH && window.innerHeight >= BREAKPOINT_HEIGHT);
+    };
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!initialized.current) {
@@ -98,7 +111,7 @@ export default function Home() {
       </div>
 
       <AnimatePresence>
-        {viewMode === 'globe' && (
+        {isDesktop && viewMode === 'globe' && (
           <motion.div
             key="globe-ui"
             initial={{ opacity: 0 }}
@@ -142,10 +155,10 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <SpatialToggle />
-      <LanguageSwitcher />
-      <TopicDetailsModal />
-      <EraDossierModal />
+      {isDesktop && <SpatialToggle />}
+      {isDesktop && <LanguageSwitcher />}
+      {isDesktop && <TopicDetailsModal />}
+      {isDesktop && <EraDossierModal />}
       <DesktopAdvisoryBanner />
     </div>
   );
