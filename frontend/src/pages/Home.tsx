@@ -9,6 +9,7 @@ import { SpatialToggle } from '../components/SpatialToggle';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { TopicDetailsModal } from '../components/TopicDetailsModal';
 import { EraDossierModal } from '../components/EraDossierModal';
+import { DesktopAdvisoryBanner } from '../components/DesktopAdvisoryBanner';
 import { useStore } from '../store/useStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -145,6 +146,7 @@ export default function Home() {
       <LanguageSwitcher />
       <TopicDetailsModal />
       <EraDossierModal />
+      <DesktopAdvisoryBanner />
     </div>
   );
 }
