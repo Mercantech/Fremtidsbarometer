@@ -18,25 +18,38 @@ DEFAULT_GLOBE_CONFIG = {
 }
 
 
+from utils.logger import get_centralized_logger
+
+logger = get_centralized_logger("GlobeRoute")
+
 @router.get("/config", response_model=GlobeConfigSchema)
 def get_public_globe_config(db: Session = Depends(get_db)):
-    """Returns the current 3D Globe Radar display configuration."""
-    setting = db.query(SystemSetting).filter(SystemSetting.key == "globe_config").first()
-    if setting and isinstance(setting.value, dict):
-        return GlobeConfigSchema(**{**DEFAULT_GLOBE_CONFIG, **setting.value})
+    """Returns the current 3D Globe Radar display configuration with graceful degradation."""
+    try:
+        setting = db.query(SystemSetting).filter(SystemSetting.key == "globe_config").first()
+        if setting and isinstance(setting.value, dict):
+            return GlobeConfigSchema(**{**DEFAULT_GLOBE_CONFIG, **setting.value})
+    except Exception as e:
+        logger.error(f"Error querying globe config: {e}")
+        db.rollback()
     return GlobeConfigSchema(**DEFAULT_GLOBE_CONFIG)
 
 
 @router.get("/broadcasts", response_model=List[BroadcastPinSchema])
 def get_public_broadcast_pins(db: Session = Depends(get_db)):
     """
-    Returns active, unexpired manual broadcast pins from Mercantec for live radar.
+    Returns active, unexpired manual broadcast pins from Mercantec for live radar with graceful degradation.
     """
-    now = datetime.now(timezone.utc)
-    return (
-        db.query(BroadcastPin)
-        .filter(BroadcastPin.is_active.is_(True), BroadcastPin.expires_at > now)
-        .order_by(BroadcastPin.created_at.desc())
-        .all()
-    )
+    try:
+        now = datetime.now(timezone.utc)
+        return (
+            db.query(BroadcastPin)
+            .filter(BroadcastPin.is_active.is_(True), BroadcastPin.expires_at > now)
+            .order_by(BroadcastPin.created_at.desc())
+            .all()
+        )
+    except Exception as e:
+        logger.error(f"Error querying broadcast pins: {e}")
+        db.rollback()
+        return []
 

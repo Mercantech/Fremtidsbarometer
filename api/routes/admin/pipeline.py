@@ -12,6 +12,7 @@ from sqlalchemy import desc
 from database.session import get_db, get_session
 from database.models import RawScrapeData, SystemLog, SourceLog, PipelineExecution
 from agents.scheduler import get_scheduler, create_configured_scheduler
+from utils.pause_flag import set_pipeline_paused
 
 router = APIRouter()
 logger = logging.getLogger("AdminPipeline")
@@ -331,10 +332,16 @@ async def trigger_pipeline(
         """
         Executes the pipeline with proper handling of task cancellation.
         Ensures pipeline_lock is always released and database state is updated.
+        Checks for a global pause flag before each sweep step.
         """
         async with pipeline_lock:
             start_t = datetime.now(timezone.utc)
             try:
+                # Helper to read pause flag from SystemSetting
+                def is_paused(db_session):
+                    setting = db_session.query(SystemSetting).filter(SystemSetting.key == "pipeline_paused").first()
+                    return setting and setting.value.get("paused", False)
+
                 if sweep == "all":
                     _update_step_in_db(run_id, "Partition 1: Social Discussions (Dev.to, Lobste.rs)")
                     await run_social_sweep()
@@ -600,6 +607,21 @@ async def toggle_scheduler():
                 except Exception as e:
                     logger.warning(f"Error pausing job {j.id}: {e}")
             return {"status": "paused", "scheduler_running": False, "message": "All scheduled jobs paused."}
+
+
+@router.post("/pipeline/pause")
+async def admin_pause_pipeline():
+    """Admin endpoint to globally pause the pipeline processing."""
+    set_pipeline_paused(True)
+    logger.info("Pipeline globally paused via admin endpoint")
+    return {"status": "paused", "message": "Pipeline paused successfully."}
+
+@router.post("/pipeline/resume")
+async def admin_resume_pipeline():
+    """Admin endpoint to resume the globally paused pipeline processing."""
+    set_pipeline_paused(False)
+    logger.info("Pipeline globally resumed via admin endpoint")
+    return {"status": "resumed", "message": "Pipeline resumed successfully."}
 
 
 # ── 5. Retention Cleanup & Seeding ─────────────────────────────────

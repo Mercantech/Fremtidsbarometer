@@ -9,6 +9,10 @@ from api.schemas import TrendHistoryYearSchema
 
 router = APIRouter(prefix="/api/trends/history", tags=["Trends"])
 
+from utils.logger import get_centralized_logger
+
+logger = get_centralized_logger("HistoryRoute")
+
 @router.get("", response_model=List[TrendHistoryYearSchema], include_in_schema=False)
 @router.get("/", response_model=List[TrendHistoryYearSchema])
 def get_trends_history(
@@ -18,32 +22,37 @@ def get_trends_history(
     db: Session = Depends(get_db)
 ):
     """
-    Returns historical trend data for the graph (TimeSlider).
+    Returns historical trend data for the graph (TimeSlider) with graceful degradation.
     """
-    start_date = datetime(start_year, 1, 1)
-    end_date = datetime(end_year, 12, 31)
+    try:
+        start_date = datetime(start_year, 1, 1)
+        end_date = datetime(end_year, 12, 31)
 
-    results = db.query(TechTrend)\
-        .filter(TechTrend.country == country)\
-        .filter(TechTrend.date >= start_date)\
-        .filter(TechTrend.date <= end_date)\
-        .order_by(TechTrend.date.asc())\
-        .all()
+        results = db.query(TechTrend)\
+            .filter(TechTrend.country == country)\
+            .filter(TechTrend.date >= start_date)\
+            .filter(TechTrend.date <= end_date)\
+            .order_by(TechTrend.date.asc())\
+            .all()
 
-    history_by_year = {}
-    for r in results:
-        year = r.date.year
-        if year not in history_by_year:
-            history_by_year[year] = []
-        
-        history_by_year[year].append({
-            "technology": r.technology,
-            "popularity": r.popularity,
-            "mentions": r.mentions or 0
-        })
+        history_by_year = {}
+        for r in results:
+            year = r.date.year
+            if year not in history_by_year:
+                history_by_year[year] = []
+            
+            history_by_year[year].append({
+                "technology": r.technology,
+                "popularity": r.popularity,
+                "mentions": r.mentions or 0
+            })
 
-    return [
-        {"year": year, "data": data}
-        for year, data in sorted(history_by_year.items())
-    ]
+        return [
+            {"year": year, "data": data}
+            for year, data in sorted(history_by_year.items())
+        ]
+    except Exception as e:
+        logger.error(f"Error executing get_trends_history query: {e}")
+        db.rollback()
+        return []
 

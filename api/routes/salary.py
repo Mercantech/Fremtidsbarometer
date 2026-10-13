@@ -7,7 +7,9 @@ from database.models import SalaryData
 from database.session import get_db
 from api.schemas import SalaryDataSchema
 
-router = APIRouter(prefix="/api/salary", tags=["Salary"])
+from utils.logger import get_centralized_logger
+
+logger = get_centralized_logger("SalaryRoute")
 
 @router.get("", response_model=List[SalaryDataSchema], include_in_schema=False)
 @router.get("/", response_model=List[SalaryDataSchema])
@@ -17,36 +19,41 @@ def get_salary(
     db: Session = Depends(get_db)
 ):
     """
-    Returns the latest salary benchmarks.
+    Returns the latest salary benchmarks with graceful degradation.
     """
-    base_subquery = db.query(
-        SalaryData.technology,
-        SalaryData.country,
-        func.max(SalaryData.date).label("max_date")
-    ).filter(
-        SalaryData.status == 'published'
-    )
+    try:
+        base_subquery = db.query(
+            SalaryData.technology,
+            SalaryData.country,
+            func.max(SalaryData.date).label("max_date")
+        ).filter(
+            SalaryData.status == 'published'
+        )
 
-    if country:
-        base_subquery = base_subquery.filter(SalaryData.country == country)
+        if country:
+            base_subquery = base_subquery.filter(SalaryData.country == country)
 
-    subquery = base_subquery.group_by(SalaryData.technology, SalaryData.country).subquery()
+        subquery = base_subquery.group_by(SalaryData.technology, SalaryData.country).subquery()
 
-    query = db.query(SalaryData).join(
-        subquery,
-        (SalaryData.technology == subquery.c.technology) &
-        (SalaryData.country == subquery.c.country) &
-        (SalaryData.date == subquery.c.max_date)
-    ).filter(
-        SalaryData.status == 'published'
-    )
+        query = db.query(SalaryData).join(
+            subquery,
+            (SalaryData.technology == subquery.c.technology) &
+            (SalaryData.country == subquery.c.country) &
+            (SalaryData.date == subquery.c.max_date)
+        ).filter(
+            SalaryData.status == 'published'
+        )
 
-    if country:
-        query = query.filter(SalaryData.country == country)
+        if country:
+            query = query.filter(SalaryData.country == country)
 
-    if technology:
-        query = query.filter(SalaryData.technology.ilike(f"%{technology}%"))
+        if technology:
+            query = query.filter(SalaryData.technology.ilike(f"%{technology}%"))
 
-    results = query.order_by(SalaryData.median.desc()).all()
-    return results
+        results = query.order_by(SalaryData.median.desc()).all()
+        return results
+    except Exception as e:
+        logger.error(f"Error executing get_salary query: {e}")
+        db.rollback()
+        return []
 

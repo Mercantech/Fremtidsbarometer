@@ -8,6 +8,10 @@ from api.schemas import HypeAnalysisSchema
 
 router = APIRouter(prefix="/api/hype", tags=["Hype"])
 
+from utils.logger import get_centralized_logger
+
+logger = get_centralized_logger("HypeRoute")
+
 @router.get("", response_model=List[HypeAnalysisSchema], include_in_schema=False)
 @router.get("/", response_model=List[HypeAnalysisSchema])
 def get_hype(
@@ -15,12 +19,17 @@ def get_hype(
     db: Session = Depends(get_db)
 ):
     """
-    Returns AI-analyzed hype topics.
+    Returns AI-analyzed hype topics with graceful degradation.
     """
-    results = db.query(HypeAnalysis)\
-        .filter(HypeAnalysis.status == 'published')\
-        .order_by(HypeAnalysis.date.desc(), HypeAnalysis.score.desc())\
-        .limit(limit)\
-        .all()
-    return results
+    try:
+        results = db.query(HypeAnalysis)\
+            .filter(HypeAnalysis.status == 'published')\
+            .order_by(HypeAnalysis.date.desc(), HypeAnalysis.score.desc())\
+            .limit(limit)\
+            .all()
+        return results
+    except Exception as e:
+        logger.error(f"Error executing get_hype query: {e}")
+        db.rollback()
+        return []
 

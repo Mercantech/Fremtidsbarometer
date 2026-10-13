@@ -10,6 +10,10 @@ from api.schemas import TechTrendSchema
 
 router = APIRouter(prefix="/api/trends", tags=["Trends"])
 
+from utils.logger import get_centralized_logger
+
+logger = get_centralized_logger("TrendsRoute")
+
 @router.get("", response_model=List[TechTrendSchema], include_in_schema=False)
 @router.get("/", response_model=List[TechTrendSchema])
 def get_trends(
@@ -18,17 +22,22 @@ def get_trends(
     db: Session = Depends(get_db)
 ):
     """
-    Returns technological trends for a specified country/globally.
+    Returns technological trends for a specified country/globally with graceful degradation.
     """
-    subquery = db.query(
-        TechTrend.technology,
-        func.max(TechTrend.date).label("max_date")
-    ).filter(TechTrend.country == country).group_by(TechTrend.technology).subquery()
+    try:
+        subquery = db.query(
+            TechTrend.technology,
+            func.max(TechTrend.date).label("max_date")
+        ).filter(TechTrend.country == country).group_by(TechTrend.technology).subquery()
 
-    results = db.query(TechTrend).join(
-        subquery,
-        (TechTrend.technology == subquery.c.technology) & 
-        (TechTrend.date == subquery.c.max_date)
-    ).filter(TechTrend.country == country).order_by(TechTrend.popularity.desc()).limit(limit).all()
+        results = db.query(TechTrend).join(
+            subquery,
+            (TechTrend.technology == subquery.c.technology) & 
+            (TechTrend.date == subquery.c.max_date)
+        ).filter(TechTrend.country == country).order_by(TechTrend.popularity.desc()).limit(limit).all()
 
-    return results
+        return results
+    except Exception as e:
+        logger.error(f"Error executing get_trends query: {e}")
+        db.rollback()
+        return []
