@@ -662,6 +662,14 @@ export const bulkTogglePins = async (
 };
 
 // ── Jobs Directory & Labor Market ───────────────────────
+export interface JobScoreBreakdown {
+  tech_score: number;
+  salary_score: number;
+  freshness_score: number;
+  matched_tech?: string[];
+  hours_old?: number | null;
+}
+
 export interface AdminJobItem {
   id: number;
   title: string;
@@ -677,6 +685,7 @@ export interface AdminJobItem {
   salary_currency: string;
   hype_score: number;
   is_hot: boolean;
+  score_breakdown?: JobScoreBreakdown | null;
   created_at?: string | null;
 }
 

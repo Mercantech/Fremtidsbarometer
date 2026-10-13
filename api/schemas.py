@@ -53,6 +53,7 @@ class JobPostingSchema(BaseModel):
     date: Optional[datetime] = None
     hype_score: Optional[float] = 0.0
     is_hot: bool = False
+    score_breakdown: Optional[Dict[str, Any]] = None
     
     model_config = ConfigDict(from_attributes=True)
 

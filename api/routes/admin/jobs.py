@@ -63,18 +63,41 @@ def list_admin_jobs(
             )
         )
 
-    total = query.count()
-    total_pages = max(1, (total + limit - 1) // limit)
-    offset = (page - 1) * limit
-
-    raw_jobs = query.order_by(desc(JobPosting.created_at)).offset(offset).limit(limit).all()
-
+    now = datetime.now(timezone.utc)
     trends = get_live_trending_keywords(db)
+
+    if only_hot:
+        # Pre-filter and score candidates to accurately paginate hot vacancies
+        raw_candidates = query.order_by(desc(JobPosting.created_at)).all()
+        hot_jobs = []
+        for j in raw_candidates:
+            enrich_job_posting(j, now=now, custom_trending_keywords=trends)
+            if getattr(j, "is_hot", False):
+                hot_jobs.append(j)
+
+        # Sort hot jobs primarily by hype_score descending, secondarily by created_at descending
+        hot_jobs.sort(
+            key=lambda j: (
+                getattr(j, "hype_score", 0.0) or 0.0,
+                getattr(j, "created_at", None) or datetime.min.replace(tzinfo=timezone.utc)
+            ),
+            reverse=True
+        )
+
+        total = len(hot_jobs)
+        total_pages = max(1, (total + limit - 1) // limit)
+        offset = (page - 1) * limit
+        page_slice = hot_jobs[offset : offset + limit]
+    else:
+        total = query.count()
+        total_pages = max(1, (total + limit - 1) // limit)
+        offset = (page - 1) * limit
+        page_slice = query.order_by(desc(JobPosting.created_at)).offset(offset).limit(limit).all()
+        for j in page_slice:
+            enrich_job_posting(j, now=now, custom_trending_keywords=trends)
+
     items = []
-    for j in raw_jobs:
-        enrich_job_posting(j, custom_trending_keywords=trends)
-        if only_hot and not j.is_hot:
-            continue
+    for j in page_slice:
         items.append({
             "id": j.id,
             "title": j.title,
@@ -90,6 +113,7 @@ def list_admin_jobs(
             "salary_currency": j.salary_currency or "USD",
             "hype_score": getattr(j, "hype_score", 0.0),
             "is_hot": getattr(j, "is_hot", False),
+            "score_breakdown": getattr(j, "score_breakdown", None),
             "created_at": j.created_at.isoformat() if j.created_at else None,
         })
 

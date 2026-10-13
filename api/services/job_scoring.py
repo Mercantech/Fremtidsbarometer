@@ -99,7 +99,8 @@ def calculate_job_hype_score(
     created_at: Optional[datetime] = None,
     now: Optional[datetime] = None,
     custom_trending_keywords: Optional[Set[str]] = None,
-) -> Tuple[float, bool]:
+    return_breakdown: bool = False,
+) -> Any:
     """
     Computes hype_score (0.0 to 1.0) and is_hot flag for a job posting.
     - Tech Match (up to +0.40): Presence of AI/Agent/Tier1 (0.40) or Modern Tier2 (0.25).
@@ -107,6 +108,7 @@ def calculate_job_hype_score(
     - Freshness (up to +0.25): < 24h (+0.25), < 72h (+0.15), < 7d (+0.08).
     
     A job is classified as hot (is_hot = True) if hype_score >= 0.50.
+    If return_breakdown=True, returns (hype_score, is_hot, breakdown_dict).
     """
     if now is None:
         now = datetime.now(timezone.utc)
@@ -121,18 +123,20 @@ def calculate_job_hype_score(
     matched_tier1 = False
     active_trends = custom_trending_keywords if custom_trending_keywords is not None else get_live_trending_keywords()
 
+    matched_keywords: List[str] = []
     for kw in active_trends:
         if len(kw) >= 2 and _contains_keyword(corpus, kw.lower()):
             matched_tier1 = True
-            break
+            matched_keywords.append(kw)
 
     if matched_tier1:
         tech_score = 0.40
     else:
         for kw in TIER2_TECH_KEYWORDS:
             if _contains_keyword(corpus, kw):
-                tech_score = 0.25
-                break
+                matched_keywords.append(kw)
+        if matched_keywords:
+            tech_score = 0.25
 
     # 2. Salary Premium Scoring (0.0 to 0.35)
     salary_score = 0.0
@@ -190,6 +194,7 @@ def calculate_job_hype_score(
 
     # 3. Freshness Scoring (0.0 to 0.25)
     freshness_score = 0.0
+    hours_old: Optional[float] = None
     job_dt = date or created_at
     if job_dt is not None:
         if job_dt.tzinfo is None:
@@ -212,6 +217,16 @@ def calculate_job_hype_score(
     hype_score = round(min(1.0, max(0.0, raw_score)), 2)
     is_hot = hype_score >= 0.50
 
+    breakdown = {
+        "tech_score": round(tech_score, 2),
+        "salary_score": round(salary_score, 2),
+        "freshness_score": round(freshness_score, 2),
+        "matched_tech": matched_keywords[:4],
+        "hours_old": round(hours_old, 1) if hours_old is not None else None,
+    }
+
+    if return_breakdown:
+        return hype_score, is_hot, breakdown
     return hype_score, is_hot
 
 
@@ -222,13 +237,14 @@ def enrich_job_posting(
     db: Optional[Any] = None,
 ) -> Any:
     """
-    Enriches a JobPosting SQLAlchemy model or dictionary with hype_score and is_hot attributes.
+    Enriches a JobPosting SQLAlchemy model or dictionary with hype_score, is_hot,
+    and score_breakdown attributes.
     Supports dynamic live trending keywords.
     """
     trends = custom_trending_keywords if custom_trending_keywords is not None else get_live_trending_keywords(db)
 
     if isinstance(job, dict):
-        score, is_hot = calculate_job_hype_score(
+        score, is_hot, breakdown = calculate_job_hype_score(
             title=job.get("title"),
             technology=job.get("technology"),
             tags=job.get("tags"),
@@ -239,13 +255,15 @@ def enrich_job_posting(
             created_at=job.get("created_at"),
             now=now,
             custom_trending_keywords=trends,
+            return_breakdown=True,
         )
         job["hype_score"] = score
         job["is_hot"] = is_hot
+        job["score_breakdown"] = breakdown
         return job
 
     # SQLAlchemy model instance or Pydantic object
-    score, is_hot = calculate_job_hype_score(
+    score, is_hot, breakdown = calculate_job_hype_score(
         title=getattr(job, "title", None),
         technology=getattr(job, "technology", None),
         tags=getattr(job, "tags", None),
@@ -256,7 +274,9 @@ def enrich_job_posting(
         created_at=getattr(job, "created_at", None),
         now=now,
         custom_trending_keywords=trends,
+        return_breakdown=True,
     )
     setattr(job, "hype_score", score)
     setattr(job, "is_hot", is_hot)
+    setattr(job, "score_breakdown", breakdown)
     return job

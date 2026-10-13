@@ -199,3 +199,21 @@ def test_dynamic_custom_trending_keywords():
     assert score_cold < 0.60
     assert is_hot_cold is False
 
+
+def test_admin_jobs_only_hot_pagination():
+    import os
+    admin_key = os.getenv("ADMIN_API_KEY", "admin_dev_key_12345")
+    response = client.get("/api/admin/jobs?only_hot=true&limit=10", headers={"x-api-key": admin_key})
+    assert response.status_code == 200
+    data = response.json()
+    assert "items" in data
+    assert "total" in data
+    assert "total_pages" in data
+    for item in data["items"]:
+        assert item["is_hot"] is True
+        assert item["hype_score"] >= 0.50
+        assert "score_breakdown" in item
+    assert data["total"] >= len(data["items"])
+    if data["total"] > 0:
+        assert data["total_pages"] >= 1
+

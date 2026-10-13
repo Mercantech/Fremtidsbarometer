@@ -327,11 +327,11 @@ export const JobsInspector: React.FC = () => {
             }}
             className={`px-3 py-1.5 rounded-xl border transition flex items-center gap-1.5 cursor-pointer font-medium ${
               onlyHot
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 font-bold'
+                ? 'bg-amber-500/25 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/10 font-bold'
                 : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
             }`}
           >
-            <Flame className="w-3.5 h-3.5" />
+            <Flame className={`w-3.5 h-3.5 ${onlyHot ? 'text-amber-400 animate-pulse' : ''}`} />
             <span>Hot AI/ML</span>
           </button>
 
@@ -380,6 +380,40 @@ export const JobsInspector: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Active Hot Filter Context Banner ── */}
+      {onlyHot && (
+        <div className="p-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-[#14121a] border border-amber-500/30 flex items-center justify-between text-xs text-amber-200 shadow-lg shadow-amber-950/20 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0 shadow-inner">
+              <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white tracking-wide">Hot Vacancies Filter Active</span>
+                {data && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono text-[11px] font-bold border border-amber-500/30">
+                    {data.total} {data.total === 1 ? 'hot vacancy' : 'hot vacancies'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-amber-300/80">
+                Displaying high-signal tech roles with hype score ≥ 50% (AI/ML stack, verified salary, or recent posting &lt; 3 days).
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setOnlyHot(false);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Reset Hot Filter</span>
+          </button>
+        </div>
+      )}
+
       {/* ── Floating Action Bar for Selected Items ── */}
       {selectedIds.length > 0 && (
         <div className="p-3.5 px-5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 backdrop-blur-xl shadow-2xl flex items-center justify-between gap-4 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -419,17 +453,51 @@ export const JobsInspector: React.FC = () => {
       )}
 
       {/* ── Table of Vacancies ── */}
-      <div className="rounded-2xl bg-[#14121a] border border-white/10 overflow-hidden shadow-xl">
-        {isLoading ? (
-          <div className="p-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
-            <span>Loading vacancies from database...</span>
+      <div className="relative rounded-2xl bg-[#14121a] border border-white/10 overflow-hidden shadow-xl">
+        {/* Smooth loading overlay when table already has data */}
+        {isLoading && data && (
+          <div className="absolute inset-0 bg-[#14121a]/60 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-200">
+            <div className="px-4 py-2 rounded-xl bg-slate-900/95 border border-cyan-500/40 shadow-2xl flex items-center gap-2.5 text-xs text-cyan-300 font-semibold animate-pulse">
+              <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+              <span>Updating vacancies...</span>
+            </div>
+          </div>
+        )}
+
+        {isLoading && !data ? (
+          <div className="p-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-7 h-7 animate-spin text-cyan-400" />
+            <span className="font-medium text-slate-300">Loading vacancies from database...</span>
           </div>
         ) : !data || data.items.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs space-y-2">
-            <Briefcase className="w-8 h-8 mx-auto text-slate-500 opacity-60" />
-            <p>No job postings found matching your filter criteria.</p>
-          </div>
+          onlyHot ? (
+            <div className="p-14 text-center text-xs space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 mx-auto flex items-center justify-center text-amber-400">
+                <Flame className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-bold text-white text-sm">No Hot Vacancies Found</p>
+                <p className="text-slate-400 max-w-sm mx-auto text-[11px]">
+                  None of the job postings in this view reached the ≥50% hype threshold. Try expanding location or resetting the Hot filter.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setOnlyHot(false);
+                  setPage(1);
+                }}
+                className="mt-2 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-semibold transition cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Flame className="w-3.5 h-3.5" />
+                <span>Show All Available Vacancies</span>
+              </button>
+            </div>
+          ) : (
+            <div className="p-14 text-center text-slate-400 text-xs space-y-2">
+              <Briefcase className="w-8 h-8 mx-auto text-slate-500 opacity-60" />
+              <p className="font-medium text-slate-300">No job postings found matching your filter criteria.</p>
+            </div>
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
@@ -462,8 +530,12 @@ export const JobsInspector: React.FC = () => {
                   return (
                     <tr
                       key={job.id}
-                      className={`transition group ${
-                        isSelected ? 'bg-cyan-950/20' : 'hover:bg-white/3'
+                      className={`transition group border-l-2 ${
+                        isSelected
+                          ? 'bg-cyan-950/20 border-l-cyan-400'
+                          : job.is_hot
+                          ? 'border-l-amber-500 bg-amber-500/[0.03] hover:bg-amber-500/[0.07]'
+                          : 'border-l-transparent hover:bg-white/3'
                       }`}
                     >
                       {/* Checkbox */}
@@ -546,18 +618,78 @@ export const JobsInspector: React.FC = () => {
                         )}
                       </td>
 
-                      {/* Scoring & Hot Indicator */}
+                      {/* Scoring & Hot Indicator with Breakdown Tooltip */}
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[11px] text-slate-300">
-                            {Math.round(job.hype_score * 100)}%
-                          </span>
-                          {job.is_hot && (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold flex items-center gap-0.5">
-                              <Flame className="w-2.5 h-2.5 text-amber-400" />
-                              <span>HOT</span>
-                            </span>
-                          )}
+                        <div className="relative group/score inline-block">
+                          <div className="flex flex-col gap-1 cursor-help">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`font-mono text-[11px] font-bold ${
+                                  job.is_hot ? 'text-amber-400' : 'text-slate-300'
+                                }`}
+                              >
+                                {Math.round(job.hype_score * 100)}%
+                              </span>
+                              {job.is_hot && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black flex items-center gap-0.5 shadow-sm shadow-amber-500/20">
+                                  <Flame className="w-2.5 h-2.5 text-amber-400" />
+                                  <span>HOT</span>
+                                </span>
+                              )}
+                            </div>
+                            {/* Micro progress bar */}
+                            <div className="w-14 h-1 rounded-full bg-white/10 overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${Math.min(100, Math.max(8, Math.round(job.hype_score * 100)))}%`,
+                                  background: job.is_hot
+                                    ? 'linear-gradient(90deg, #f59e0b 0%, #ef4444 100%)'
+                                    : '#38bdf8',
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Hover breakdown tooltip */}
+                          <div className="opacity-0 group-hover/score:opacity-100 pointer-events-none transition-all duration-200 absolute bottom-full left-0 mb-2 z-30 w-52 p-3 rounded-xl bg-[#1a1726] border border-white/15 shadow-2xl backdrop-blur-xl text-[10px] space-y-1.5">
+                            <div className="font-bold text-white border-b border-white/10 pb-1 flex items-center justify-between">
+                              <span>Scoring Breakdown</span>
+                              <span className="font-mono text-cyan-400">{Math.round(job.hype_score * 100)}%</span>
+                            </div>
+                            <div className="space-y-1 text-slate-300">
+                              <div className="flex items-center justify-between">
+                                <span>🧠 Tech Match:</span>
+                                <span className="font-mono font-semibold text-emerald-400">
+                                  +{Math.round((job.score_breakdown?.tech_score ?? 0) * 100)}%
+                                </span>
+                              </div>
+                              {job.score_breakdown?.matched_tech && job.score_breakdown.matched_tech.length > 0 && (
+                                <div className="text-[9px] text-amber-300/90 font-mono truncate pl-1">
+                                  Stack: {job.score_breakdown.matched_tech.join(', ')}
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between">
+                                <span>💰 Salary Tier:</span>
+                                <span className="font-mono font-semibold text-emerald-400">
+                                  +{Math.round((job.score_breakdown?.salary_score ?? 0) * 100)}%
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span>⚡ Freshness:</span>
+                                <span className="font-mono font-semibold text-emerald-400">
+                                  +{Math.round((job.score_breakdown?.freshness_score ?? 0) * 100)}%
+                                </span>
+                              </div>
+                              {job.score_breakdown?.hours_old !== undefined && job.score_breakdown?.hours_old !== null && (
+                                <div className="text-[9px] text-slate-400 font-mono pl-1">
+                                  {job.score_breakdown.hours_old < 24
+                                    ? `Posted <24h ago (+25% max)`
+                                    : `Age: ~${Math.round(job.score_breakdown.hours_old / 24)}d`}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </td>
 
@@ -580,17 +712,18 @@ export const JobsInspector: React.FC = () => {
         )}
 
         {/* ── Pagination Footer ── */}
-        {data && data.total_pages > 1 && (
+        {data && data.total > 0 && (
           <div className="p-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
             <div>
               Page <span className="font-bold text-white">{data.page}</span> of{' '}
-              <span className="font-bold text-white">{data.total_pages}</span> ({data.total} vacancies)
+              <span className="font-bold text-white">{data.total_pages}</span> ({data.total}{' '}
+              {onlyHot ? 'hot vacancies' : 'vacancies'})
             </div>
             <div className="flex items-center gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Prev</span>
@@ -598,7 +731,7 @@ export const JobsInspector: React.FC = () => {
               <button
                 disabled={page >= data.total_pages}
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition flex items-center gap-1 cursor-pointer"
               >
                 <span>Next</span>
                 <ChevronRight className="w-3.5 h-3.5" />
