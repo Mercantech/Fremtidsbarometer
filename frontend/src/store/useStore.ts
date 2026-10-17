@@ -234,6 +234,10 @@ function resolveHypeItemLocation(h: HypeTopicInput): ResolvedHypeLocation {
 
 // Fair job sampling: retain all jobs that have either a recognized country, a recognized city, or a deducible country,
 // give every country fair representation, scale slots by share, prioritizing hot/salary-transparent jobs.
+// Danish-first weighting: DK is the primary audience (Mercantec students) and gets ~55% of the budget.
+const COUNTRY_WEIGHTS: Record<string, number> = { DK: 2.5 };
+const DK_MAX_PER_COUNTRY = 35;
+
 function sampleJobsFairly<T extends { country?: string | null; city?: string | null; is_hot?: boolean; salary_min?: number; salary_max?: number; hype_score?: number }>(
   jobs: T[], budget = 120, maxPerCountry = 25, maxPerCity = 8
 ): T[] {
@@ -266,8 +270,11 @@ function sampleJobsFairly<T extends { country?: string | null; city?: string | n
   });
 
   const result: T[] = [];
-  byCountry.forEach((list) => {
-    const quota = Math.min(maxPerCountry, Math.max(1, Math.round((list.length / located.length) * budget)));
+  byCountry.forEach((list, countryKey) => {
+    const weight = COUNTRY_WEIGHTS[countryKey] ?? 1;
+    const cap = countryKey === 'DK' ? DK_MAX_PER_COUNTRY : maxPerCountry;
+    const weightedBudget = Math.round((list.length / located.length) * budget * weight);
+    const quota = Math.min(cap, Math.max(1, weightedBudget));
     const perCity = new Map<string, number>();
     let taken = 0;
     for (const j of list) {

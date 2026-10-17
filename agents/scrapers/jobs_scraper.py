@@ -149,7 +149,10 @@ async def _persist_extracted_jobs(
             if ai_job.get("company"):
                 company = ai_job["company"]
             if ai_job.get("country"):
-                country = ai_job["country"]
+                # Only trust ISO-2 codes; ignore AI pseudo-countries ('REMOTE', 'EUROPE', ...)
+                _ai_country = str(ai_job["country"]).strip().upper()
+                if re.fullmatch(r"[A-Z]{2}", _ai_country) and _ai_country != "RE":
+                    country = _ai_country
             if ai_job.get("city"):
                 city = ai_job["city"]
             if ai_job.get("seniority"):
