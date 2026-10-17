@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from collections import defaultdict
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
@@ -65,15 +66,33 @@ def get_jobs(
         if technology:
             query = query.filter(JobPosting.technology.ilike(f"%{technology}%"))
 
-        db_limit = limit if not (sort_by_hype or only_hot) else min(max(limit * 3, 100), 500)
-        # Deep enough window so that smaller national batches (e.g. DK) survive
-        # even right after high-volume multi-country scrape sweeps (DE/UA/SE).
-        if not (sort_by_hype or only_hot):
-            db_limit = min(max(limit * 3, 900), 2000)
-        db_results = query.order_by(JobPosting.date.desc()).limit(db_limit).all()
-
         now = datetime.now(timezone.utc)
         trends = get_live_trending_keywords(db)
+
+        if not country and not only_hot:
+            # Country-partitioned fetch: take the latest N rows *per country* so a
+            # high-volume foreign sweep (DE/UA/SE) can never bury a small national
+            # batch (e.g. DK) below a fixed row-depth window.
+            per_country_rows = max(limit, 80)
+            rn = func.row_number().over(
+                partition_by=JobPosting.country,
+                order_by=JobPosting.date.desc(),
+            ).label("rn")
+            sub = db.query(JobPosting.id.label("jid"), rn).filter(JobPosting.status == "published")
+            if technology:
+                sub = sub.filter(JobPosting.technology.ilike(f"%{technology}%"))
+            sub = sub.subquery()
+            db_results = (
+                db.query(JobPosting)
+                .join(sub, JobPosting.id == sub.c.jid)
+                .filter(sub.c.rn <= per_country_rows)
+                .order_by(JobPosting.date.desc())
+                .all()
+            )
+        else:
+            db_limit = min(max(limit * 3, 100), 500) if (sort_by_hype or only_hot) else min(limit, 500)
+            db_results = query.order_by(JobPosting.date.desc()).limit(db_limit).all()
+
         scored_jobs = [enrich_job_posting(job, now=now, custom_trending_keywords=trends) for job in db_results]
         # Heal legacy/AI-generated pseudo-countries ('REMOTE', 'EUROPE', ...) at read time
         for job in scored_jobs:
