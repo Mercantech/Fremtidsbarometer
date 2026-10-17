@@ -13,11 +13,11 @@ The project is split into four distinct, decoupled components that work together
 ### 1. 🤖 Python AI Agents (`/agents`)
 **Responsible for:** Data Collection, Scraping, and AI Analysis.
 This is the heart of the background data pipeline. It runs automatically via `scheduler.py`.
-- **`jobs_agent.py`**: Scrapes junior/student job postings from European job boards (LinkedIn, Jobindex) using stealth browsers (Playwright/Patchright) and automatically discovers ATS systems (like Teamtailor). Uses AI to extract required tech stacks.
-- **`github_agent.py`**: Scrapes GitHub trending repositories to calculate real-time popularity indexes of programming languages.
-- **`reddit_agent.py`**: Analyzes subreddits (r/programming, r/webdev) to measure technology mentions and hype.
-- **`hype_agent.py`**: Aggregates data from the other agents and asks the AI to summarize the current "zeitgeist" or main narratives in the IT sphere.
-- **`scheduler.py`**: The central orchestrator that runs all agents in sequence daily.
+- **`scrapers/jobs_scraper.py`**: Scrapes junior/student job postings from European job boards and ATS systems (Teamtailor, Jobicy, Sweden JobTech) via JSON APIs and RSS. Uses AI to extract tech stacks, normalise salaries, and deduplicate via PostgreSQL `ON CONFLICT`.
+- **`scrapers/tech_scraper.py`**: Scrapes GitHub Trending and HackerNews to calculate real-time popularity indexes of programming languages and frameworks.
+- **`scrapers/social_scraper.py`**: Collects developer sentiment and discussion topics from Dev.to and Lobste.rs (Reddit permanently removed).
+- **`synthesizer.py`**: Aggregates raw scrape data, runs Gemini clustering, hype scoring, and historical trend calculations to produce the final `tech_trends` and `hype_analysis` rows.
+- **`scheduler.py`**: APScheduler orchestrator — runs partitioned sweeps (Mon/Thu) and a live news feed every 15 min.
 
 ### 2. 📡 FastAPI Backend (`/api`)
 **Responsible for:** Serving data to the Frontend via REST APIs.

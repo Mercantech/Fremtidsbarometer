@@ -68,11 +68,9 @@ def seed_sources(session):
     """Seeds default verified data sources and cleans up legacy placeholders."""
     print("📡 Seeding Data Sources...")
     try:
-        # Clean up obsolete placeholder URLs and blocked Reddit sources
+        # Clean up obsolete placeholder URLs
         session.query(DataSource).filter(
-            (DataSource.url.in_(["https://api.teamtailor.com", "https://api.twitter.com/dev", "https://api.threads.net"])) |
-            (DataSource.name.ilike("%Reddit%")) |
-            (DataSource.url.ilike("%reddit.com%"))
+            DataSource.url.in_(["https://api.teamtailor.com", "https://api.twitter.com/dev", "https://api.threads.net"])
         ).delete(synchronize_session=False)
 
         for source_data in SOURCES_SEED:

@@ -170,9 +170,10 @@ def test_german_and_european_non_tech_exclusion():
         assert has_exclude is True, f"Failed to exclude: {title}"
 
 def test_scrape_jobs_export():
-    from agents.scrapers import scrape_jobs, scrape_teamtailor_jobs
+    from agents.scrapers import scrape_jobs, scrape_teamtailor_jobs, scrape_all_jobs
+    assert callable(scrape_all_jobs)
     assert callable(scrape_jobs)
-    assert scrape_jobs == scrape_teamtailor_jobs
+    assert scrape_jobs == scrape_teamtailor_jobs == scrape_all_jobs
 
 def test_news_agent_isolation():
     from agents.news_agent import NewsAgent

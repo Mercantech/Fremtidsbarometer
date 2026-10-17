@@ -9,7 +9,7 @@ load_dotenv()
 
 from agents.scrapers.social_scraper import scrape_social_discussions
 from agents.scrapers.tech_scraper import scrape_hackernews, scrape_github_trending
-from agents.scrapers.jobs_scraper import scrape_teamtailor_jobs, scrape_jobs
+from agents.scrapers.jobs_scraper import scrape_all_jobs
 from agents.scrapers.salary_scraper import scrape_developer_salaries
 from agents.synthesizer import run_mathematical_synthesis
 
@@ -175,7 +175,7 @@ async def run_jobs_sweep(db=None):
             logger.info("⏩ Jobs sweep skipped: All Jobs data sources are disabled in Admin Panel.")
             return 0
         
-        jobs_count = await scrape_jobs(db)
+        jobs_count = await scrape_all_jobs(db)
         logger.info(f"Partition 3 Complete: Scraped {jobs_count} tech jobs.")
         return jobs_count
     except Exception as e:

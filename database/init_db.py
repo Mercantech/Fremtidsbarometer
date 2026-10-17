@@ -209,16 +209,6 @@ def repair_data_sources(session):
                 src.source_type = "rss"
                 logger.info(f"Repaired Lobste.rs RSS source #{src.id}: source_type -> rss")
 
-        # 3. Clean up Reddit sources (Reddit blocks public API / zero scraping permitted)
-        reddit_sources = session.query(DataSource).filter(
-            (DataSource.name.ilike("%Reddit%")) | (DataSource.url.ilike("%reddit.com%"))
-        ).all()
-        if reddit_sources:
-            reddit_ids = [s.id for s in reddit_sources]
-            session.query(SourceLog).filter(SourceLog.data_source_id.in_(reddit_ids)).delete(synchronize_session=False)
-            session.query(DataSource).filter(DataSource.id.in_(reddit_ids)).delete(synchronize_session=False)
-            logger.info(f"Purged {len(reddit_sources)} deprecated Reddit data sources and related error logs.")
-
         session.commit()
     except Exception as e:
         session.rollback()

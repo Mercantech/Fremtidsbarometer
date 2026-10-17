@@ -1,6 +1,6 @@
 """
 Fremtidsbarometer — Modular Database Seed Runner.
-Executes modular seed scripts for eras, history (1960-2034), geography,
+Executes modular seed scripts for eras, history (1960-2034),
 sources, AI models, and salary benchmarks.
 """
 
